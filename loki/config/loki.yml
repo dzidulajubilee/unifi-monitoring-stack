@@ -36,6 +36,7 @@ limits_config:
   # Keep logs for 30 days, then delete them. Increase or decrease to suit
   # your disk space. Retention is enforced by the compactor below.
   retention_period: 720h
+  max_query_series: 50000
 
 compactor:
   working_directory: /loki/compactor
