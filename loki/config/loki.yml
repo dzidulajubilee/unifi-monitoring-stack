@@ -1,0 +1,46 @@
+# Loki for the UniFi monitoring stack.
+# Single-binary mode with local filesystem storage. It only receives logs
+# pushed by UnPoller (UniFi system log, including Security detections).
+# Loki has no authentication here, so compose.yaml does NOT publish its port:
+# only containers on the compose network (unpoller, grafana) can reach it.
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: warn
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  # Keep logs for 30 days, then delete them. Increase or decrease to suit
+  # your disk space. Retention is enforced by the compactor below.
+  retention_period: 720h
+
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  delete_request_store: filesystem
+
+analytics:
+  reporting_enabled: false
