@@ -2402,10 +2402,10 @@
       "id": 27,
       "title": "Threats Detected",
       "type": "stat",
-      "description": "Security detections other than firewall blocks in the selected time range. Source: UniFi System Log Security entries other than firewall blocks (e.g. intrusion prevention, honeypot). These only appear if the matching UniFi security features are enabled.",
+      "description": "All threat detections in the selected time range. Source: UniFi System Log Security entries other than firewall blocks (intrusion prevention/detection, honeypot), pushed to Loki by UnPoller. These entries name the clients involved (or their MAC address when UniFi has no name for them) but carry no IP addresses, signature or threat category; see Insights > Inspection in UniFi for those details.",
       "gridPos": {
         "h": 4,
-        "w": 4,
+        "w": 6,
         "x": 0,
         "y": 73
       },
@@ -2457,7 +2457,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({application=\"unifi_system_log\", category=\"SECURITY\", source=~\"$Controller\", site_name=~\"$Site\"} | json sub=\"subcategory\" | sub!=\"SECURITY_FIREWALL\" [$__range]))",
+          "expr": "sum(count_over_time({application=\"unifi_system_log\", category=\"SECURITY\", source=~\"$Controller\", site_name=~\"$Site\"} | json sub=\"subcategory\", evt=\"event\", scl=\"parameters.SRC_CLIENT.name\", sip=\"parameters.SRC_IP.name\", dcl=\"parameters.DST_CLIENT.name\", dip=\"parameters.DST_IP.name\", ddev=\"parameters.DST_DEVICE.name\" | sub!=\"SECURITY_FIREWALL\" | label_format src=`{{ or .scl .sip }}`, dst=`{{ or .dcl .dip .ddev }}`, type=`{{ regexReplaceAll \"_\" (regexReplaceAll \"^SECURITY_\" .sub \"\") \" \" }}` [$__range]))",
           "legendFormat": "",
           "queryType": "instant",
           "refId": "A"
@@ -2470,14 +2470,84 @@
         "uid": "loki"
       },
       "id": 28,
-      "title": "High / Very High",
+      "title": "Blocked by IPS",
       "type": "stat",
-      "description": "Threat detections rated HIGH or VERY_HIGH by UniFi. Source: UniFi System Log Security entries other than firewall blocks (e.g. intrusion prevention, honeypot). These only appear if the matching UniFi security features are enabled.",
+      "description": "Threats that UniFi's Intrusion Prevention detected and blocked. Source: UniFi System Log Security entries other than firewall blocks (intrusion prevention/detection, honeypot), pushed to Loki by UnPoller. These entries name the clients involved (or their MAC address when UniFi has no name for them) but carry no IP addresses, signature or threat category; see Insights > Inspection in UniFi for those details.",
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 0,
-        "y": 77
+        "w": 6,
+        "x": 6,
+        "y": 73
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "unit": "none",
+          "mappings": [],
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({application=\"unifi_system_log\", category=\"SECURITY\", source=~\"$Controller\", site_name=~\"$Site\"} | json sub=\"subcategory\", evt=\"event\", scl=\"parameters.SRC_CLIENT.name\", sip=\"parameters.SRC_IP.name\", dcl=\"parameters.DST_CLIENT.name\", dip=\"parameters.DST_IP.name\", ddev=\"parameters.DST_DEVICE.name\" | sub!=\"SECURITY_FIREWALL\" | label_format src=`{{ or .scl .sip }}`, dst=`{{ or .dcl .dip .ddev }}`, type=`{{ regexReplaceAll \"_\" (regexReplaceAll \"^SECURITY_\" .sub \"\") \" \" }}` | evt=~\"(?i).*block.*\" [$__range]))",
+          "legendFormat": "",
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "id": 29,
+      "title": "Detected, Not Blocked",
+      "type": "stat",
+      "description": "Threats UniFi detected but did not block: alerts from detection-only (IDS) mode and honeypot triggers. Review each of these. Source: UniFi System Log Security entries other than firewall blocks (intrusion prevention/detection, honeypot), pushed to Loki by UnPoller. These entries name the clients involved (or their MAC address when UniFi has no name for them) but carry no IP addresses, signature or threat category; see Insights > Inspection in UniFi for those details.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 73
       },
       "fieldConfig": {
         "defaults": {
@@ -2527,7 +2597,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({application=\"unifi_system_log\", category=\"SECURITY\", source=~\"$Controller\", site_name=~\"$Site\", severity=~\"HIGH|VERY_HIGH\"} | json sub=\"subcategory\" | sub!=\"SECURITY_FIREWALL\" [$__range]))",
+          "expr": "sum(count_over_time({application=\"unifi_system_log\", category=\"SECURITY\", source=~\"$Controller\", site_name=~\"$Site\"} | json sub=\"subcategory\", evt=\"event\", scl=\"parameters.SRC_CLIENT.name\", sip=\"parameters.SRC_IP.name\", dcl=\"parameters.DST_CLIENT.name\", dip=\"parameters.DST_IP.name\", ddev=\"parameters.DST_DEVICE.name\" | sub!=\"SECURITY_FIREWALL\" | label_format src=`{{ or .scl .sip }}`, dst=`{{ or .dcl .dip .ddev }}`, type=`{{ regexReplaceAll \"_\" (regexReplaceAll \"^SECURITY_\" .sub \"\") \" \" }}` | evt!~\"(?i).*block.*\" [$__range]))",
           "legendFormat": "",
           "queryType": "instant",
           "refId": "A"
@@ -2539,15 +2609,564 @@
         "type": "loki",
         "uid": "loki"
       },
-      "id": 29,
-      "title": "Recent Threats",
-      "type": "logs",
-      "description": "Threat detections, newest first, as UniFi describes them. Source: UniFi System Log Security entries other than firewall blocks (e.g. intrusion prevention, honeypot). These only appear if the matching UniFi security features are enabled.",
+      "id": 30,
+      "title": "High / Very High",
+      "type": "stat",
+      "description": "Threat detections rated HIGH or VERY_HIGH by UniFi. Source: UniFi System Log Security entries other than firewall blocks (intrusion prevention/detection, honeypot), pushed to Loki by UnPoller. These entries name the clients involved (or their MAC address when UniFi has no name for them) but carry no IP addresses, signature or threat category; see Insights > Inspection in UniFi for those details.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 73
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "unit": "none",
+          "mappings": [],
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({application=\"unifi_system_log\", category=\"SECURITY\", source=~\"$Controller\", site_name=~\"$Site\", severity=~\"HIGH|VERY_HIGH\"} | json sub=\"subcategory\", evt=\"event\", scl=\"parameters.SRC_CLIENT.name\", sip=\"parameters.SRC_IP.name\", dcl=\"parameters.DST_CLIENT.name\", dip=\"parameters.DST_IP.name\", ddev=\"parameters.DST_DEVICE.name\" | sub!=\"SECURITY_FIREWALL\" | label_format src=`{{ or .scl .sip }}`, dst=`{{ or .dcl .dip .ddev }}`, type=`{{ regexReplaceAll \"_\" (regexReplaceAll \"^SECURITY_\" .sub \"\") \" \" }}` [$__range]))",
+          "legendFormat": "",
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "id": 31,
+      "title": "Threats Over Time by Type",
+      "type": "timeseries",
+      "description": "Threat detections per time bucket, stacked by UniFi threat type. Source: UniFi System Log Security entries other than firewall blocks (intrusion prevention/detection, honeypot), pushed to Loki by UnPoller. These entries name the clients involved (or their MAC address when UniFi has no name for them) but carry no IP addresses, signature or threat category; see Insights > Inspection in UniFi for those details.",
       "gridPos": {
         "h": 8,
-        "w": 20,
-        "x": 4,
-        "y": 73
+        "w": 12,
+        "x": 0,
+        "y": 77
+      },
+      "interval": "5m",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "decimals": 0,
+          "unit": "none",
+          "min": 0,
+          "mappings": [],
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 85,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "gradientMode": "none",
+            "axisSoftMin": 0,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "sum"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum by (type) (count_over_time({application=\"unifi_system_log\", category=\"SECURITY\", source=~\"$Controller\", site_name=~\"$Site\"} | json sub=\"subcategory\", evt=\"event\", scl=\"parameters.SRC_CLIENT.name\", sip=\"parameters.SRC_IP.name\", dcl=\"parameters.DST_CLIENT.name\", dip=\"parameters.DST_IP.name\", ddev=\"parameters.DST_DEVICE.name\" | sub!=\"SECURITY_FIREWALL\" | label_format src=`{{ or .scl .sip }}`, dst=`{{ or .dcl .dip .ddev }}`, type=`{{ regexReplaceAll \"_\" (regexReplaceAll \"^SECURITY_\" .sub \"\") \" \" }}` [$__auto]))",
+          "legendFormat": "{{type}}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "id": 32,
+      "title": "Threat Sources",
+      "type": "bargauge",
+      "description": "Clients (by name, or MAC when unnamed) or IPs that triggered the most threat detections. Source: UniFi System Log Security entries other than firewall blocks (intrusion prevention/detection, honeypot), pushed to Loki by UnPoller. These entries name the clients involved (or their MAC address when UniFi has no name for them) but carry no IP addresses, signature or threat category; see Insights > Inspection in UniFi for those details.",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 77
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-YlRd"
+          },
+          "decimals": 0,
+          "min": 0,
+          "unit": "none",
+          "mappings": [],
+          "noValue": "No threats in this time range",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "namePlacement": "top",
+        "showUnfilled": true,
+        "sizing": "manual",
+        "minVizHeight": 18,
+        "maxVizHeight": 22,
+        "minVizWidth": 8,
+        "valueMode": "color",
+        "text": {
+          "titleSize": 12,
+          "valueSize": 14
+        },
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Value/",
+          "values": true
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "topk(10, sum by (src) (count_over_time({application=\"unifi_system_log\", category=\"SECURITY\", source=~\"$Controller\", site_name=~\"$Site\"} | json sub=\"subcategory\", evt=\"event\", scl=\"parameters.SRC_CLIENT.name\", sip=\"parameters.SRC_IP.name\", dcl=\"parameters.DST_CLIENT.name\", dip=\"parameters.DST_IP.name\", ddev=\"parameters.DST_DEVICE.name\" | sub!=\"SECURITY_FIREWALL\" | label_format src=`{{ or .scl .sip }}`, dst=`{{ or .dcl .dip .ddev }}`, type=`{{ regexReplaceAll \"_\" (regexReplaceAll \"^SECURITY_\" .sub \"\") \" \" }}` [$__range])))",
+          "legendFormat": "{{src}}",
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Value #A",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "id": 33,
+      "title": "Threat Targets",
+      "type": "bargauge",
+      "description": "What the detected threats were aimed at. Honeypot triggers have no target and are not listed. Source: UniFi System Log Security entries other than firewall blocks (intrusion prevention/detection, honeypot), pushed to Loki by UnPoller. These entries name the clients involved (or their MAC address when UniFi has no name for them) but carry no IP addresses, signature or threat category; see Insights > Inspection in UniFi for those details.",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 77
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "decimals": 0,
+          "min": 0,
+          "unit": "none",
+          "mappings": [],
+          "noValue": "No threats with a target in this time range",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "namePlacement": "top",
+        "showUnfilled": true,
+        "sizing": "manual",
+        "minVizHeight": 18,
+        "maxVizHeight": 22,
+        "minVizWidth": 8,
+        "valueMode": "color",
+        "text": {
+          "titleSize": 12,
+          "valueSize": 14
+        },
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Value/",
+          "values": true
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "topk(10, sum by (dst) (count_over_time({application=\"unifi_system_log\", category=\"SECURITY\", source=~\"$Controller\", site_name=~\"$Site\"} | json sub=\"subcategory\", evt=\"event\", scl=\"parameters.SRC_CLIENT.name\", sip=\"parameters.SRC_IP.name\", dcl=\"parameters.DST_CLIENT.name\", dip=\"parameters.DST_IP.name\", ddev=\"parameters.DST_DEVICE.name\" | sub!=\"SECURITY_FIREWALL\" | label_format src=`{{ or .scl .sip }}`, dst=`{{ or .dcl .dip .ddev }}`, type=`{{ regexReplaceAll \"_\" (regexReplaceAll \"^SECURITY_\" .sub \"\") \" \" }}` | dst!=\"\" [$__range])))",
+          "legendFormat": "{{dst}}",
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Value #A",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      },
+      "id": 34,
+      "title": "Threat Clients: MAC to IP Lookup",
+      "type": "table",
+      "description": "Every client MAC involved in a threat, matched to the IP, name and network UniFi reported for that MAC during the selected time range (from UnPoller's client metrics). Several rows for one MAC mean its IP changed during the range. 'not found' means UniFi never listed that MAC as a client in this range: UniFi devices (gateway, switches, APs), very short connections, a private/randomized MAC that has since changed, or data older than Prometheus keeps (15 days by default). Treat the match as a strong clue, not proof. Source: UniFi System Log Security entries other than firewall blocks (intrusion prevention/detection, honeypot), pushed to Loki by UnPoller. These entries name the clients involved (or their MAC address when UniFi has no name for them) but carry no IP addresses, signature or threat category; see Insights > Inspection in UniFi for those details.",
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 85
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true,
+            "inspect": false,
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^(IP|Client name|Network)$"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": "not found"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^Threats as (source|target)$"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": "0"
+              },
+              {
+                "id": "custom.width",
+                "value": 175
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "text",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true,
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "fields": "",
+          "countRows": false
+        },
+        "sortBy": [
+          {
+            "displayName": "Threats as source",
+            "desc": true
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum by (mac) (count_over_time({application=\"unifi_system_log\", category=\"SECURITY\", source=~\"$Controller\", site_name=~\"$Site\"} | json sub=\"subcategory\", smac=\"parameters.SRC_CLIENT.id\", dmac=\"parameters.DST_CLIENT.id\" | sub!=\"SECURITY_FIREWALL\" | smac!=\"\" | label_format mac=`{{ ToLower .smac }}` [$__range]))",
+          "legendFormat": "",
+          "queryType": "instant",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum by (mac) (count_over_time({application=\"unifi_system_log\", category=\"SECURITY\", source=~\"$Controller\", site_name=~\"$Site\"} | json sub=\"subcategory\", smac=\"parameters.SRC_CLIENT.id\", dmac=\"parameters.DST_CLIENT.id\" | sub!=\"SECURITY_FIREWALL\" | dmac!=\"\" | label_format mac=`{{ ToLower .dmac }}` [$__range]))",
+          "legendFormat": "",
+          "queryType": "instant",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (mac, ip, name, network, vlan) (last_over_time(unpoller_client_uptime_seconds{source=~\"$Controller\", site_name=~\"$Site\"}[$__range]))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "refId": "C",
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "mac",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "filterByValue",
+          "options": {
+            "type": "include",
+            "match": "any",
+            "filters": [
+              {
+                "fieldName": "Value #A",
+                "config": {
+                  "id": "isNotNull",
+                  "options": {}
+                }
+              },
+              {
+                "fieldName": "Value #B",
+                "config": {
+                  "id": "isNotNull",
+                  "options": {}
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Value #C": true,
+              "Value": true
+            },
+            "indexByName": {
+              "mac": 0,
+              "name": 1,
+              "ip": 2,
+              "network": 3,
+              "vlan": 4,
+              "Value #A": 5,
+              "Value #B": 6
+            },
+            "renameByName": {
+              "mac": "MAC",
+              "name": "Client name",
+              "ip": "IP",
+              "network": "Network",
+              "vlan": "VLAN",
+              "Value #A": "Threats as source",
+              "Value #B": "Threats as target"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "id": 35,
+      "title": "Recent Threats",
+      "type": "logs",
+      "description": "Threat detections, newest first, as UniFi describes them. Click a line for every field UniFi sent (client MACs, the detecting device). Source: UniFi System Log Security entries other than firewall blocks (intrusion prevention/detection, honeypot), pushed to Loki by UnPoller. These entries name the clients involved (or their MAC address when UniFi has no name for them) but carry no IP addresses, signature or threat category; see Insights > Inspection in UniFi for those details.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 92
       },
       "options": {
         "dedupStrategy": "none",
@@ -2567,7 +3186,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{application=\"unifi_system_log\", category=\"SECURITY\", source=~\"$Controller\", site_name=~\"$Site\"} | json sub=\"subcategory\" | sub!=\"SECURITY_FIREWALL\" | json msg=\"message\", title=\"title_raw\" | line_format `[{{.severity}}] {{.title}}: {{.msg}}`",
+          "expr": "{application=\"unifi_system_log\", category=\"SECURITY\", source=~\"$Controller\", site_name=~\"$Site\"} | json sub=\"subcategory\", evt=\"event\", scl=\"parameters.SRC_CLIENT.name\", sip=\"parameters.SRC_IP.name\", dcl=\"parameters.DST_CLIENT.name\", dip=\"parameters.DST_IP.name\", ddev=\"parameters.DST_DEVICE.name\" | sub!=\"SECURITY_FIREWALL\" | label_format src=`{{ or .scl .sip }}`, dst=`{{ or .dcl .dip .ddev }}`, type=`{{ regexReplaceAll \"_\" (regexReplaceAll \"^SECURITY_\" .sub \"\") \" \" }}` | json msg=\"message\" | line_format `[{{.severity}}] {{.msg}}`",
           "legendFormat": "",
           "queryType": "range",
           "refId": "A"
@@ -2580,16 +3199,16 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 81
+        "y": 100
       },
-      "id": 31,
+      "id": 37,
       "panels": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "id": 30,
+          "id": 36,
           "title": "Policies Disabled During This Time Range",
           "type": "state-timeline",
           "description": "Enabled/disabled history for every policy that was disabled at any point in the selected time range (including policies that are still disabled). Always-on policies are left out to keep this readable, so 'No data' means no policy was disabled in this time range.",
@@ -2597,7 +3216,7 @@
             "h": 10,
             "w": 24,
             "x": 0,
-            "y": 82
+            "y": 101
           },
           "fieldConfig": {
             "defaults": {
@@ -2685,16 +3304,16 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 82
+        "y": 101
       },
-      "id": 34,
+      "id": 40,
       "panels": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "id": 32,
+          "id": 38,
           "title": "Networks per Firewall Zone",
           "type": "bargauge",
           "description": "Number of networks assigned to each firewall zone. Source: unpoller_firewall_zone_network_count (requires an UnPoller API key).",
@@ -2702,7 +3321,7 @@
             "h": 9,
             "w": 14,
             "x": 0,
-            "y": 83
+            "y": 102
           },
           "fieldConfig": {
             "defaults": {
@@ -2766,14 +3385,14 @@
           ]
         },
         {
-          "id": 33,
+          "id": 39,
           "title": "About Zone Metrics",
           "type": "text",
           "gridPos": {
             "h": 9,
             "w": 10,
             "x": 14,
-            "y": 83
+            "y": 102
           },
           "options": {
             "mode": "markdown",
@@ -2825,7 +3444,7 @@
           "query": "label_values(unpoller_firewall_rules_total, source)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
-        "refresh": 2,
+        "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
         "sort": 1,
@@ -2857,7 +3476,7 @@
           "query": "label_values(unpoller_firewall_rules_total{source=~\"$Controller\"}, site_name)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
-        "refresh": 2,
+        "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
         "sort": 1,
@@ -2889,7 +3508,7 @@
           "query": "label_values(unpoller_firewall_rule_enabled{source=~\"$Controller\",site_name=~\"$Site\"}, action)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
-        "refresh": 2,
+        "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
         "sort": 1,
@@ -2921,7 +3540,7 @@
           "query": "label_values(unpoller_firewall_rule_enabled{source=~\"$Controller\",site_name=~\"$Site\",action=~\"$Action\"}, rule_name)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
-        "refresh": 2,
+        "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
         "sort": 1,
