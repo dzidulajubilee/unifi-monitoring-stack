@@ -40,3 +40,15 @@ def test_notification_visibility_and_read_state(client):
     kofi = signed_in(web.app.test_client(), admin=False, login="kofi")
     assert kofi.get("/notifications").get_json()["items"][0]["text"] == "mail failed"
     assert kofi.post("/notifications/read", data={"csrf": "t", "all": "1"}).get_json()["unread"] == 0
+
+
+def test_clear_all_is_per_user():
+    notify.notify("to be cleared")
+    juby = signed_in(web.app.test_client(), admin=True, login="juby")
+    ama = signed_in(web.app.test_client(), admin=False, login="ama")
+    assert juby.post("/notifications/clear", data={"all": "1"}).status_code == 400  # needs the csrf token
+    after = juby.post("/notifications/clear", data={"csrf": "t"}).get_json()
+    assert after == {"unread": 0, "items": []}
+    assert "to be cleared" in [n["text"] for n in ama.get("/notifications").get_json()["items"]]
+    notify.notify("arrived later")
+    assert [n["text"] for n in juby.get("/notifications").get_json()["items"]] == ["arrived later"]

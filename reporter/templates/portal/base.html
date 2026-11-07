@@ -122,6 +122,10 @@ td.n, th.n { text-align: right; }
          box-shadow: 0 8px 24px rgba(0,0,0,.08); overflow: hidden; }
 .notes-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--rule); }
 .notes-head h2 { margin: 0; font-size: 14px; }
+.notes-actions { display: flex; gap: 14px; }
+.notes-actions .btn.link { color: var(--ink-2); }
+.notes-actions .btn.link:hover { color: var(--ink); }
+#clear-all.confirm { color: var(--bad); }
 .notes-list { max-height: min(480px, 70vh); overflow-y: auto; }
 .note { display: grid; grid-template-columns: 8px 1fr; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--rule); }
 .note:last-child { border-bottom: 0; }
@@ -162,7 +166,7 @@ td.n, th.n { text-align: right; }
         <span class="count" id="bell-count" hidden></span>
       </button>
       <div class="notes" id="notes" hidden>
-        <div class="notes-head"><h2>Notifications</h2><button class="btn link small" id="read-all" style="color:var(--ink-2)">Mark all as read</button></div>
+        <div class="notes-head"><h2>Notifications</h2><div class="notes-actions"><button class="btn link small" id="read-all">Mark all as read</button><button class="btn link small" id="clear-all">Clear all</button></div></div>
         <div class="notes-list" id="notes-list"><p class="notes-empty">Loading…</p></div>
       </div>
     </div>
@@ -196,6 +200,7 @@ td.n, th.n { text-align: right; }
     count.textContent = data.unread > 99 ? '99+' : data.unread;
     bell.setAttribute('aria-label', data.unread ? `Notifications, ${data.unread} unread` : 'Notifications');
     document.getElementById('read-all').hidden = !data.unread;
+    document.getElementById('clear-all').hidden = !data.items.length;
     list.innerHTML = data.items.length ? data.items.map(n => `
       <div class="note ${n.read ? 'read' : 'unread'} ${n.level === 'error' ? 'error' : ''}">
         <span class="mark" aria-hidden="true"></span>
@@ -203,7 +208,7 @@ td.n, th.n { text-align: right; }
           <div class="meta"><span class="mono">${esc(n.when)}</span>
             ${n.file ? `<a href="/download/${encodeURIComponent(n.file)}">Download</a>` : ''}
             ${n.read ? '' : `<button data-read="${esc(n.id)}">Mark as read</button>`}</div></div>
-      </div>`).join('') : '<p class="notes-empty">No notifications yet</p>';
+      </div>`).join('') : '<p class="notes-empty">No notifications</p>';
   }
   async function load() {
     try { const r = await fetch('/notifications'); if (!r.redirected) show(await r.json()); } catch (e) {}
@@ -226,6 +231,21 @@ td.n, th.n { text-align: right; }
     if (id) { e.stopPropagation(); const b = new FormData(); b.append('id', id); markRead(b); }
   });
   document.getElementById('read-all').addEventListener('click', e => { e.stopPropagation(); const b = new FormData(); b.append('all', '1'); markRead(b); });
+  // Clear all asks once on the button itself: first click arms it for a few seconds, second click clears
+  const clearBtn = document.getElementById('clear-all');
+  let armed = null;
+  clearBtn.addEventListener('click', async e => {
+    e.stopPropagation();
+    if (!armed) {
+      clearBtn.textContent = 'Clear all?'; clearBtn.classList.add('confirm');
+      armed = setTimeout(() => { armed = null; clearBtn.textContent = 'Clear all'; clearBtn.classList.remove('confirm'); }, 4000);
+      return;
+    }
+    clearTimeout(armed); armed = null; clearBtn.textContent = 'Clear all'; clearBtn.classList.remove('confirm');
+    const b = new FormData(); b.append('csrf', csrf);
+    const r = await fetch('/notifications/clear', {method: 'POST', body: b});
+    if (r.ok) show(await r.json());
+  });
   window.refreshNotes = load;
   load();
   setInterval(load, 30000);

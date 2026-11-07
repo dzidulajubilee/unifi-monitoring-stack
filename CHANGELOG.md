@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Notifications: **Clear all** in the bell panel (per person, asks on the button before clearing).
+- The reporter image is built by GitHub Actions and published to GHCR; servers can pull it instead of building.
+
 ## 2026-11-07
 
 First release as **unifi-monitoring-stack**, built on Techno Tim's unpoller-unifi.

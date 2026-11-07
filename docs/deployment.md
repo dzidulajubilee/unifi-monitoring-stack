@@ -20,10 +20,16 @@ the containers run as (1000 by default).
 
 ```bash
 git pull
-docker compose up -d --build
+docker compose pull reporter      # the reporter image GitHub Actions built for this commit
+docker compose up -d
 ```
 
+`docker compose up -d --build` still works and builds the reporter on the server instead of pulling it.
 Pulls never touch the `.env` files or the data folders. Grafana reloads changed dashboards by itself.
+
+The reporter image is published to `ghcr.io/dzidulajubilee/unifi-monitoring-stack/reporter` after CI passes on
+`main` (tags: `latest`, the short commit, and the version for `v*` tags). The repository is private, so the image
+is too: a server pulling it signs in once with `docker login ghcr.io` using a GitHub token that can read packages.
 
 ## Ports
 
