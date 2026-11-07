@@ -53,10 +53,12 @@ _ids = itertools.count(1)
 _lock = threading.Lock()
 
 
-def enqueue(kind, start, end, by, to="", login=None):
+def enqueue(kind, start, end, by, sends=(), login=None):
+    """sends: [(style, addresses)], style "full" or "summary"."""
     with _lock:
         jid = next(_ids)
-        jobs[jid] = {"id": jid, "kind": kind, "start": start, "end": end, "by": by, "to": to, "login": login,
+        jobs[jid] = {"id": jid, "kind": kind, "start": start, "end": end, "by": by, "sends": list(sends),
+                     "to": ", ".join(to for _, to in sends), "login": login,
                      "status": "queued", "file": None, "error": None, "queued_at": dt.datetime.now(R.TZ)}
         for old in sorted(jobs)[:-30]:
             jobs.pop(old)
@@ -75,30 +77,28 @@ def worker():
         what = R.report_title(kind, job["start"], job["end"])
         who = "automatically" if by == "schedule" else f"by {by}"
         try:
-            pdf, subject, lines, errors = R.build(kind, job["end"], job["start"] if kind == "custom" else None)
+            pdfs, subject, lines, errors = R.build(kind, job["end"], job["start"] if kind == "custom" else None)
         except Exception as e:  # noqa: BLE001 - reported, worker keeps going
             log.exception("job %s failed", jid)
             job.update(status="failed", error=str(e) or e.__class__.__name__)
             R.notify(f"{what} could not be made ({who}): {job['error']}", "error", by=by)
             continue
-        job.update(status="done", file=pdf.name)
+        full = pdfs["full"].name
+        job.update(status="done", file=full)
         if errors:  # Prometheus or Loki didn't answer some queries: those figures show as –
             R.notify(f"{what} was made {who}, but {errors} figure{'s' * (errors != 1)} couldn't be fetched "
                      "from Prometheus or Loki and show as –. Check those services and make it again",
-                     "error", by=by, file=pdf.name)
-        if not job["to"]:
-            R.notify(f"{what} was made {who}", by=by, file=pdf.name)
-            continue
-        try:
-            R.email_report(pdf, subject, lines, job["to"])
-            R.notify(f"{what} was made {who} and emailed to {job['to']}", by=by, file=pdf.name)
-        except Exception as e:  # noqa: BLE001 - the PDF is saved either way
-            log.exception("job %s: email failed", jid)
-            job["error"] = f"Email failed: {R.mail_error(e)}"
-            # addresses and mail errors go to admins and the person who asked
-            R.notify(f"{what} was made {who}, but emailing it to {job['to']} failed: {R.mail_error(e)}. "
-                     "The report is saved here",
-                     "error", by=by, file=pdf.name, admins_only=True, for_user=login)
+                     "error", by=by, file=full)
+        results = R.deliver(pdfs, subject, lines, job["sends"]) if R.load_settings()["smtp"].get("host") else []
+        sent = R.describe_sends(results)
+        R.notify(f"{what} was made {who}" + (f" and {sent}" if sent else ""), by=by, file=full)
+        for style, to, err in results:
+            if err:
+                job["error"] = f"Email failed: {err}"
+                # addresses and mail errors go to admins and the person who asked
+                R.notify(f"Emailing the {'summary' if style == 'summary' else 'full'} {what[0].lower() + what[1:]} "
+                         f"to {to} failed: {err}. The report is saved here",
+                         "error", by=by, file=full, admins_only=True, for_user=login)
 
 
 def scheduler():
@@ -107,8 +107,7 @@ def scheduler():
             busy = {(j["kind"], j["end"]) for j in jobs.values() if j["status"] in ("queued", "running")}
             for kind, end in R.due_reports():
                 if (kind, end) not in busy:
-                    to = R.load_settings()["recipients"].get(kind, "")
-                    enqueue(kind, R.period_start(kind, end), end, "schedule", to)
+                    enqueue(kind, R.period_start(kind, end), end, "schedule", R.recipients(kind))
         except Exception:  # noqa: BLE001
             log.exception("scheduler tick failed")
         time.sleep(300)
@@ -194,7 +193,7 @@ def logout():
 
 # ---------------------------------------------------------------- reports
 
-NAME = re.compile(r"^(weekly|monthly|quarterly|custom)-(\d{4}-\d{2}-\d{2})(?:-to-(\d{4}-\d{2}-\d{2}))?\.pdf$")
+NAME = re.compile(r"^(weekly|monthly|quarterly|custom)-(\d{4}-\d{2}-\d{2})(?:-to-(\d{4}-\d{2}-\d{2}))?(-summary)?\.pdf$")
 
 
 def describe(kind, start, last):
@@ -211,7 +210,7 @@ def archive():
     out = []
     for f in R.OUT.glob("*.pdf"):
         m = NAME.match(f.name)
-        if not m:
+        if not m or m[4]:  # summaries are listed with their full report
             continue
         kind, start = m[1], dt.date.fromisoformat(m[2])
         if m[3]:
@@ -221,7 +220,9 @@ def archive():
             last = _period_last(kind, s)
         label, period = describe(kind, start, last)
         st = f.stat()
-        out.append({"file": f.name, "kind": label, "period": period, "start": start,
+        summary = f.with_name(f.stem + "-summary.pdf")
+        out.append({"file": f.name, "summary": summary.name if summary.exists() else None,
+                    "kind": label, "period": period, "start": start,
                     "made": dt.datetime.fromtimestamp(st.st_mtime, R.TZ), "size": st.st_size})
     return sorted(out, key=lambda r: (r["start"], r["made"]), reverse=True)
 
@@ -249,7 +250,7 @@ def index():
     s = R.load_settings()
     today = dt.datetime.now(R.TZ).date()
     return render_template("reports.html", reports=archive(), jobs=active_jobs(), periods=period_choices(),
-                           recipients=s["recipients"], today=today, schedule=schedule_text(s["schedule"]),
+                           recipients=s["recipients"], recipients_summary=s["recipients_summary"], today=today, schedule=schedule_text(s["schedule"]),
                            week_ago=today - dt.timedelta(days=7), mail_ready=bool(s["smtp"].get("host")))
 
 
@@ -308,7 +309,8 @@ def generate():
     if to and not R.load_settings()["smtp"].get("host"):
         flash("Email isn't set up yet, so the report will only be saved here")
         to = ""
-    enqueue(kind, start, end, session["user"], to, login=me())
+    style = "summary" if f.get("style") == "summary" else "full"
+    enqueue(kind, start, end, session["user"], [(style, to)] if to else [], login=me())
     return redirect(url_for("index"))
 
 
@@ -375,6 +377,9 @@ def download(name):
 def delete(name):
     if NAME.match(name) and (R.OUT / name).exists():
         (R.OUT / name).unlink()
+        twin = (R.OUT / name).with_name(name[:-4] + "-summary.pdf")
+        if twin.exists():
+            twin.unlink()
         flash(f"Deleted {name}")
         R.notify(f"{session['user']} deleted {name}", by=session["user"], admins_only=True)
     return redirect(url_for("index"))
@@ -415,6 +420,7 @@ def settings():
             s["smtp"]["password"] = ""
         for k in ("weekly", "monthly", "quarterly"):
             s["recipients"][k] = ", ".join(R.split_addresses(f.get(f"to_{k}", "")))
+            s["recipients_summary"][k] = ", ".join(R.split_addresses(f.get(f"to_s_{k}", "")))
         s["schedule"].update(enabled=bool(f.get("enabled")), hour=hour,
                              kinds=[k for k in ("weekly", "monthly", "quarterly") if f.get(f"auto_{k}")])
         R.save_settings(s)
