@@ -402,8 +402,9 @@ def settings():
             flash("Port and send hour must be numbers (hour 0 to 23)")
             return redirect(url_for("settings"))
         sections = {k: bool(f.get(f"sec_{k}")) for k, *_ in R.SECTIONS}
-        if not any(sections.values()):
-            flash("Pick at least one thing to include in the reports")
+        sections_summary = {k: bool(f.get(f"sum_{k}")) for k, *_ in R.SECTIONS}
+        if not any(sections.values()) or not any(sections_summary.values()):
+            flash("Pick at least one thing to include in both the full report and the summary")
             return redirect(url_for("settings"))
         s["general"]["name"] = f.get("name", "").strip()[:60]
         tz = f.get("timezone", "").strip()
@@ -412,6 +413,7 @@ def settings():
             return redirect(url_for("settings"))
         s["general"]["timezone"] = tz
         s["sections"] = sections
+        s["sections_summary"] = sections_summary
         s["smtp"].update(host=f.get("host", "").strip(), port=port, security=f.get("security", "starttls"),
                          user=f.get("user", "").strip(), **{"from": f.get("from", "").strip()})
         if f.get("password"):  # blank keeps the saved password

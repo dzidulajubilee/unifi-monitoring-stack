@@ -850,8 +850,12 @@ def build(kind, end=None, start=None):
     word = KINDS[kind]
     title, dates = period_label(kind, start, end)
     name = st["general"]["name"].strip()
-    on = {k for k, v in st["sections"].items() if v}
-    log.info("building %s report %s (%s), sections: %s", kind, title, dates, ",".join(sorted(on)))
+    # what each version shows; data is collected for anything ticked in either
+    show = {"full": {k for k, v in st["sections"].items() if v},
+            "summary": {k for k, v in st["sections_summary"].items() if v}}
+    on = show["full"] | show["summary"]
+    log.info("building %s report %s (%s), full: %s, summary: %s", kind, title, dates,
+             ",".join(sorted(show["full"])), ",".join(sorted(show["summary"])))
 
     cur, prev = Source(start, end), Source(prev_start, start)
     d, p = collect(cur), collect(prev)
@@ -867,22 +871,22 @@ def build(kind, end=None, start=None):
     down, up, step = wan_series(cur, kind) if "throughput" in on else ([], [], 0)
     ch = lambda key, src="prom": change(d.get(key), p.get(key), "", word, covered[src])
 
-    # headline numbers follow the sections that are on; if none match, show them all
-    figs = [
-        ("Downloaded", fbytes(d["wan_down"]), ch("wan_down"), {"downloaded"}),
-        ("Peak devices online", fnum(d["clients_peak"]), ch("clients_peak"), {"devices", "aps"}),
-        ("Blocked from the internet", fnum(d["blocks_in"]), ch("blocks_in", "loki"), {"security"}),
-        ("Threats blocked", fnum(d["threats_blocked"]), ch("threats_blocked", "loki"), {"security", "threats"}),
-    ]
-    if "downloaded" not in on:
-        figs = figs[1:]  # never show it when unticked, even in the show-all fallback
-    figs = [f[:3] for f in figs if f[3] & on] or [f[:3] for f in figs]
-    page1 = bool(on & {"summary", "figures", "throughput"})
+    def headline(shown):
+        """Headline numbers follow the sections shown; if none match, show them all."""
+        figs = [
+            ("Downloaded", fbytes(d["wan_down"]), ch("wan_down"), {"downloaded"}),
+            ("Peak devices online", fnum(d["clients_peak"]), ch("clients_peak"), {"devices", "aps"}),
+            ("Blocked from the internet", fnum(d["blocks_in"]), ch("blocks_in", "loki"), {"security"}),
+            ("Threats blocked", fnum(d["threats_blocked"]), ch("threats_blocked", "loki"), {"security", "threats"}),
+        ]
+        if "downloaded" not in shown:
+            figs = figs[1:]  # never show it when unticked, even in the show-all fallback
+        return [f[:3] for f in figs if f[3] & shown] or [f[:3] for f in figs]
 
     env = Environment(loader=FileSystemLoader(HERE), autoescape=True)
     env.filters.update(bytes=fbytes, bits=fbits, num=fnum, pct=fpct, duration=fduration)
-    # The summary and attention list always cover every section that's ticked, so the summary-only
-    # style still warns about, say, an access point problem even though it leaves out the Wi-Fi pages.
+    # The summary sentences and attention list cover every section ticked in either version, so
+    # the summary still warns about, say, an access point problem when it leaves out the Wi-Fi pages.
     lines, att = summary(d, p, word, covered, on), attention(d, on)
     evts = events(cur, wan="isp" not in on) if "events" in on else []
     thr = threat_list(cur) if "threats" in on else ([], 0)
@@ -892,9 +896,10 @@ def build(kind, end=None, start=None):
     OUT.mkdir(parents=True, exist_ok=True)
     pdfs = {}
     for style in STYLES:
-        shown = on if style == "full" else (on & SUMMARY_SECTIONS) | {"summary"}
+        shown = show[style]
+        page1 = bool(shown & {"summary", "figures", "throughput"})
         html_out = env.get_template("template.html").render(
-            name=name, on=shown, style=style, figs=figs, page1=page1,
+            name=name, on=shown, style=style, figs=headline(shown), page1=page1,
             aps_break=page1 or bool(shown & {"internet", "devices"}), kind=kind, word=word, title=title, dates=dates,
             tzname=str(TZ), generated=dt.datetime.now(TZ), d=d, p=p, ch=ch, covered=covered,
             summary=lines, attention=att, events=evts, threats=thr, chart=chart if style == "full" else chart_short,
@@ -913,7 +918,7 @@ def build(kind, end=None, start=None):
 
 
 STYLES = ("full", "summary")
-# what the summary-only style shows: page 1. Its summary and attention list still cover everything.
+# what the summary version shows until an admin changes it: page 1 of the full report
 SUMMARY_SECTIONS = {"summary", "figures", "throughput", "downloaded", "gap_note"}
 
 
@@ -928,7 +933,8 @@ def default_settings():
     to = env("REPORT_TO", "")
     return {
         "general": {"name": env("REPORT_NAME", ""), "timezone": env("TZ") or "UTC"},
-        "sections": {k: True for k, *_ in SECTIONS},
+        "sections": {k: True for k, *_ in SECTIONS},                            # full report
+        "sections_summary": {k: k in SUMMARY_SECTIONS for k, *_ in SECTIONS},  # summary
         "smtp": {"host": env("SMTP_HOST", ""), "port": int(env("SMTP_PORT", 587)),
                  "security": env("SMTP_SECURITY", "starttls"), "user": env("SMTP_USER", ""),
                  "password": env("SMTP_PASSWORD", ""), "from": env("SMTP_FROM", "")},
