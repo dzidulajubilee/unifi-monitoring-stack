@@ -33,3 +33,11 @@ def test_peer_to_peer_names_the_device():
     d = {**BASE, "dpi": {"p2p": 0.13, "p2p_devices": [{"name": "Unnamed device (…c0:3d)", "share": 0.99}]}}
     (line,) = attention(d, {"apps"})
     assert "13% of identified traffic, nearly all from Unnamed device (…c0:3d)" in line
+
+
+def test_download_sentence_follows_the_switch():
+    from app.text import summary
+    d = {"wans": [], "failovers": 0, "wan_down": 600e9, "wan_up": 246e9, "clients_peak": None, "blocks_in": None}
+    covered = {"prom": True, "loki": True}
+    assert any("downloaded 600 GB" in s for s in summary(d, {}, "week", covered, {"downloaded", "summary"}))
+    assert not any("downloaded" in s for s in summary(d, {}, "week", covered, {"summary"}))
