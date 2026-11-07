@@ -91,14 +91,11 @@ def build(kind, end=None, start=None):
     pdfs = {}
     for style in STYLES:
         shown = show[style]
-        page1 = bool(shown & {"summary", "figures", "throughput"})
         html_out = env.get_template("report.html").render(
             name=name,
             on=shown,
             style=style,
             figs=headline(shown),
-            page1=page1,
-            aps_break=page1 or bool(shown & {"internet", "devices"}),
             kind=kind,
             word=word,
             title=title,
