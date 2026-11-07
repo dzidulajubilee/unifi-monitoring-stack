@@ -13,7 +13,7 @@ Based on [Techno Tim's unpoller-unifi](https://github.com/timothystewart6/unpoll
 | Loki | Stores UniFi security, firewall and audit logs, kept for 400 days | internal only |
 | Grafana | Dashboards for gateway, switches, access points, clients, DPI, sites, PDU and firewall | <http://localhost:3000> |
 | Reporter | PDF reports and the reports portal | <http://localhost:8088> |
-| Dozzle | Container log viewer | <http://localhost:8080> |
+| Dozzle | Container log viewer (sign in with the login from step 5) | <http://localhost:8080> |
 
 ## Quick start
 
@@ -43,9 +43,16 @@ Based on [Techno Tim's unpoller-unifi](https://github.com/timothystewart6/unpoll
 
 4. **Edit `grafana/.env`**: set `GF_SECURITY_ADMIN_USER` and a strong `GF_SECURITY_ADMIN_PASSWORD`.
 
-5. **Set your time zone** (`TZ=`) in each `.env`, e.g. `TZ=Europe/London`.
+5. **Create the Dozzle login.** Dozzle shows every container's logs, so it asks for a username and password.
+   Pick your own and create its users file (git ignores it):
 
-6. **Start the stack**
+   ```bash
+   docker run --rm amir20/dozzle:v11.4.1 generate admin --password 'choose-a-strong-password' > dozzle/data/users.yml
+   ```
+
+6. **Set your time zone** (`TZ=`) in each `.env`, e.g. `TZ=Europe/London`.
+
+7. **Start the stack**
 
    ```bash
    docker compose up -d --build
