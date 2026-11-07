@@ -109,12 +109,12 @@
     {
       "asDropdown": true,
       "icon": "external link",
-      "includeVars": false,
+      "includeVars": true,
       "keepTime": true,
       "tags": [
         "unifi-poller"
       ],
-      "title": "UniFi Poller",
+      "title": "UniFi dashboards",
       "type": "dashboards"
     }
   ],
