@@ -14,8 +14,10 @@
 @media (max-width: 640px) { .recips { grid-template-columns: 1fr; } .recips > span:first-child, .recips .col { display: none; } .recips .row-label { margin-top: 8px; } }
 .incl { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; }
 .incl-row { align-items: flex-start; padding: 8px 0; margin: 0; border-bottom: 1px solid var(--rule); }
-.incl-row input { margin-top: 4px; }
+.incl-row input { margin-top: 2px; }
 .incl-label { display: block; }
+.flip-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.flip-row .flip { margin-bottom: 0; }
 .flip { display: inline-grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--rule-2); border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
 .flip button { font: inherit; font-size: 13px; color: var(--ink-2); background: none; border: 0; padding: 7px 20px; cursor: pointer; transition: background-color .15s, color .15s; }
 .flip button + button { border-left: 1px solid var(--rule); }
@@ -49,9 +51,17 @@
   <section class="panel">
     <h2>What to include</h2>
     <p class="intro">Every report is made in two versions; switch between them to choose what each one shows. Needs attention and the summary sentences cover everything ticked in either, so the summary still warns about a problem whose section it leaves out</p>
-    <div class="flip" role="tablist" aria-label="Report version">
-      <button type="button" role="tab" id="tab-full" aria-controls="incl-full" aria-selected="true">Full report</button>
-      <button type="button" role="tab" id="tab-summary" aria-controls="incl-summary" aria-selected="false">Summary</button>
+    <div class="flip-row">
+      <div class="flip" role="tablist" aria-label="Report version">
+        <button type="button" role="tab" id="tab-full" aria-controls="incl-full" aria-selected="true">Full report</button>
+        <button type="button" role="tab" id="tab-summary" aria-controls="incl-summary" aria-selected="false">Summary</button>
+      </div>
+      <label class="check" style="margin:0"><input type="checkbox" name="grafana_links" id="gl" {{ 'checked' if s.general.get('grafana_links', True) }}> Link to Grafana</label>
+    </div>
+    <div class="field" id="gl-url" {{ 'hidden' if not s.general.get('grafana_links', True) }}>
+      <label for="grafana_url">Grafana address</label>
+      <input type="text" id="grafana_url" name="grafana_url" value="{{ s.general.get('grafana_url', '') }}" placeholder="{{ grafana_guess }}">
+      <div class="hint">Section headings, devices and access points in the PDFs link to the matching Grafana dashboard, set to the report's dates. Leave empty for no links. Readers need to be on a network that can reach this address</div>
     </div>
     {% for version, prefix, chosen in [('full', 'sec', s.sections), ('summary', 'sum', s.sections_summary)] %}
     <div class="incl" id="incl-{{ version }}" role="tabpanel" aria-labelledby="tab-{{ version }}" {{ 'hidden' if version == 'summary' }}>
@@ -123,6 +133,8 @@
   </section>
 </form>
 <script>
+const gl = document.getElementById('gl');
+gl.addEventListener('change', () => { document.getElementById('gl-url').hidden = !gl.checked; });
 // both versions' ticks stay in the form (hidden ones are still saved); the switch only changes which you see
 const tabs = document.querySelectorAll('.flip [role="tab"]');
 tabs.forEach(tab => tab.addEventListener('click', () => {

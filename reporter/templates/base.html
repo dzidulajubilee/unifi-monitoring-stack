@@ -3,6 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+(() => {
+  let t = null;
+  try { t = localStorage.getItem('theme'); } catch (e) {}
+  if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.dataset.theme = t;
+})();
+</script>
 <title>{% block title %}Reports{% endblock %}{% if custom_name %} · {{ name }}{% endif %}</title>
 <style>
 @font-face { font-family: Plex; font-weight: 400; src: url("{{ url_for('static', filename='IBMPlexSans-400.ttf') }}"); }
@@ -64,7 +72,18 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .field { margin-bottom: 16px; }
 .hint { font-size: 12px; color: var(--ink-3); margin-top: 4px; }
 .check { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 14px; margin: 0 0 8px; }
-.check input { margin: 0; accent-color: var(--accent); }
+/* checkboxes as switches */
+.check input[type=checkbox] { appearance: none; -webkit-appearance: none; flex: none; width: 30px; height: 18px; margin: 0;
+  border-radius: 9px; background: var(--rule-2); position: relative; cursor: pointer; transition: background-color .15s; }
+.check input[type=checkbox]::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+  border-radius: 50%; background: var(--surface); box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .15s; }
+.check input[type=checkbox]:checked { background: var(--accent); }
+.check input[type=checkbox]:checked::after { transform: translateX(12px); background: var(--on-accent); }
+.check input[type=checkbox]:disabled { opacity: .45; cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) { .check input[type=checkbox], .check input[type=checkbox]::after { transition: none; } }
+.theme { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0 !important; }
+.theme svg { width: 18px; height: 18px; }
+:root[data-theme="dark"] .theme .moon, :root:not([data-theme="dark"]) .theme .sun { display: none; }
 
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font: inherit; font-weight: 500;
        border-radius: 8px; padding: 8px 16px; cursor: pointer; border: 1px solid transparent; text-decoration: none;
@@ -130,6 +149,10 @@ td.n, th.n { text-align: right; }
 <header>
   <a class="brand" href="{{ url_for('index') }}">{{ name }}{% if custom_name %}<span>Reports</span>{% endif %}</a>
   <nav>
+    <button class="theme" id="theme" type="button" aria-label="Switch to dark mode">
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+    </button>
     <a href="{{ url_for('index') }}" class="{{ 'on' if request.endpoint == 'index' }}">Reports</a>
     {% if is_admin %}<a href="{{ url_for('settings') }}" class="{{ 'on' if request.endpoint == 'settings' }}">Settings</a>{% endif %}
     <span class="who">{{ user }}</span>
@@ -153,6 +176,16 @@ td.n, th.n { text-align: right; }
 </main>
 {% if user %}
 <script>
+(() => {
+  const btn = document.getElementById('theme'), root = document.documentElement;
+  const label = () => btn.setAttribute('aria-label', root.dataset.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+  label();
+  btn.addEventListener('click', () => {
+    root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem('theme', root.dataset.theme); } catch (e) {}
+    label();
+  });
+})();
 (() => {
   const csrf = {{ csrf|tojson }};
   const bell = document.getElementById('bell'), panel = document.getElementById('notes');

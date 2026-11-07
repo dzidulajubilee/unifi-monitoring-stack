@@ -407,6 +407,12 @@ def settings():
             flash("Pick at least one thing to include in both the full report and the summary")
             return redirect(url_for("settings"))
         s["general"]["name"] = f.get("name", "").strip()[:60]
+        s["general"]["grafana_links"] = bool(f.get("grafana_links"))
+        gurl = f.get("grafana_url", "").strip().rstrip("/")
+        if gurl and not re.match(r"^https?://[^\s/]+", gurl):
+            flash("The Grafana address must start with http:// or https://, for example http://10.0.0.5:3000")
+            return redirect(url_for("settings"))
+        s["general"]["grafana_url"] = gurl
         tz = f.get("timezone", "").strip()
         if tz not in R.timezones():
             flash(f"Unknown time zone {tz!r}. Pick one from the list, e.g. Europe/London or UTC")
@@ -438,7 +444,9 @@ def settings():
             except Exception as e:  # noqa: BLE001
                 flash(f"Test email failed: {R.mail_error(e)}")
         return redirect(url_for("settings"))
+    grafana_guess = f"{request.scheme}://{request.host.split(':')[0]}:3000"  # Grafana usually runs next to the portal
     return render_template("settings.html", s=s, has_password=bool(s["smtp"].get("password")), sections=R.SECTIONS,
+                           grafana_guess=grafana_guess,
                            timezones=R.timezones())
 
 
