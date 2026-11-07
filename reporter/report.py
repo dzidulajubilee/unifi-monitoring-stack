@@ -439,6 +439,138 @@ def fduration(secs):
     return f"{h} h {m} min" if m else f"{h} h"
 
 
+# ---------------------------------------------------------------- trends
+
+TREND_COUNT = {"weekly": 8, "monthly": 6, "quarterly": 4}
+
+
+def trend_periods(kind, start):
+    """The report's own period and the ones before it, oldest first: [(start, end, label)]."""
+    if kind not in TREND_COUNT:
+        return []
+    out, s_ = [], start
+    for _ in range(TREND_COUNT[kind]):
+        e_ = _next_period(kind, s_)
+        if kind == "weekly":
+            label = f"W{s_.isocalendar().week}"
+        elif kind == "monthly":
+            label = f"{s_:%b}"
+        else:
+            label = f"Q{(s_.month - 1) // 3 + 1} {s_:%y}"
+        out.append((s_, e_, label))
+        s_ = period_start(kind, s_)
+    return out[::-1]
+
+
+TRENDS = [  # key, title, unit ("bytes", "num", "pct"), source
+    ("down", "Data downloaded", "bytes", "prom"),
+    ("peak", "Peak devices online", "num", "prom"),
+    ("wifi", "Wi-Fi experience", "pct", "prom"),
+    ("blocks", "Blocked from the internet", "num", "loki"),
+    ("threats", "Threats blocked", "num", "loki"),
+    ("outages", "Internet outages", "num", "loki"),
+]
+
+
+def _trend_point(start, end):
+    """Key figures for one period; None where there isn't enough data to say."""
+    s = Source(start, end)
+    # share of the period Prometheus has UnPoller data for, and whether Loki has any logs at all
+    prom = (s.scalar('sum(count_over_time(up{job="unpoller"}[$R]))') or 0) / max(1, s.secs / 60)
+    days = max(1, round(s.secs / 86400))
+    per_day = s._safe(lambda q: _get(LOKI + "/loki/api/v1/query_range", {
+        "query": q, "start": int((start.timestamp() + 86400) * 1e9), "end": int(end.timestamp() * 1e9),
+        "step": "86400"}), 'sum(count_over_time({application="unifi_system_log"}[1d]))') or []
+    loki_days = sum(1 for _, n in (per_day[0]["values"] if per_day else []) if float(n) > 0)
+    # counts only mean something for periods logged (almost) throughout; partial ones would look tiny
+    loki = loki_days / days >= 0.9
+    v = {"_prom": prom}
+    ok = prom >= 0.5
+    # same query as the report's own Downloaded figure, so the numbers match
+    v["down"] = s.scalar(f'avg_over_time(max(unpoller_site_receive_rate_bytes{{subsystem="wan"}})[$R:1m]) * {s.secs}') if ok else None
+    v["peak"] = s.scalar("max_over_time(count(unpoller_client_uptime_seconds)[$R:15m])") if prom > 0 else None
+    v["wifi"] = s.scalar('avg_over_time(avg(unpoller_client_satisfaction_ratio{wired="false"} >= 0)[$R:15m])') if ok else None
+    if loki:
+        v["blocks"] = s.scalar(f"sum(count_over_time({FW_IN} [$R]))", "loki")
+        v["threats"] = s.scalar(f'sum(count_over_time({IPS} | evt=~"(?i).*block.*" [$R]))', "loki")
+        v["outages"] = s.scalar(f'sum(count_over_time({WAN_EVENTS} |= `FAILED_OVER` [$R]))', "loki")
+    else:
+        v["blocks"] = v["threats"] = v["outages"] = None
+    return v, s.errors
+
+
+def collect_trends(kind, start):
+    """Each key figure across the report's period and the ones before it."""
+    from concurrent.futures import ThreadPoolExecutor
+    periods = trend_periods(kind, start)
+    if not periods:
+        return None
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        points = list(pool.map(lambda p_: _trend_point(p_[0], p_[1]), periods))
+    errors = [e for _, errs in points for e in errs]
+    labels = [lbl for _, _, lbl in periods]
+    out = []
+    for key, title, unit, src in TRENDS:
+        vals = [pt[key] for pt, _ in points]
+        cur, before = vals[-1], [x for x in vals[:-1] if x is not None]
+        avg = sum(before) / len(before) if before else None
+        out.append({"key": key, "title": title, "unit": unit, "values": vals, "labels": labels, "current": cur,
+                    "avg": avg, "n_before": len(before)})
+    return {"metrics": out, "labels": labels, "errors": errors,
+            "word": {"weekly": "weeks", "monthly": "months", "quarterly": "quarters"}[kind]}
+
+
+def trend_change(m, plural):
+    """'+12% vs the 7-week average' / 'first period with data'."""
+    cur, avg, n = m["current"], m["avg"], m["n_before"]
+    one = plural[:-1]
+    if cur is None:
+        return f"not enough data for this {one}"
+    if not n or avg is None:
+        return "no earlier data to compare"
+    vs = f"vs the {n}-{one} average" if n > 1 else f"vs the previous {one}"
+    if m["unit"] == "pct":
+        diff = (cur - avg) * 100
+        return f"same as the {n}-{one} average" if n > 1 and abs(diff) < 0.5 else \
+            "same as the previous " + one if abs(diff) < 0.5 else f"{diff:+.0f} points {vs}"
+    if avg < 20:  # small counts read better as numbers than percentages
+        base = f"{avg:.1f}".rstrip("0").rstrip(".") if n > 1 else f"{avg:.0f}"
+        return f"{cur:.0f} vs an average of {base}" if n > 1 else f"{cur:.0f} vs {base} the {one} before"
+    pct = (cur - avg) / avg * 100
+    if abs(pct) < 0.5:
+        return "no change " + vs
+    return f"{'+' if pct > 0 else '−'}{abs(pct):.0f}% {vs}"
+
+
+def svg_minibars(m, w=196, h=78):
+    """Small bar chart for one trend: earlier periods grey, this period blue, gaps dashed."""
+    vals, labels = m["values"], m["labels"]
+    n = len(vals)
+    top = max([v for v in vals if v is not None] or [0]) or 1
+    if m["unit"] == "pct":
+        top = max(top, 1.0)
+    L, B, T = 2, 14, 4
+    gap = 2
+    bw = (w - L * 2 - gap * (n - 1)) / n
+    ph = h - B - T
+    g = [f'<line x1="0" x2="{w}" y1="{T + ph:.1f}" y2="{T + ph:.1f}" stroke="#1b1b1a" stroke-opacity="0.18" stroke-width="1"/>']
+    for i, (v, lbl) in enumerate(zip(vals, labels)):
+        x = L + i * (bw + gap)
+        last = i == n - 1
+        if v is None:
+            g.append(f'<rect x="{x:.1f}" y="{T + ph - 10:.1f}" width="{bw:.1f}" height="10" fill="none" '
+                     f'stroke="#a9a8a2" stroke-width="0.8" stroke-dasharray="2 2" rx="1.5"/>')
+        else:
+            bh = max(1.0, v / top * ph)
+            g.append(f'<rect x="{x:.1f}" y="{T + ph - bh:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="1.5" '
+                     f'fill="{"#2a78d6" if last else "#c9c8c2"}"/>')
+        if n <= 8 or i in (0, n - 1):
+            g.append(f'<text x="{x + bw / 2:.1f}" y="{h - 3}" text-anchor="middle" font-family="PlexMono" font-size="5.5pt" '
+                     f'fill="{"#1b1b1a" if last else "#8a8984"}">{html.escape(lbl)}</text>')
+    return (f'<svg viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" aria-label="{html.escape(m["title"])} by period">'
+            + "".join(g) + "</svg>")
+
+
 # ---------------------------------------------------------------- maintenance
 
 def collect_maint(s: Source):
@@ -657,6 +789,7 @@ SECTIONS = [
     ("downloaded", "Data downloaded", "Data downloaded and uploaded: the headline number, the summary sentence and the Internet and gateway rows"),
     ("gap_note", "Missing-data note", "A note when metrics weren't collected for part of the period"),
     ("throughput", "Internet throughput chart", "Download and upload over the period"),
+    ("trends", "Trends", "Key figures for this period next to the ones before it: 8 weeks, 6 months or 4 quarters (not for custom dates)"),
     ("internet", "Internet and gateway", "Data used, latency, failovers, internet lines, gateway CPU, memory and temperature"),
     ("isp", "Internet lines and quality", "Per line: active or backup, availability, outages and their length, ISP latency and packet-loss events, speed tests, data carried"),
     ("devices", "Devices", "Devices online and the ten that used the most data"),
@@ -864,6 +997,7 @@ def build(kind, end=None, start=None):
     d["dpi"] = collect_apps(cur) if "apps" in on else None
     d["isp"] = collect_isp(cur) if "isp" in on else None
     d["maint"] = collect_maint(cur) if "maintenance" in on else None
+    d["trends"] = collect_trends(kind, start) if "trends" in on else None
     d["_word"] = word
     cov = prev.coverage()
     gap = 1 - cur.coverage()["prom"]
@@ -904,7 +1038,8 @@ def build(kind, end=None, start=None):
             tzname=str(TZ), generated=dt.datetime.now(TZ), d=d, p=p, ch=ch, covered=covered,
             summary=lines, attention=att, events=evts, threats=thr, chart=chart if style == "full" else chart_short,
             fonts=(HERE / "fonts").as_uri(),
-            errors=cur.errors + prev.errors, gap=gap, max_client=max([c["bytes"] for c in d["top_clients"]] or [1]),
+            trend_change=trend_change, minibars=svg_minibars,
+            errors=cur.errors + prev.errors + (d["trends"]["errors"] if d["trends"] else []), gap=gap, max_client=max([c["bytes"] for c in d["top_clients"]] or [1]),
         )
         pdf = report_path(kind, start, end, style)
         tmp = pdf.with_suffix(".part")
