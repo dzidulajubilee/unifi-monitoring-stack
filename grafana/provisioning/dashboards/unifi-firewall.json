@@ -1297,7 +1297,7 @@
       "id": 14,
       "title": "Firewall policies",
       "type": "table",
-      "description": "Every firewall policy, sorted by priority. Use the column filter icons or the Action / Rule selectors at the top. Zones are shown as UniFi zone IDs: UnPoller's policy metrics carry zone IDs, not zone names. Policies that share an identical name, action, protocol, IP version and zones appear as a single row. Zone names come from a fixed ID-to-name map for this controller; a zone created later shows as its ID until it is added to the map.",
+      "description": "Every firewall policy, sorted by priority. Use the column filter icons or the Action / Rule selectors at the top. Zones are shown as UniFi zone IDs: UnPoller's policy metrics carry zone IDs, not zone names. Policies that share an identical name, action, protocol, IP version and zones appear as a single row. Zone names come from prometheus/config/rules/zone-names.yml on the server (see the .example file); zones not listed there, or every zone if the file doesn't exist, show as their UniFi zone ID.",
       "gridPos": {
         "h": 16,
         "w": 24,
@@ -1534,56 +1534,6 @@
             },
             "properties": [
               {
-                "id": "mappings",
-                "value": [
-                  {
-                    "type": "value",
-                    "options": {
-                      "000000000000000000000001": {
-                        "text": "Internal",
-                        "index": 0
-                      },
-                      "000000000000000000000002": {
-                        "text": "External",
-                        "index": 1
-                      },
-                      "000000000000000000000003": {
-                        "text": "Gateway",
-                        "index": 2
-                      },
-                      "000000000000000000000004": {
-                        "text": "VPN",
-                        "index": 3
-                      },
-                      "000000000000000000000005": {
-                        "text": "Hotspot",
-                        "index": 4
-                      },
-                      "000000000000000000000006": {
-                        "text": "DMZ",
-                        "index": 5
-                      },
-                      "000000000000000000000007": {
-                        "text": "untrust",
-                        "index": 6
-                      },
-                      "000000000000000000000008": {
-                        "text": "Blackhole",
-                        "index": 7
-                      },
-                      "000000000000000000000009": {
-                        "text": "Guest-Zone",
-                        "index": 8
-                      },
-                      "000000000000000000000010": {
-                        "text": "DNS",
-                        "index": 9
-                      }
-                    }
-                  }
-                ]
-              },
-              {
                 "id": "custom.width",
                 "value": 140
               }
@@ -1595,56 +1545,6 @@
               "options": "Destination zone"
             },
             "properties": [
-              {
-                "id": "mappings",
-                "value": [
-                  {
-                    "type": "value",
-                    "options": {
-                      "000000000000000000000001": {
-                        "text": "Internal",
-                        "index": 0
-                      },
-                      "000000000000000000000002": {
-                        "text": "External",
-                        "index": 1
-                      },
-                      "000000000000000000000003": {
-                        "text": "Gateway",
-                        "index": 2
-                      },
-                      "000000000000000000000004": {
-                        "text": "VPN",
-                        "index": 3
-                      },
-                      "000000000000000000000005": {
-                        "text": "Hotspot",
-                        "index": 4
-                      },
-                      "000000000000000000000006": {
-                        "text": "DMZ",
-                        "index": 5
-                      },
-                      "000000000000000000000007": {
-                        "text": "untrust",
-                        "index": 6
-                      },
-                      "000000000000000000000008": {
-                        "text": "Blackhole",
-                        "index": 7
-                      },
-                      "000000000000000000000009": {
-                        "text": "Guest-Zone",
-                        "index": 8
-                      },
-                      "000000000000000000000010": {
-                        "text": "DNS",
-                        "index": 9
-                      }
-                    }
-                  }
-                ]
-              },
               {
                 "id": "custom.width",
                 "value": 140
@@ -1697,9 +1597,50 @@
           "instant": true,
           "refId": "B",
           "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (zone_id, zone_name) (unifi_firewall_zone_name)",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "legendFormat": "",
+          "refId": "Z"
         }
       ],
       "transformations": [
+        {
+          "id": "configFromData",
+          "options": {
+            "configRefId": "Z",
+            "mappings": [
+              {
+                "fieldName": "zone_id",
+                "handlerKey": "mappings.value"
+              },
+              {
+                "fieldName": "zone_name",
+                "handlerKey": "mappings.text"
+              },
+              {
+                "fieldName": "Time",
+                "handlerKey": "__ignore"
+              },
+              {
+                "fieldName": "Value",
+                "handlerKey": "__ignore"
+              }
+            ],
+            "applyTo": {
+              "id": "byRegexp",
+              "options": "source_zone|dest_zone"
+            }
+          }
+        },
         {
           "id": "merge",
           "options": {}
@@ -4290,7 +4231,7 @@
           },
           "options": {
             "mode": "markdown",
-            "content": "### What the numbers mean\n\nEach bar is a firewall zone. The number is **how many networks (VLANs / subnets) are assigned to it**.\n\n- **Internal, Guest-Zone, DNS, Blackhole, untrust**: your LAN networks, grouped by the zone you put them in\n- **External**: your WAN connections, one per internet uplink or WAN-side network\n- **Vpn**: VPN server networks\n- **Gateway**: the UDM itself, always 0 because no network belongs to it\n- **Hotspot, Dmz**: built-in zones you are not using yet\n\nZones you created yourself are *user defined*, the rest come with UniFi. Firewall policies are written between zones, so the *Source zone* and *Destination zone* columns in the Firewall policies table refer to these same zones.\n\nA count that changes means a network was moved between zones. A zone at 0 has no networks, so its policies match nothing.\n\n<small>Source: UniFi Integration API through UnPoller (needs `UP_UNIFI_CONTROLLER_0_API_KEY`).</small>",
+            "content": "### What the numbers mean\n\nEach bar is a firewall zone. The number is **how many networks (VLANs / subnets) are assigned to it**.\n\n- **Internal** and any zones you created: your LAN networks, grouped by the zone you put them in\n- **External**: your WAN connections, one per internet uplink or WAN-side network\n- **Vpn**: VPN server networks\n- **Gateway**: the gateway itself, always 0 because no network belongs to it\n- **Hotspot, Dmz**: built-in zones; 0 means you are not using them\n\nZones you created yourself are *user defined*, the rest come with UniFi. Firewall policies are written between zones, so the *Source zone* and *Destination zone* columns in the Firewall policies table refer to these same zones.\n\nA count that changes means a network was moved between zones. A zone at 0 has no networks, so its policies match nothing.\n\n<small>Source: UniFi Integration API through UnPoller (needs `UP_UNIFI_CONTROLLER_0_API_KEY`).</small>",
             "code": {
               "language": "plaintext",
               "showLineNumbers": false,

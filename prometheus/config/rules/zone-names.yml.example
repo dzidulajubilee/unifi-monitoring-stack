@@ -1,0 +1,18 @@
+# Firewall zone names for the Grafana firewall dashboard.
+#
+# UnPoller's firewall policies name their zones only by ID, and its zone metric has the name but not the ID,
+# so the dashboard can't join them by itself. Copy this file to zone-names.yml (git ignores it), list your
+# controller's zones, and Prometheus publishes each pair as unifi_firewall_zone_name{zone_id, zone_name}.
+# The Firewall policies table then shows names instead of IDs. Prometheus reloads it on restart.
+#
+# Find the IDs in the Firewall policies table (Source zone / Destination zone columns) and the names in
+# UniFi under Settings > Security > Zones (or the Firewall zones row of the dashboard).
+groups:
+  - name: unifi-zone-names
+    rules:
+      - record: unifi_firewall_zone_name
+        expr: vector(1)
+        labels: {zone_id: "000000000000000000000001", zone_name: "Internal"}
+      - record: unifi_firewall_zone_name
+        expr: vector(1)
+        labels: {zone_id: "000000000000000000000002", zone_name: "External"}

@@ -20,3 +20,6 @@ reporter/out/*
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+
+# Site-specific Prometheus rules (e.g. firewall zone names); see the .example files
+prometheus/config/rules/*.yml
