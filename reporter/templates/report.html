@@ -40,10 +40,13 @@ h1 { font-size: 22pt; line-height: 1.15; font-weight: 500; margin: 0; letter-spa
 
 h2 { font-size: 12pt; font-weight: 500; margin: 0 0 8pt; }
 h3 { font-size: 9.5pt; font-weight: 500; margin: 0 0 6pt; }
-section { margin-top: 24pt; }
-section.page { break-before: page; margin-top: 0; }
-section { break-inside: auto; }
+/* Page flow: a section stays together, so it continues on the current page when it fits and starts a
+   fresh page when it doesn't (a section longer than a page starts fresh and flows on). Headings never
+   end a page, and table headers repeat when a table continues. */
+section { margin-top: 24pt; break-inside: avoid; }
 .keep { break-inside: avoid; }
+.head, h2, h3 { break-after: avoid; }
+thead { display: table-header-group; }
 
 /* summary */
 .summary p { margin: 0 0 6pt; max-width: 150mm; font-size: 10.5pt; line-height: 1.55; }
@@ -176,11 +179,11 @@ a.plain { color: inherit; text-decoration: none; }
 
 {% if 'trends' in on and d.trends %}
 {% set tr = d.trends %}
-<section class="{{ 'page' if page1 }}">
+<section>
   {{ head("Trends") }}
   <p class="note" style="margin:-4pt 0 10pt">This {{ word }} in blue, the {{ tr.metrics[0]['labels']|length - 1 }} {{ tr.word }} before it in grey. A dashed outline means there isn't enough data for that {{ word }}.</p>
   <div class="trends">
-    {% for m in tr.metrics %}
+    {% for m in tr.metrics if m.key != 'down' or 'downloaded' in on %}
     <div class="trend keep">
       <div class="label">{{ m.title }}</div>
       <div class="value">{% if m.current is none %}–{% elif m.unit == 'bytes' %}{{ m.current|bytes }}{% elif m.unit == 'pct' %}{{ m.current|pct }}{% else %}{{ m.current|num }}{% endif %}</div>
@@ -193,7 +196,7 @@ a.plain { color: inherit; text-decoration: none; }
 {% endif %}
 
 {% if 'internet' in on %}
-<section class="{{ 'page' if page1 and not ('trends' in on and d.trends) }}">
+<section>
   {{ head("Internet and gateway") }}
   <div class="cols">
     <table class="kv">
@@ -219,7 +222,7 @@ a.plain { color: inherit; text-decoration: none; }
   {% if 'isp' not in on %}
   <h3 style="margin-top:16pt">Internet lines</h3>
   <table>
-    <tr><th>Line</th><th class="n">Up</th></tr>
+    <thead><tr><th>Line</th><th class="n">Up</th></tr></thead>
     {% for w in d.wans %}
     <tr><td>{{ w.name }}</td><td class="n">{% if w.uptime is not none %}{{ '%.2f'|format(w.uptime) }}%{% else %}<span class="muted">standby, not in use</span>{% endif %}</td></tr>
     {% endfor %}
@@ -233,7 +236,7 @@ a.plain { color: inherit; text-decoration: none; }
 <section>
   {{ head("Internet lines and quality") }}
   <table>
-    <tr><th>Line</th><th>Now</th><th class="n">Up</th><th class="n">Outages</th><th class="n">Down for</th><th class="n">Latency / loss events</th><th class="n">Speed test</th><th class="n">Data carried</th></tr>
+    <thead><tr><th>Line</th><th>Now</th><th class="n">Up</th><th class="n">Outages</th><th class="n">Down for</th><th class="n">Latency / loss events</th><th class="n">Speed test</th><th class="n">Data carried</th></tr></thead>
     {% for l in q.lines %}
     <tr>
       <td>{{ l.name }}<span class="sub">{{ l.wan }}</span></td>
@@ -251,7 +254,7 @@ a.plain { color: inherit; text-decoration: none; }
   {% if q.events %}
   <h3 style="margin-top:12pt">What happened</h3>
   <table class="log">
-    <tr><th>When</th><th>Line</th><th>Event</th></tr>
+    <thead><tr><th>When</th><th>Line</th><th>Event</th></tr></thead>
     {% for e in q.events[-25:] %}<tr><td class="t">{{ e.t.strftime('%a %-d %b %H:%M') }}</td><td style="white-space:nowrap">{{ e.line }}</td><td>{{ e.msg }}</td></tr>{% endfor %}
   </table>
   {% if q.events|length > 25 %}<p class="note">The last 25 of {{ q.events|length }} events.</p>{% endif %}
@@ -288,10 +291,10 @@ a.plain { color: inherit; text-decoration: none; }
 {% endif %}
 
 {% if 'aps' in on %}
-<section class="{{ 'page' if aps_break }}">
+<section>
   {{ head("Access points") }}
   <table>
-    <tr><th>Access point</th><th class="n">Traffic</th><th class="n">Peak clients</th><th class="n">Wi-Fi experience</th><th class="n">2.4 GHz busy</th><th class="n">5 GHz busy</th><th class="n">Restarts</th></tr>
+    <thead><tr><th>Access point</th><th class="n">Traffic</th><th class="n">Peak clients</th><th class="n">Wi-Fi experience</th><th class="n">2.4 GHz busy</th><th class="n">5 GHz busy</th><th class="n">Restarts</th></tr></thead>
     {% for a in d.aps %}
     <tr>
       <td>{{ linked(a.name, "aps", "AP", a.name) }}</td><td class="n">{{ a.bytes|bytes }}</td><td class="n">{{ a.peak|num }}</td>
@@ -409,7 +412,7 @@ a.plain { color: inherit; text-decoration: none; }
   {% set rows, total = threats %}
   {% if rows %}
   <table class="log">
-    <tr><th>When</th><th>Device</th><th>Target</th><th>Severity</th><th>Result</th></tr>
+    <thead><tr><th>When</th><th>Device</th><th>Target</th><th>Severity</th><th>Result</th></tr></thead>
     {% for r in rows %}
     <tr><td class="t">{{ r.t.strftime('%a %-d %b %H:%M') }}</td><td>{{ r.src }}</td><td>{{ r.dst }}</td><td>{{ r.sev }}</td><td>{{ 'Blocked' if r.blocked else 'Detected only' }}</td></tr>
     {% endfor %}
@@ -435,7 +438,7 @@ a.plain { color: inherit; text-decoration: none; }
   {% if m.pools %}
   <h3 style="margin-top:14pt">Address pools</h3>
   <table>
-    <tr><th>Network</th><th class="n">Busiest</th><th class="n">Addresses in use at peak</th><th class="n">Pool size</th></tr>
+    <thead><tr><th>Network</th><th class="n">Busiest</th><th class="n">Addresses in use at peak</th><th class="n">Pool size</th></tr></thead>
     {% for p_ in m.pools %}<tr><td>{{ p_.network }}</td><td class="n">{% if p_.peak >= 0.8 %}<span class="warn">{{ p_.peak|pct }}</span>{% else %}{{ p_.peak|pct }}{% endif %}</td><td class="n">{{ p_.leases|num }}</td><td class="n">{{ p_.size|num }}</td></tr>{% endfor %}
   </table>
   <p class="note">How full each network's DHCP pool got. When a pool is full, new devices on that network get no address and can't connect.</p>
@@ -444,7 +447,7 @@ a.plain { color: inherit; text-decoration: none; }
   {% if m.sfp %}
   <h3 style="margin-top:14pt">Fibre modules</h3>
   <table>
-    <tr><th>Port</th><th class="n">Receive signal now</th><th class="n">Change</th><th class="n">Lowest</th><th class="n">Hottest</th></tr>
+    <thead><tr><th>Port</th><th class="n">Receive signal now</th><th class="n">Change</th><th class="n">Lowest</th><th class="n">Hottest</th></tr></thead>
     {% for f in m.sfp %}<tr><td>{{ f.port }}</td>
       <td class="n">{% if f.rx < -20 %}<span class="warn">{{ '%.1f'|format(f.rx) }} dBm</span>{% else %}{{ '%.1f'|format(f.rx) }} dBm{% endif %}</td>
       <td class="n">{% if f.drop is none %}–{% else %}{{ '%+.1f'|format(-f.drop) }} dB{% endif %}</td>
@@ -461,7 +464,7 @@ a.plain { color: inherit; text-decoration: none; }
   {{ head("Changes and events") }}
   {% if events %}
   <table class="log">
-    <tr><th>When</th><th>Type</th><th>What happened</th></tr>
+    <thead><tr><th>When</th><th>Type</th><th>What happened</th></tr></thead>
     {% for e in events[-40:] %}
     <tr><td class="t">{{ e.t.strftime('%a %-d %b %H:%M') }}</td><td style="white-space:nowrap">{{ e.kind }}</td><td>{{ e.msg }}</td></tr>
     {% endfor %}
