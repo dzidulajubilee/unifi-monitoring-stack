@@ -3,7 +3,12 @@
 python3 grafana/build/check.py http://prometheus:9090 unifi-gateway.json unifi-sites.json ...
 Prints ok / NONE (no data) / ERR per query. NONE is fine for hardware the network doesn't have.
 """
-import json, re, sys, urllib.parse, urllib.request
+import json
+import re
+import sys
+import urllib.parse
+import urllib.request
+
 from gf import OUT
 
 prom = sys.argv[1].rstrip("/")

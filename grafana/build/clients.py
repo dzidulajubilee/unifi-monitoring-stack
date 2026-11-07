@@ -1,4 +1,4 @@
-from gf import Dashboard, target, steps, color, mirror, DOWN, UP, BLUE, ORANGE, AQUA, YELLOW, GREY
+from gf import AQUA, BLUE, Dashboard, color, steps, target
 
 S = 'source=~"$Controller", site_name=~"$Site"'
 C = S + ', network=~"$Network", wired=~"$Connection", name=~"$Client"'

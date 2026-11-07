@@ -22,7 +22,7 @@ NEUTRAL = {"mode": "absolute", "steps": [{"color": "text", "value": None}]}
 def steps(*pairs):
     """steps("text", 70, "orange", 90, "red") -> threshold steps."""
     out = [{"color": pairs[0], "value": None}]
-    for value, color in zip(pairs[1::2], pairs[2::2]):
+    for value, color in zip(pairs[1::2], pairs[2::2], strict=False):
         out.append({"color": color, "value": value})
     return {"mode": "absolute", "steps": out}
 
