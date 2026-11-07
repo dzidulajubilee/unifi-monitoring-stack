@@ -881,25 +881,40 @@ def build(kind, end=None, start=None):
 
     env = Environment(loader=FileSystemLoader(HERE), autoescape=True)
     env.filters.update(bytes=fbytes, bits=fbits, num=fnum, pct=fpct, duration=fduration)
-    html_out = env.get_template("template.html").render(
-        name=name, on=on, figs=figs, page1=page1, aps_break=page1 or bool(on & {"internet", "devices"}), kind=kind, word=word, title=title, dates=dates,
-        tzname=str(TZ), generated=dt.datetime.now(TZ), d=d, p=p, ch=ch, covered=covered,
-        summary=summary(d, p, word, covered, on), attention=attention(d, on),
-        events=events(cur, wan="isp" not in on) if "events" in on else [],
-        threats=threat_list(cur) if "threats" in on else ([], 0),
-        chart=svg_chart(down, up, kind, start, end) if "throughput" in on else "", fonts=(HERE / "fonts").as_uri(),
-        errors=cur.errors + prev.errors, gap=gap, max_client=max([c["bytes"] for c in d["top_clients"]] or [1]),
-    )
-    OUT.mkdir(parents=True, exist_ok=True)
-    pdf = report_path(kind, start, end)
+    # The summary and attention list always cover every section that's ticked, so the summary-only
+    # style still warns about, say, an access point problem even though it leaves out the Wi-Fi pages.
+    lines, att = summary(d, p, word, covered, on), attention(d, on)
+    evts = events(cur, wan="isp" not in on) if "events" in on else []
+    thr = threat_list(cur) if "threats" in on else ([], 0)
+    chart = svg_chart(down, up, kind, start, end) if "throughput" in on else ""
+    chart_short = svg_chart(down, up, kind, start, end, h=140) if "throughput" in on else ""  # keeps the summary on one page
     from weasyprint import HTML  # imported late: slow to load, not needed until a report is due
-    tmp = pdf.with_suffix(".part")
-    HTML(string=html_out, base_url=str(HERE)).write_pdf(tmp)
-    tmp.replace(pdf)  # appears in the portal only once complete
-    log.info("wrote %s (%d query errors)", pdf, len(cur.errors + prev.errors))
+    OUT.mkdir(parents=True, exist_ok=True)
+    pdfs = {}
+    for style in STYLES:
+        shown = on if style == "full" else (on & SUMMARY_SECTIONS) | {"summary"}
+        html_out = env.get_template("template.html").render(
+            name=name, on=shown, style=style, figs=figs, page1=page1,
+            aps_break=page1 or bool(shown & {"internet", "devices"}), kind=kind, word=word, title=title, dates=dates,
+            tzname=str(TZ), generated=dt.datetime.now(TZ), d=d, p=p, ch=ch, covered=covered,
+            summary=lines, attention=att, events=evts, threats=thr, chart=chart if style == "full" else chart_short,
+            fonts=(HERE / "fonts").as_uri(),
+            errors=cur.errors + prev.errors, gap=gap, max_client=max([c["bytes"] for c in d["top_clients"]] or [1]),
+        )
+        pdf = report_path(kind, start, end, style)
+        tmp = pdf.with_suffix(".part")
+        HTML(string=html_out, base_url=str(HERE)).write_pdf(tmp)
+        tmp.replace(pdf)  # appears in the portal only once complete
+        pdfs[style] = pdf
+    log.info("wrote %s and its summary (%d query errors)", pdfs["full"], len(cur.errors + prev.errors))
     what = f"{kind.capitalize()} report, {title}" if kind != "custom" else f"Report for {title}"
     subject = f"{name}: {what} ({dates})" if name else f"{what} ({dates})"
-    return pdf, subject, summary(d, p, word, covered, on), len(cur.errors + prev.errors)
+    return pdfs, subject, lines, len(cur.errors + prev.errors)
+
+
+STYLES = ("full", "summary")
+# what the summary-only style shows: page 1. Its summary and attention list still cover everything.
+SUMMARY_SECTIONS = {"summary", "figures", "throughput", "downloaded", "gap_note"}
 
 
 # ---------------------------------------------------------------- settings
@@ -917,7 +932,8 @@ def default_settings():
         "smtp": {"host": env("SMTP_HOST", ""), "port": int(env("SMTP_PORT", 587)),
                  "security": env("SMTP_SECURITY", "starttls"), "user": env("SMTP_USER", ""),
                  "password": env("SMTP_PASSWORD", ""), "from": env("SMTP_FROM", "")},
-        "recipients": {k: to for k in ("weekly", "monthly", "quarterly")},
+        "recipients": {k: to for k in ("weekly", "monthly", "quarterly")},          # full report
+        "recipients_summary": {k: "" for k in ("weekly", "monthly", "quarterly")},  # summary only
         "schedule": {"enabled": True, "hour": int(env("SEND_HOUR", 7)),
                      "kinds": env("REPORTS", "weekly,monthly,quarterly").split(",")},
     }
@@ -1072,36 +1088,62 @@ def ssl_error_types():
     return ssl.SSLError
 
 
-def email_report(pdf, subject, lines, to):
+def email_report(pdf, subject, lines, to, style="full"):
+    if style == "summary":
+        subject += ", summary"
     send_mail(to, subject, "\n\n".join(lines) + "\n\nThe full report is attached.",
               "".join(f"<p>{html.escape(x)}</p>" for x in lines)
               + "<p style='color:#6b6a66'>The full report is attached.</p>", pdf)
 
 
-def run(kind, end=None, send=True, start=None, to=None):
-    """Build a report; email it to `to`, or to the kind's recipients when send=True."""
-    pdf, subject, lines, errors = build(kind, end, start)
-    what = report_title(kind, pdf)
-    if to is None and send:
-        to = load_settings()["recipients"].get(kind, "")
-    if to:
+def recipients(kind, settings=None):
+    """[(style, addresses)] for a report type, from Settings; empty lists left out."""
+    st = settings or load_settings()
+    out = [("full", st["recipients"].get(kind, "")), ("summary", st["recipients_summary"].get(kind, ""))]
+    return [(style, to) for style, to in out if to.strip()]
+
+
+def deliver(pdfs, subject, lines, sends):
+    """Email each style to its recipients. Returns [(style, to, error or None)]."""
+    results = []
+    for style, to in sends:
         try:
-            email_report(pdf, subject, lines, to)
-        except Exception as e:  # noqa: BLE001 - the PDF is saved either way
-            log.exception("email failed; report kept at %s", pdf)
-            notify(f"{what} was made from the command line, but emailing it to {to} failed: {mail_error(e)}",
-                   "error", file=pdf.name, admins_only=True)
-            raise
-        notify(f"{what} was made from the command line and emailed to {to}", file=pdf.name)
-    else:
-        notify(f"{what} was made from the command line", file=pdf.name)
-    return pdf
+            email_report(pdfs[style], subject, lines, to, style)
+            results.append((style, to, None))
+        except Exception as e:  # noqa: BLE001 - the PDFs are saved either way
+            log.exception("emailing the %s report to %s failed", style, to)
+            results.append((style, to, mail_error(e)))
+    return results
+
+
+def describe_sends(results):
+    """'emailed to a@x (full) and b@y (summary)' for the successful ones."""
+    ok = [f"{to} ({'summary' if style == 'summary' else 'full'})" for style, to, err in results if not err]
+    return ("emailed to " + _join(ok)) if ok else ""
+
+
+def run(kind, end=None, send=True, start=None, to=None):
+    """Build a report in both styles; email the full one to `to`, or each style to its
+    recipients from Settings when send=True."""
+    pdfs, subject, lines, errors = build(kind, end, start)
+    what = report_title(kind, pdfs["full"])
+    sends = [("full", to)] if to else (recipients(kind) if send else [])
+    results = deliver(pdfs, subject, lines, sends)
+    failed = [(style, t, err) for style, t, err in results if err]
+    sent = describe_sends(results)
+    notify(f"{what} was made from the command line" + (f" and {sent}" if sent else ""), file=pdfs["full"].name)
+    for style, t, err in failed:
+        notify(f"Emailing the {style} {what[0].lower() + what[1:]} to {t} failed: {err}", "error",
+               file=pdfs["full"].name, admins_only=True)
+    if failed:
+        raise RuntimeError(f"{len(failed)} email(s) failed")
+    return pdfs["full"]
 
 
 def report_title(kind, pdf_or_start, end=None):
     """'Weekly report, Week 44 (26 Oct – 1 Nov 2026)' from a report file, or from a period start/end."""
     if isinstance(pdf_or_start, Path):
-        m = re.match(r"\w+-(\d{4}-\d{2}-\d{2})(?:-to-(\d{4}-\d{2}-\d{2}))?\.pdf$", pdf_or_start.name)
+        m = re.match(r"\w+-(\d{4}-\d{2}-\d{2})(?:-to-(\d{4}-\d{2}-\d{2}))?(?:-summary)?\.pdf$", pdf_or_start.name)
         day = lambda x: dt.datetime.combine(dt.date.fromisoformat(x), dt.time(), TZ)
         start = day(m[1])
         end = day(m[2]) + dt.timedelta(days=1) if m[2] else _next_period(kind, start)
@@ -1121,10 +1163,12 @@ def _next_period(kind, start):
     return start.replace(year=start.year + (m - 1) // 12, month=(m - 1) % 12 + 1)
 
 
-def report_path(kind, start, end=None):
+def report_path(kind, start, end=None, style="full"):
     stem = f"{kind}-{start:%Y-%m-%d}"
     if kind == "custom":
         stem += f"-to-{end - dt.timedelta(days=1):%Y-%m-%d}"
+    if style == "summary":
+        stem += "-summary"
     return OUT / f"{stem}.pdf"
 
 

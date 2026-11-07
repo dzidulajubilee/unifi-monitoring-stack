@@ -8,6 +8,10 @@
 .panel p.intro { color: var(--ink-2); margin: -4px 0 16px; }
 .bar { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
 .bar .field { flex: 1; min-width: 220px; margin: 0; }
+.recips { display: grid; grid-template-columns: 90px 1fr 1fr; gap: 8px 12px; align-items: center; }
+.recips .col { font-size: 13px; color: var(--ink-2); }
+.recips .row-label { font-size: 14px; }
+@media (max-width: 640px) { .recips { grid-template-columns: 1fr; } .recips > span:first-child, .recips .col { display: none; } .recips .row-label { margin-top: 8px; } }
 .incl { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; }
 .incl-row { align-items: flex-start; padding: 8px 0; margin: 0; border-bottom: 1px solid var(--rule); }
 .incl-row input { margin-top: 4px; }
@@ -72,10 +76,15 @@
 
   <section class="panel">
     <h2>Who gets each report</h2>
-    <p class="intro">Separate addresses with commas. Leave a report empty to only save it in the portal</p>
-    {% for k, l in [('weekly','Weekly'),('monthly','Monthly'),('quarterly','Quarterly')] %}
-    <div class="field" {% if loop.last %}style="margin:0"{% endif %}><label for="to_{{ k }}">{{ l }}</label><input type="text" id="to_{{ k }}" name="to_{{ k }}" value="{{ s.recipients[k] }}"></div>
-    {% endfor %}
+    <p class="intro">Every report is made in two versions. The full report has every section ticked above; the summary is the first page: summary, needs attention, headline numbers and the throughput chart. Its needs-attention list still covers everything. Separate addresses with commas; leave a box empty to send nothing</p>
+    <div class="recips">
+      <span></span><span class="col">Full report</span><span class="col">Summary only</span>
+      {% for k, l in [('weekly','Weekly'),('monthly','Monthly'),('quarterly','Quarterly')] %}
+      <span class="row-label">{{ l }}</span>
+      <input type="text" id="to_{{ k }}" name="to_{{ k }}" value="{{ s.recipients[k] }}" aria-label="{{ l }} full report recipients" placeholder="IT team">
+      <input type="text" id="to_s_{{ k }}" name="to_s_{{ k }}" value="{{ s.recipients_summary[k] }}" aria-label="{{ l }} summary recipients" placeholder="Management">
+      {% endfor %}
+    </div>
   </section>
 
   <section class="panel">

@@ -114,7 +114,7 @@ tr { break-inside: avoid; }
 
 {% if name %}<p class="eyebrow">{{ name }}</p>{% endif %}
 <h1>{% if kind == 'custom' %}Report, {{ title }}{% else %}{{ kind|capitalize }} report, {{ title }}{% endif %}</h1>
-<p class="stamp">{{ dates }} · {{ tzname }} · generated {{ generated.strftime('%-d %b %Y %H:%M') }}</p>
+<p class="stamp">{% if style == 'summary' %}Summary · {% endif %}{{ dates }} · {{ tzname }} · generated {{ generated.strftime('%-d %b %Y %H:%M') }}</p>
 
 {% if gap > 0.02 and 'gap_note' in on and 'summary' not in on %}<p class="note" style="margin:12pt 0 0">Metrics are missing for about {{ (gap * 100)|round|int }}% of this {{ word }} because UnPoller or Prometheus was not collecting. Totals are estimated from the data that exists.</p>{% endif %}
 
@@ -147,7 +147,7 @@ tr { break-inside: avoid; }
 {% endif %}
 
 {% if 'throughput' in on %}
-<section class="keep">
+<section class="keep"{% if style == 'summary' %} style="margin-top:14pt"{% endif %}>
   <div class="chart-head">
     <h2>Internet throughput</h2>
     <div class="legend">
@@ -156,7 +156,7 @@ tr { break-inside: avoid; }
     </div>
   </div>
   {{ chart|safe }}
-  <p class="note">Hourly averages of UniFi's WAN rate. Short bursts run higher than shown; 95% of the time download stayed under {{ d.wan_p95|bits }}. Data totals are estimated from the same rate.</p>
+  {% if style != 'summary' %}<p class="note">Hourly averages of UniFi's WAN rate. Short bursts run higher than shown; 95% of the time download stayed under {{ d.wan_p95|bits }}. Data totals are estimated from the same rate.</p>{% endif %}
 </section>
 {% endif %}
 
@@ -439,6 +439,10 @@ tr { break-inside: avoid; }
   <p class="empty">No firewall changes{{ ' or internet failovers' if 'isp' not in on }} this {{ word }}</p>
   {% endif %}
 </section>
+{% endif %}
+
+{% if style == 'summary' %}
+<p class="note" style="margin-top:10pt">This is the summary. The full report, with every section and the detail behind each point above, is in the reports portal.</p>
 {% endif %}
 
 {% if errors %}

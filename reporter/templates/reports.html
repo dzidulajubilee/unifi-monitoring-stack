@@ -35,8 +35,9 @@
           <td class="hide-sm muted">{{ r.kind }}</td>
           <td class="hide-sm mono muted">{{ r.made.strftime('%-d %b %H:%M') }}</td>
           <td><div class="actions">
-            <a class="btn quiet small" href="{{ url_for('download', name=r.file, view=1) }}" target="_blank" rel="noopener">View</a>
-            <a class="btn quiet small" href="{{ url_for('download', name=r.file) }}">Download</a>
+            <a class="btn quiet small" href="{{ url_for('download', name=r.file, view=1) }}" target="_blank" rel="noopener" title="Open the full report">View</a>
+            <a class="btn quiet small" href="{{ url_for('download', name=r.file) }}" title="Download the full report">Download</a>
+            {% if r.summary %}<a class="btn quiet small" href="{{ url_for('download', name=r.summary, view=1) }}" target="_blank" rel="noopener" title="Open the one-page summary">Summary</a>{% endif %}
             {% if is_admin %}
             <form method="post" action="{{ url_for('delete', name=r.file) }}" onsubmit="return confirm('Delete this report?')" style="margin:0">
               <input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn link small" title="Delete">Delete</button>
@@ -76,8 +77,12 @@
 
     <label class="check"><input type="checkbox" name="email" id="em" {{ 'disabled' if not mail_ready }}> Email it when ready</label>
     <div class="field" id="to-wrap" hidden>
+      <div class="kinds" role="radiogroup" aria-label="Which version to send" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
+        <input type="radio" name="style" id="st-full" value="full" checked><label for="st-full">Full report</label>
+        <input type="radio" name="style" id="st-summary" value="summary"><label for="st-summary">Summary only</label>
+      </div>
       <input type="text" name="to" id="to" placeholder="name@example.com, …" aria-label="Send to">
-      <div class="hint">Separate addresses with commas</div>
+      <div class="hint">Separate addresses with commas. Both versions are saved here either way</div>
     </div>
     {% if not mail_ready %}<p class="hint" style="margin:-4px 0 16px">Email isn't set up yet{% if is_admin %}, see <a href="{{ url_for('settings') }}">Settings</a>{% endif %}</p>{% endif %}
 
@@ -88,6 +93,7 @@
 
 <script>
 const recipients = {{ recipients|tojson }};
+const recipientsSummary = {{ recipients_summary|tojson }};
 const periods = {{ periods|tojson }};
 const nouns = {weekly: 'week', monthly: 'month', quarterly: 'quarter'};
 const form = document.getElementById('gen');
@@ -106,7 +112,7 @@ function sync() {
   const em = document.getElementById('em');
   document.getElementById('to-wrap').hidden = !em.checked;
   const to = document.getElementById('to');
-  if (!to.dataset.touched) to.value = recipients[kind] || '';
+  if (!to.dataset.touched) to.value = ((form.style.value === 'summary' ? recipientsSummary : recipients)[kind]) || '';
 }
 form.addEventListener('change', sync);
 document.getElementById('to').addEventListener('input', e => e.target.dataset.touched = 1);
