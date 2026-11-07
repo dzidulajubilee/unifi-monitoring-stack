@@ -61,6 +61,8 @@ services:
   # (sign in with a Grafana account; Grafana admins set up email and the schedule there)
   # command line: docker compose exec reporter python report.py run weekly --no-email
   reporter:
+    # ready-made image from GitHub Actions (docker compose pull reporter); "up --build" builds it locally instead
+    image: ghcr.io/dzidulajubilee/unifi-monitoring-stack/reporter:latest
     build: ./reporter
     restart: unless-stopped
     container_name: reporter

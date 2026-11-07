@@ -469,6 +469,13 @@ def notifications_read():
     return notifications()
 
 
+@app.post("/notifications/clear")
+@login_required()
+def notifications_clear():
+    R.clear(me(), [n["id"] for n in R.notes_for(me(), session.get("admin"))])
+    return notifications()
+
+
 @app.get("/download/<name>")
 @login_required()
 def download(name):
