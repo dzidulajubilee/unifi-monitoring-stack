@@ -533,7 +533,7 @@
       "description": "All policies (enabled and disabled) grouped by action. Source: unpoller_firewall_rules_by_action.",
       "id": 7,
       "title": "Rules by action",
-      "type": "piechart",
+      "type": "bargauge",
       "gridPos": {
         "h": 9,
         "w": 6,
@@ -543,11 +543,13 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "fixed",
+            "fixedColor": "#8a8984"
           },
           "decimals": 0,
           "unit": "none",
-          "mappings": []
+          "mappings": [],
+          "min": 0
         },
         "overrides": [
           {
@@ -598,18 +600,20 @@
         ]
       },
       "options": {
-        "pieType": "donut",
-        "displayLabels": [
-          "value"
-        ],
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "namePlacement": "left",
+        "valueMode": "text",
+        "showUnfilled": true,
+        "sizing": "manual",
+        "minVizHeight": 16,
+        "maxVizHeight": 28,
+        "minVizWidth": 8,
         "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "showLegend": true,
-          "values": [
-            "value",
-            "percent"
-          ]
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
         },
         "reduceOptions": {
           "calcs": [
@@ -617,10 +621,6 @@
           ],
           "fields": "",
           "values": false
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
         }
       },
       "targets": [
@@ -646,7 +646,7 @@
       "description": "UniFi-generated zone policies versus policies you created.",
       "id": 8,
       "title": "Predefined vs custom",
-      "type": "piechart",
+      "type": "bargauge",
       "gridPos": {
         "h": 9,
         "w": 6,
@@ -656,11 +656,13 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "fixed",
+            "fixedColor": "#8a8984"
           },
           "decimals": 0,
           "unit": "none",
-          "mappings": []
+          "mappings": [],
+          "min": 0
         },
         "overrides": [
           {
@@ -696,18 +698,20 @@
         ]
       },
       "options": {
-        "pieType": "donut",
-        "displayLabels": [
-          "value"
-        ],
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "namePlacement": "left",
+        "valueMode": "text",
+        "showUnfilled": true,
+        "sizing": "manual",
+        "minVizHeight": 16,
+        "maxVizHeight": 28,
+        "minVizWidth": 8,
         "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "showLegend": true,
-          "values": [
-            "value",
-            "percent"
-          ]
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
         },
         "reduceOptions": {
           "calcs": [
@@ -715,10 +719,6 @@
           ],
           "fields": "",
           "values": false
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
         }
       },
       "targets": [
