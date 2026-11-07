@@ -236,6 +236,74 @@ tr { break-inside: avoid; }
 </section>
 {% endif %}
 
+{% if 'apps' in on and d.dpi %}
+{% set a = d.dpi %}
+<section class="keep">
+  <h2>Applications</h2>
+  {% if a.apps %}
+  <div class="cols">
+    <div><h3>Top applications, share of traffic</h3>
+      <table class="rank">{% set top = a.apps[0].n %}
+        {% for r in a.apps %}<tr><td class="name"><span>{{ r.name }}</span><div class="bar" style="width:{{ (r.n / top * 100)|round(1) }}%"></div></td><td class="n mono">{{ r.n|pct(1) }}</td></tr>{% endfor %}
+      </table></div>
+    <div><h3>By category</h3>
+      <table class="rank">{% set top = a.categories[0].n if a.categories else 1 %}
+        {% for r in a.categories %}<tr><td class="name"><span>{{ r.name }}</span><div class="bar" style="width:{{ (r.n / top * 100)|round(1) }}%"></div></td><td class="n mono">{{ r.n|pct(1) }}</td></tr>{% endfor %}
+      </table></div>
+  </div>
+  <p class="note">Share of the traffic UniFi's traffic identification (DPI) recognised, averaged over the {{ word }}. UniFi only reports recent application traffic, not running totals, so shares are shown rather than amounts. Unrecognised and encrypted traffic appears under generic names such as Unknown or SSL/TLS.{% if a.coverage < 0.05 %} Application data only started being collected recently, so these shares cover a small part of this {{ word }}.{% elif a.coverage < 0.95 %} Application data covers about {{ (a.coverage * 100)|round|int }}% of this {{ word }}.{% endif %}</p>
+  {% else %}
+  <p class="empty">No application data for this {{ word }}. It needs traffic identification (DPI) on in UniFi and UP_UNIFI_CONTROLLER_0_SAVE_DPI=true in unpoller/.env</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if 'wifi' in on and d.wifi %}
+{% set w = d.wifi %}
+<section>
+  <h2>Wi-Fi experience and stability</h2>
+  <div class="cols">
+    <table class="kv">
+      <tr><td>Wi-Fi experience, average</td><td class="n">{{ w.sat|pct }}</td></tr>
+      <tr><td>Devices with a weak signal</td><td class="n">{{ w.weak|length }} of {{ w.clients_wireless }}</td></tr>
+      <tr><td>Devices on 5 GHz, average</td><td class="n">{{ w.band5|pct }}</td></tr>
+      <tr><td>Access point channel changes</td><td class="n">{{ w.channel_changes|num }}</td></tr>
+    </table>
+    <table class="kv">
+      <tr><td>Wireless connections</td><td class="n">{{ w.connects|num }}</td></tr>
+      <tr><td>Wireless disconnections</td><td class="n">{{ w.disconnects|num }}</td></tr>
+      <tr><td>Moves between access points</td><td class="n">{{ w.roams|num }}</td></tr>
+      <tr><td>IP address conflicts</td><td class="n">{{ w.ip_conflicts|length }}</td></tr>
+    </table>
+  </div>
+
+  <div class="cols" style="margin-top:16pt">
+    <div class="keep">
+      <h3>Weakest signal</h3>
+      {% if w.weak %}
+      <table class="rank">
+        {% for x in w.weak[:8] %}
+        <tr><td class="name"><span>{{ x.name }}</span><span class="detail">{{ x.detail }}</span></td><td class="n mono">{{ '%.0f'|format(x.dbm) }} dBm</td></tr>
+        {% endfor %}
+      </table>
+      {% else %}<p class="empty">Every device averaged a good signal</p>{% endif %}
+    </div>
+    <div class="keep"><h3>Channel changes by access point</h3>{{ ranked(w.channel_by_ap, "No channel changes") }}</div>
+  </div>
+  <div class="cols" style="margin-top:16pt">
+    <div class="keep"><h3>Devices that disconnected most</h3>{{ ranked(w.top_disconnects, "No wireless disconnections") }}</div>
+    <div class="keep"><h3>Devices that moved between access points most</h3>{{ ranked(w.top_roams, "No moves between access points") }}</div>
+  </div>
+  {% if w.ip_conflicts %}
+  <h3 style="margin-top:16pt">IP address conflicts</h3>
+  <table class="log">
+    {% for c in w.ip_conflicts[-10:] %}<tr><td class="t">{{ c.t.strftime('%a %-d %b %H:%M') }}</td><td>{{ c.msg }}</td></tr>{% endfor %}
+  </table>
+  {% endif %}
+  <p class="note">Wi-Fi experience is UniFi's satisfaction score for wireless devices; above 80% is good. A weak signal is an average below −75 dBm; those devices are slow and drop often, usually because they're far from an access point or behind walls. Frequent channel changes mean an access point keeps finding interference. Disconnections include devices leaving the building or going to sleep, so compare devices with each other rather than reading the totals alone.</p>
+</section>
+{% endif %}
+
 {% if 'security' in on %}
 <section>
   <h2>Security</h2>

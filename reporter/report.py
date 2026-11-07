@@ -263,6 +263,80 @@ def collect(s: Source):
     return d
 
 
+CLIENT_LOG = '{application="unifi_system_log", category="CLIENT_DEVICES"}'
+DEVICE_LOG = '{application="unifi_system_log", category="UNIFI_DEVICES"}'
+WEAK_DBM = -75   # below this, Wi-Fi is slow and drops; UniFi also treats it as poor
+
+
+def collect_wifi(s: Source):
+    """Wi-Fi experience (Prometheus) and stability (UniFi System Log in Loki)."""
+    d, L = {}, "loki"
+    wl = 'wired="false"'
+    d["sat"] = s.scalar(f"avg_over_time(avg(unpoller_client_satisfaction_ratio{{{wl}}} >= 0)[$R:5m])")
+    bands = s.by("avg_over_time(sum by (band) (unpoller_device_radio_stations)[$R:5m])", "band")
+    total = sum(bands.values())
+    d["band5"] = bands.get("5", 0) / total if total else None
+    # devices whose signal averaged weak over the period, worst first, with where they were
+    sig = s.by("avg by (mac) (avg_over_time(unpoller_client_radio_signal_db[$R]))", "mac")
+    info = {x["metric"].get("mac"): x["metric"] for x in s.prom("last_over_time(unpoller_client_radio_signal_db[$R])") or []}
+    weak = []
+    for mac, dbm in sig.items():
+        if dbm < WEAK_DBM:
+            m = info.get(mac, {})
+            name = m.get("name") or mac
+            if re.fullmatch(r"([0-9a-f]{2}:){5}[0-9a-f]{2}", name):
+                name = "Unnamed device"
+            weak.append({"name": name, "dbm": dbm, "ap": m.get("ap_name", ""),
+                         "detail": " · ".join(x for x in (mac[-5:], m.get("ap_name", ""), m.get("essid", "")) if x)})
+    d["weak"] = sorted(weak, key=lambda w: w["dbm"])
+    d["clients_wireless"] = len(sig)
+
+    ev = lambda e: f'{CLIENT_LOG} |= `"event":"{e}"`'
+    d["connects"] = s.scalar(f"sum(count_over_time({ev('CLIENT_CONNECTED_WIRELESS')} [$R]))", L)
+    d["disconnects"] = s.scalar(f"sum(count_over_time({ev('CLIENT_DISCONNECTED_WIRELESS')} [$R]))", L)
+    d["roams"] = s.scalar(f"sum(count_over_time({ev('CLIENT_ROAMED')} [$R]))", L)
+    who = '| json client="parameters.CLIENT.name"'
+    d["top_disconnects"] = _top(s.by(f"topk(8, sum by (client) (count_over_time({ev('CLIENT_DISCONNECTED_WIRELESS')} {who} [$R])))", "client", L))
+    d["top_roams"] = _top(s.by(f"topk(8, sum by (client) (count_over_time({ev('CLIENT_ROAMED')} {who} [$R])))", "client", L))
+    chan = f'{DEVICE_LOG} |= `"event":"AP_CHANGED_CHANNELS"` | json dev="parameters.DEVICE.name"'
+    d["channel_changes"] = s.scalar(f"sum(count_over_time({chan} [$R]))", L)
+    d["channel_by_ap"] = _top(s.by(f"sum by (dev) (count_over_time({chan} [$R]))", "dev", L))
+    conflicts = []
+    for stream in s.loki_lines(f'{DEVICE_LOG} |= `"event":"CLIENT_IP_CONFLICT"`', 50) or []:
+        for ts, line in stream["values"]:
+            conflicts.append({"t": dt.datetime.fromtimestamp(int(ts) / 1e9, TZ), "msg": _json(line).get("message", "")})
+    d["ip_conflicts"] = sorted(conflicts, key=lambda c: c["t"])
+    return d
+
+
+DPI_RX = 'unpoller_client_dpi_receive_bytes{mac!="TOTAL"}'
+DPI_TX = 'unpoller_client_dpi_transmit_bytes{mac!="TOTAL"}'
+
+
+def collect_apps(s: Source):
+    """Share of traffic by application and category, from UniFi's traffic identification (DPI).
+
+    UniFi reports each device's application traffic as a rolling figure that rises and
+    falls, not a running total, so bytes per application over a period can't be summed
+    reliably. Averaging the rolling figures over the period gives a fair ranking and share."""
+    step = f"{max(60, s.secs // 400)}s"  # ~400 samples per period: 1 min for an hour, ~25 min for a week
+
+    def share(label):
+        out = {}
+        for m in (DPI_RX, DPI_TX):
+            for k, v in s.by(f"avg_over_time(sum by ({label}) ({m})[$R:{step}])", label).items():
+                k = re.sub(r"_\d+$", "", k).replace("_", " ")  # UniFi suffixes: "Unknown_255", "Network Protocols_20"
+                out[k] = out.get(k, 0) + v
+        total = sum(out.values())
+        return [{"name": k, "n": v / total} for k, v in sorted(out.items(), key=lambda kv: -kv[1]) if v > 0] if total else []
+    d = {"apps": share("application")[:10], "categories": share("category")[:8]}
+    have = s.scalar(f"count_over_time(count({DPI_RX})[$R:{step}])")
+    d["coverage"] = min(1.0, (have or 0) / max(1, s.secs // int(step[:-1])))
+    p2p = sum(r["n"] for r in d["categories"] if "peer" in r["name"].lower())
+    d["p2p"] = p2p or sum(r["n"] for r in d["apps"] if "torrent" in r["name"].lower())
+    return d
+
+
 def _top(m):
     return [{"name": k or "unknown", "n": v} for k, v in sorted(m.items(), key=lambda kv: -kv[1])]
 
@@ -445,6 +519,8 @@ SECTIONS = [
     ("internet", "Internet and gateway", "Data used, latency, failovers, internet lines, gateway CPU, memory and temperature"),
     ("devices", "Devices", "Devices online and the ten that used the most data"),
     ("aps", "Access points", "Traffic, clients, Wi-Fi experience and channel use per access point"),
+    ("apps", "Applications", "Top applications and categories by traffic (needs DPI on in UniFi and SAVE_DPI=true in unpoller/.env)"),
+    ("wifi", "Wi-Fi experience and stability", "Satisfaction, weak-signal devices, 2.4/5 GHz split, disconnections, roaming, channel changes, IP conflicts"),
     ("security", "Firewall and security", "Blocked connections, top blocking rules and sources, threat totals, admin logins"),
     ("threats", "Threats blocked", "Each threat intrusion prevention detected, with device, target and severity"),
     ("events", "Changes and events", "Firewall changes by admins and internet failovers"),
@@ -507,6 +583,24 @@ def attention(d, on=None):
     for ap in d["aps"] if aps else []:
         if (ap["u24"] or 0) > 0.6:
             a.append(f"{ap['name']} 2.4 GHz channel averaged {fpct(ap['u24'])} busy, clients there will feel slow")
+    a_ = d.get("dpi")
+    if a_ and "apps" in on and a_["p2p"] > 0.05:
+        a.append(f"Peer-to-peer file sharing (such as BitTorrent) was {fpct(a_['p2p'])} of identified traffic; "
+                 "check it's allowed, it often carries pirated content and malware")
+    w = d.get("wifi")
+    if w and "wifi" in on:
+        if w["weak"]:
+            n = len(w["weak"])
+            a.append(f"{n} device{'s' * (n != 1)} had a weak Wi-Fi signal on average (below {WEAK_DBM} dBm), see Wi-Fi")
+        if w["sat"] is not None and w["sat"] < 0.8:
+            a.append(f"Average Wi-Fi experience was {fpct(w['sat'])}, below the 80% UniFi treats as good")
+        days = max(1, d.get("_days", 7))
+        for r in w["channel_by_ap"]:
+            if r["n"] / days > 3:
+                a.append(f"{r['name']} changed channel {r['n']:.0f} times, a sign of interference near it")
+        if w["ip_conflicts"]:
+            n = len(w["ip_conflicts"])
+            a.append(f"{n} IP address conflict{'s' * (n != 1)} on the network, see Wi-Fi")
     return a
 
 
@@ -525,6 +619,9 @@ def build(kind, end=None, start=None):
 
     cur, prev = Source(start, end), Source(prev_start, start)
     d, p = collect(cur), collect(prev)
+    d["_days"] = (end - start).days
+    d["wifi"] = collect_wifi(cur) if "wifi" in on else None
+    d["dpi"] = collect_apps(cur) if "apps" in on else None
     cov = prev.coverage()
     gap = 1 - cur.coverage()["prom"]
     covered = {k: v >= 0.95 for k, v in cov.items()}
