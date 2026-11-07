@@ -13,6 +13,12 @@ The real settings live in the `.env` files, which git ignores. At minimum set th
 (or API key) in `unpoller/.env`, a strong Grafana admin password in `grafana/.env`, and `TZ` everywhere.
 `reporter/.env` can set `GRAFANA_PUBLIC_URL` so report PDFs link into Grafana.
 
+Dozzle asks for a login. Create its users file once (it's ignored by git):
+
+```bash
+docker run --rm amir20/dozzle:v11.4.1 generate <username> --password '<password>' > dozzle/data/users.yml
+```
+
 The data folders (`grafana/data`, `prometheus/data`, `loki/data`, `reporter/out`) must be writable by the UID/GID
 the containers run as (1000 by default).
 
@@ -46,5 +52,5 @@ front before exposing it.
 
 ## Backups
 
-Back up the `.env` files and the four data folders. `reporter/out/settings.json` holds the email settings,
+Back up the `.env` files, the four data folders and `dozzle/data/users.yml`. `reporter/out/settings.json` holds the email settings,
 including the SMTP password.

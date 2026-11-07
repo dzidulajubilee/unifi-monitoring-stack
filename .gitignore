@@ -8,6 +8,8 @@ loki/data/*
 !loki/data/.gitkeep
 reporter/out/*
 !reporter/out/.gitkeep
+dozzle/data/*
+!dozzle/data/.gitkeep
 
 # Real settings and credentials: each service has a committed .env.example;
 # copy it to .env and edit that. Never commit a .env.
