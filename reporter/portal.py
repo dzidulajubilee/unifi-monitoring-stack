@@ -53,10 +53,10 @@ _ids = itertools.count(1)
 _lock = threading.Lock()
 
 
-def enqueue(kind, start, end, by, to=""):
+def enqueue(kind, start, end, by, to="", login=None):
     with _lock:
         jid = next(_ids)
-        jobs[jid] = {"id": jid, "kind": kind, "start": start, "end": end, "by": by, "to": to,
+        jobs[jid] = {"id": jid, "kind": kind, "start": start, "end": end, "by": by, "to": to, "login": login,
                      "status": "queued", "file": None, "error": None, "queued_at": dt.datetime.now(R.TZ)}
         for old in sorted(jobs)[:-30]:
             jobs.pop(old)
@@ -71,16 +71,34 @@ def worker():
         if not job:
             continue
         job["status"] = "running"
+        kind, by, login = job["kind"], job["by"], job.get("login")
+        what = R.report_title(kind, job["start"], job["end"])
+        who = "automatically" if by == "schedule" else f"by {by}"
         try:
-            pdf = R.run(job["kind"], job["end"], start=job["start"] if job["kind"] == "custom" else None,
-                        send=False, to=job["to"] or None)
-            job.update(status="done", file=pdf.name)
-        except Exception as e:  # noqa: BLE001 - shown to the user, worker keeps going
+            pdf, subject, lines, errors = R.build(kind, job["end"], job["start"] if kind == "custom" else None)
+        except Exception as e:  # noqa: BLE001 - reported, worker keeps going
             log.exception("job %s failed", jid)
-            pdf = R.report_path(job["kind"], job["start"], job["end"])
-            # the PDF may exist even when only the email failed
-            job.update(status="failed", error=str(e) or e.__class__.__name__,
-                       file=pdf.name if pdf.exists() else None)
+            job.update(status="failed", error=str(e) or e.__class__.__name__)
+            R.notify(f"{what} could not be made ({who}): {job['error']}", "error", by=by)
+            continue
+        job.update(status="done", file=pdf.name)
+        if errors:  # Prometheus or Loki didn't answer some queries: those figures show as –
+            R.notify(f"{what} was made {who}, but {errors} figure{'s' * (errors != 1)} couldn't be fetched "
+                     "from Prometheus or Loki and show as –. Check those services and make it again",
+                     "error", by=by, file=pdf.name)
+        if not job["to"]:
+            R.notify(f"{what} was made {who}", by=by, file=pdf.name)
+            continue
+        try:
+            R.email_report(pdf, subject, lines, job["to"])
+            R.notify(f"{what} was made {who} and emailed to {job['to']}", by=by, file=pdf.name)
+        except Exception as e:  # noqa: BLE001 - the PDF is saved either way
+            log.exception("job %s: email failed", jid)
+            job["error"] = f"Email failed: {R.mail_error(e)}"
+            # addresses and mail errors go to admins and the person who asked
+            R.notify(f"{what} was made {who}, but emailing it to {job['to']} failed: {R.mail_error(e)}. "
+                     "The report is saved here",
+                     "error", by=by, file=pdf.name, admins_only=True, for_user=login)
 
 
 def scheduler():
@@ -102,7 +120,7 @@ _fails = {}  # ip -> [timestamps]
 
 
 def grafana_login(user, password):
-    """Check the credentials against Grafana. Returns (name, is_admin) or None."""
+    """Check the credentials against Grafana. Returns (name, is_admin, login) or None."""
     token = base64.b64encode(f"{user}:{password}".encode()).decode()
     def get(path):
         req = urllib.request.Request(GRAFANA + path, headers={"Authorization": f"Basic {token}"})
@@ -116,7 +134,7 @@ def grafana_login(user, password):
         raise
     orgs = get("/api/user/orgs")
     admin = bool(me.get("isGrafanaAdmin")) or any(o.get("role") == "Admin" for o in orgs)
-    return me.get("name") or me.get("login") or user, admin
+    return me.get("name") or me.get("login") or user, admin, me.get("login") or user
 
 
 def login_required(admin=False):
@@ -158,7 +176,7 @@ def login():
             if res:
                 session.clear()
                 session.permanent = True
-                session.update(user=res[0], admin=res[1], csrf=secrets.token_hex(16))
+                session.update(user=res[0], admin=res[1], login=res[2], csrf=secrets.token_hex(16))
                 _fails.pop(ip, None)
                 nxt = request.args.get("next", "")
                 return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else url_for("index"))
@@ -181,7 +199,7 @@ NAME = re.compile(r"^(weekly|monthly|quarterly|custom)-(\d{4}-\d{2}-\d{2})(?:-to
 
 def describe(kind, start, last):
     if kind == "custom":
-        return "Custom", f"{start:%-d %b} – {last:%-d %b %Y}"
+        return "Custom", f"{start:%-d %b %Y}" if start == last else f"{start:%-d %b} – {last:%-d %b %Y}"
     end = last + dt.timedelta(days=1)
     s = dt.datetime.combine(start, dt.time(), R.TZ)
     e = dt.datetime.combine(end, dt.time(), R.TZ)
@@ -230,9 +248,24 @@ def job_view(j):
 def index():
     s = R.load_settings()
     today = dt.datetime.now(R.TZ).date()
-    return render_template("reports.html", reports=archive(), jobs=[job_view(j) for j in reversed(jobs.values())],
+    return render_template("reports.html", reports=archive(), jobs=active_jobs(), periods=period_choices(),
                            recipients=s["recipients"], today=today, schedule=schedule_text(s["schedule"]),
                            week_ago=today - dt.timedelta(days=7), mail_ready=bool(s["smtp"].get("host")))
+
+
+def period_choices():
+    """The two periods offered for each report type, with their real dates."""
+    now = dt.datetime.now(R.TZ)
+    out = {}
+    for kind in ("weekly", "monthly", "quarterly"):
+        end = R.period_end(kind, now)
+        last = R.period_start(kind, end)
+        before = R.period_start(kind, last)
+        label = lambda s, e: " · ".join(R.period_label(kind, s, e)) if kind == "weekly" else \
+            R.period_label(kind, s, e)[0] + (f" · {R.period_label(kind, s, e)[1]}" if kind == "quarterly" else "")
+        out[kind] = {"last": label(last, end), "previous": label(before, last),
+                     "current": label(end, R._next_period(kind, end))}
+    return out
 
 
 def schedule_text(sch):
@@ -275,14 +308,58 @@ def generate():
     if to and not R.load_settings()["smtp"].get("host"):
         flash("Email isn't set up yet, so the report will only be saved here")
         to = ""
-    enqueue(kind, start, end, session["user"], to)
+    enqueue(kind, start, end, session["user"], to, login=me())
     return redirect(url_for("index"))
+
+
+def active_jobs():
+    """Only reports still waiting or being made; finished ones go to notifications."""
+    return [job_view(j) for j in reversed(jobs.values()) if j["status"] in ("queued", "running")]
 
 
 @app.get("/jobs")
 @login_required()
 def jobs_json():
-    return jsonify([job_view(j) for j in reversed(jobs.values())])
+    return jsonify(active_jobs())
+
+
+# ---------------------------------------------------------------- notifications
+
+def me():
+    return session.get("login") or session.get("user")
+
+
+def when(iso):
+    t = dt.datetime.fromisoformat(iso).astimezone(R.TZ)
+    secs = (dt.datetime.now(R.TZ) - t).total_seconds()
+    if secs < 60:
+        return "just now"
+    if secs < 3600:
+        return f"{int(secs // 60)} min ago"
+    if secs < 6 * 3600:
+        return f"{int(secs // 3600)} h ago"
+    return t.strftime("%-d %b %H:%M")
+
+
+@app.get("/notifications")
+@login_required()
+def notifications():
+    notes = R.notes_for(me(), session.get("admin"))
+    return jsonify({"unread": sum(not n["read"] for n in notes),
+                    "items": [{"id": n["id"], "text": n["text"], "level": n["level"], "read": n["read"],
+                               "when": when(n["t"]), "file": n["file"] if n.get("file") and (R.OUT / n["file"]).exists() else None}
+                              for n in notes[:50]]})
+
+
+@app.post("/notifications/read")
+@login_required()
+def notifications_read():
+    if request.form.get("all"):
+        ids = [n["id"] for n in R.notes_for(me(), session.get("admin"))]
+    else:
+        ids = request.form.getlist("id")
+    R.mark_read(me(), ids)
+    return notifications()
 
 
 @app.get("/download/<name>")
@@ -299,6 +376,7 @@ def delete(name):
     if NAME.match(name) and (R.OUT / name).exists():
         (R.OUT / name).unlink()
         flash(f"Deleted {name}")
+        R.notify(f"{session['user']} deleted {name}", by=session["user"], admins_only=True)
     return redirect(url_for("index"))
 
 
@@ -341,6 +419,7 @@ def settings():
                              kinds=[k for k in ("weekly", "monthly", "quarterly") if f.get(f"auto_{k}")])
         R.save_settings(s)
         log.info("settings changed by %s", session["user"])
+        R.notify(f"Settings were changed by {session['user']}", by=session["user"], admins_only=True)
         flash("Settings saved")
         if f.get("action") == "test":
             to = f.get("test_to", "").strip()
@@ -349,7 +428,7 @@ def settings():
                             "This is a test from the reports portal. Email is working.")
                 flash(f"Test email sent to {to}")
             except Exception as e:  # noqa: BLE001
-                flash(f"Test email failed: {e}")
+                flash(f"Test email failed: {R.mail_error(e)}")
         return redirect(url_for("settings"))
     return render_template("settings.html", s=s, has_password=bool(s["smtp"].get("password")), sections=R.SECTIONS,
                            timezones=R.timezones())

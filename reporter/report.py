@@ -17,6 +17,7 @@ import os
 import re
 import smtplib
 import sys
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -90,7 +91,10 @@ def period_label(kind, start, end):
     if kind == "monthly":
         return f"{start:%B %Y}", f"{start:%-d %b} – {last:%-d %b %Y}"
     if kind == "custom":
-        return f"{start:%-d %b} – {last:%-d %b %Y}", f"{(end - start).days} days"
+        days = max(1, round((end - start).total_seconds() / 86400))
+        if start.date() == last.date():
+            return f"{start:%-d %b %Y}", "1 day"
+        return f"{start:%-d %b} – {last:%-d %b %Y}", f"{days} days"
     return (f"Q{(start.month - 1) // 3 + 1} {start.year}",
             f"{start:%b} – {last:%b %Y}")
 
@@ -559,7 +563,7 @@ def build(kind, end=None, start=None):
     log.info("wrote %s (%d query errors)", pdf, len(cur.errors + prev.errors))
     what = f"{kind.capitalize()} report, {title}" if kind != "custom" else f"Report for {title}"
     subject = f"{name}: {what} ({dates})" if name else f"{what} ({dates})"
-    return pdf, subject, summary(d, p, word, covered, on)
+    return pdf, subject, summary(d, p, word, covered, on), len(cur.errors + prev.errors)
 
 
 # ---------------------------------------------------------------- settings
@@ -627,6 +631,61 @@ def split_addresses(text):
     return [a.strip() for a in re.split(r"[,;\s]+", text or "") if a.strip()]
 
 
+# ---------------------------------------------------------------- notifications
+
+# What happened (reports made, emails sent or failed, settings changed), shown
+# in the portal's notification list. Read state is kept per user.
+NOTES = OUT / "notifications.json"
+READS = OUT / "notifications-read.json"
+_notes_lock = threading.Lock()
+
+
+def _read_json(path, default):
+    try:
+        return json.loads(path.read_text())
+    except (FileNotFoundError, ValueError):
+        return default
+
+
+def _write_json(path, data):
+    OUT.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data))
+    tmp.replace(path)
+
+
+def notify(text, level="info", by=None, file=None, admins_only=False, for_user=None):
+    """level: info or error. admins_only notes are shown to admins and to for_user."""
+    note = {"id": os.urandom(6).hex(), "t": dt.datetime.now(TZ).isoformat(), "text": text, "level": level,
+            "by": by, "file": file, "admins_only": admins_only, "for_user": for_user}
+    with _notes_lock:
+        notes = _read_json(NOTES, [])
+        notes.append(note)
+        _write_json(NOTES, notes[-300:])
+    log.info("notification: %s", text)
+
+
+def notes_for(login, admin):
+    """Newest first, with a read flag for this user."""
+    with _notes_lock:
+        notes = _read_json(NOTES, [])
+        read = set(_read_json(READS, {}).get(login, []))
+    out = []
+    for n in reversed(notes):
+        if n.get("admins_only") and not admin and n.get("for_user") != login:
+            continue
+        out.append({**n, "read": n["id"] in read})
+    return out
+
+
+def mark_read(login, ids):
+    with _notes_lock:
+        reads = _read_json(READS, {})
+        live = {n["id"] for n in _read_json(NOTES, [])}
+        reads[login] = sorted((set(reads.get(login, [])) | set(ids)) & live)  # forget ids of pruned notes
+        _write_json(READS, reads)
+
+
 # ---------------------------------------------------------------- email
 
 def send_mail(to, subject, text, html_body=None, attachment=None, smtp=None):
@@ -654,6 +713,29 @@ def send_mail(to, subject, text, html_body=None, attachment=None, smtp=None):
     log.info("emailed %r to %s", subject, ", ".join(to))
 
 
+def mail_error(e):
+    """Plain-language reason an email failed."""
+    import socket
+    if isinstance(e, smtplib.SMTPAuthenticationError):
+        return "the mail server rejected the username or password (for Gmail, use an app password)"
+    if isinstance(e, ConnectionRefusedError):
+        return "the mail server refused the connection; check the server name and port"
+    if isinstance(e, (socket.timeout, TimeoutError)):
+        return "the mail server didn't answer; check the server name, port and security setting"
+    if isinstance(e, socket.gaierror):
+        return "the mail server name couldn't be found; check the SMTP server setting"
+    if isinstance(e, smtplib.SMTPRecipientsRefused):
+        return f"the mail server refused the address(es): {', '.join(e.recipients)}"
+    if isinstance(e, (smtplib.SMTPNotSupportedError, ssl_error_types())):
+        return "the security setting doesn't match the mail server; try STARTTLS on port 587 or SSL/TLS on 465"
+    return str(e) or e.__class__.__name__
+
+
+def ssl_error_types():
+    import ssl
+    return ssl.SSLError
+
+
 def email_report(pdf, subject, lines, to):
     send_mail(to, subject, "\n\n".join(lines) + "\n\nThe full report is attached.",
               "".join(f"<p>{html.escape(x)}</p>" for x in lines)
@@ -662,16 +744,45 @@ def email_report(pdf, subject, lines, to):
 
 def run(kind, end=None, send=True, start=None, to=None):
     """Build a report; email it to `to`, or to the kind's recipients when send=True."""
-    pdf, subject, lines = build(kind, end, start)
+    pdf, subject, lines, errors = build(kind, end, start)
+    what = report_title(kind, pdf)
     if to is None and send:
         to = load_settings()["recipients"].get(kind, "")
     if to:
         try:
             email_report(pdf, subject, lines, to)
-        except Exception:  # noqa: BLE001 - the PDF is saved either way
+        except Exception as e:  # noqa: BLE001 - the PDF is saved either way
             log.exception("email failed; report kept at %s", pdf)
+            notify(f"{what} was made from the command line, but emailing it to {to} failed: {mail_error(e)}",
+                   "error", file=pdf.name, admins_only=True)
             raise
+        notify(f"{what} was made from the command line and emailed to {to}", file=pdf.name)
+    else:
+        notify(f"{what} was made from the command line", file=pdf.name)
     return pdf
+
+
+def report_title(kind, pdf_or_start, end=None):
+    """'Weekly report, Week 44 (26 Oct – 1 Nov 2026)' from a report file, or from a period start/end."""
+    if isinstance(pdf_or_start, Path):
+        m = re.match(r"\w+-(\d{4}-\d{2}-\d{2})(?:-to-(\d{4}-\d{2}-\d{2}))?\.pdf$", pdf_or_start.name)
+        day = lambda x: dt.datetime.combine(dt.date.fromisoformat(x), dt.time(), TZ)
+        start = day(m[1])
+        end = day(m[2]) + dt.timedelta(days=1) if m[2] else _next_period(kind, start)
+    else:
+        start = pdf_or_start
+    title, dates = period_label(kind, start, end)
+    if kind == "custom":
+        return f"Report for {title}"
+    return f"{kind.capitalize()} report, {title} ({dates})"
+
+
+def _next_period(kind, start):
+    if kind == "weekly":
+        return start + dt.timedelta(days=7)
+    months = 1 if kind == "monthly" else 3
+    m = start.month + months
+    return start.replace(year=start.year + (m - 1) // 12, month=(m - 1) % 12 + 1)
 
 
 def report_path(kind, start, end=None):
