@@ -9,5 +9,9 @@ loki/data/*
 reporter/out/*
 !reporter/out/.gitkeep
 
+# Real settings and credentials: each service has a committed .env.example;
+# copy it to .env and edit that. Never commit a .env.
+*/.env
+
 # Backups of config files, e.g. unpoller/.env.bak, can hold credentials
 *.bak

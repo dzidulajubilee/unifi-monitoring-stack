@@ -1,0 +1,17 @@
+UniFi Monitoring Stack
+Copyright (C) 2026 dzidulajubilee
+
+This project is derived from unpoller-unifi by Techno Tim (Timothy Stewart),
+https://github.com/timothystewart6/unpoller-unifi
+The original Docker Compose stack and Grafana dashboards come from that
+project, and its commits are preserved in this repository's history under
+their original author. The original project was published without a license;
+its author's rights in that material are unaffected by this repository's
+license.
+
+The work added in this repository (including the reporter and reports portal
+in reporter/, the Loki log pipeline and the firewall dashboard changes) is
+licensed under the GNU General Public License v3.0; see LICENSE.
+
+reporter/fonts/ contains IBM Plex Sans and IBM Plex Mono, Copyright IBM Corp.,
+licensed under the SIL Open Font License 1.1; see reporter/fonts/OFL.txt.
