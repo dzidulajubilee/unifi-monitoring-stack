@@ -12,11 +12,14 @@
 .recips .col { font-size: 13px; color: var(--ink-2); }
 .recips .row-label { font-size: 14px; }
 @media (max-width: 640px) { .recips { grid-template-columns: 1fr; } .recips > span:first-child, .recips .col { display: none; } .recips .row-label { margin-top: 8px; } }
-.incl { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; }
-.incl-row { align-items: flex-start; padding: 8px 0; margin: 0; border-bottom: 1px solid var(--rule); }
-.incl-row input { margin-top: 4px; }
+.incl-head, .incl-row { display: grid; grid-template-columns: 1fr 96px 96px; gap: 12px; align-items: start; }
+.incl-head { font-size: 13px; color: var(--ink-2); padding-bottom: 6px; border-bottom: 1px solid var(--rule-2); }
+.incl-head span:not(:first-child), .tick { text-align: center; }
+.incl-row { padding: 10px 0; border-bottom: 1px solid var(--rule); }
+.incl-row:last-child { border-bottom: 0; }
 .incl-label { display: block; }
-@media (max-width: 640px) { .incl { grid-template-columns: 1fr; } }
+.tick input { margin-top: 4px; accent-color: var(--accent); width: 16px; height: 16px; }
+@media (max-width: 640px) { .incl-head, .incl-row { grid-template-columns: 1fr 64px 64px; } }
 @media (max-width: 640px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
 </style>
 
@@ -43,11 +46,15 @@
 
   <section class="panel">
     <h2>What to include</h2>
-    <p class="intro">Applies to every report, scheduled or made by hand</p>
-    <div class="incl">
+    <p class="intro">Every report is made in two versions. Tick what each one shows. Needs attention and the summary sentences cover everything ticked in either column, so the summary still warns about a problem whose section it leaves out</p>
+    <div class="incl" role="table" aria-label="Sections in each version">
+      <div class="incl-head" role="row"><span role="columnheader">Section</span><span role="columnheader">Full report</span><span role="columnheader">Summary</span></div>
       {% for key, label, desc in sections %}
-      <label class="check incl-row"><input type="checkbox" name="sec_{{ key }}" {{ 'checked' if s.sections.get(key, True) }}>
-        <span><span class="incl-label">{{ label }}</span><span class="hint" style="display:block;margin:0">{{ desc }}</span></span></label>
+      <div class="incl-row" role="row">
+        <span role="cell"><span class="incl-label">{{ label }}</span><span class="hint" style="display:block;margin:0">{{ desc }}</span></span>
+        <span role="cell" class="tick"><input type="checkbox" name="sec_{{ key }}" aria-label="{{ label }} in the full report" {{ 'checked' if s.sections.get(key, True) }}></span>
+        <span role="cell" class="tick"><input type="checkbox" name="sum_{{ key }}" aria-label="{{ label }} in the summary" {{ 'checked' if s.sections_summary.get(key) }}></span>
+      </div>
       {% endfor %}
     </div>
   </section>
@@ -76,7 +83,7 @@
 
   <section class="panel">
     <h2>Who gets each report</h2>
-    <p class="intro">Every report is made in two versions. The full report has every section ticked above; the summary is the first page: summary, needs attention, headline numbers and the throughput chart. Its needs-attention list still covers everything. Separate addresses with commas; leave a box empty to send nothing</p>
+    <p class="intro">Each version goes to its own list; what each contains is set under What to include. Separate addresses with commas; leave a box empty to send nothing</p>
     <div class="recips">
       <span></span><span class="col">Full report</span><span class="col">Summary only</span>
       {% for k, l in [('weekly','Weekly'),('monthly','Monthly'),('quarterly','Quarterly')] %}
