@@ -394,12 +394,11 @@ tr { break-inside: avoid; }
 <section class="keep">
   <h2>Maintenance</h2>
   <table class="kv">
-    <tr><td>Automatic backups</td><td class="n">{% if m.backup is none %}–{% elif m.backup >= 1 %}On{% else %}<span class="warn">Off</span>{% endif %}</td></tr>
-    <tr><td>UniFi Network update</td><td class="n">{% if m.controller_update %}<span class="warn">Available</span>{% else %}Up to date{% endif %}</td></tr>
-    <tr><td>Device firmware</td><td class="n">{% if m.updates %}<span class="warn">{{ m.updates|length }} waiting</span>{% else %}All {{ m.devices }} up to date{% endif %}</td></tr>
+    <tr><td>Access point and switch firmware</td><td class="n">{% if m.updates %}<span class="warn">{{ m.updates|length }} waiting</span>{% else %}All {{ m.devices }} up to date{% endif %}</td></tr>
     {% for st in m.storage %}<tr><td>Console storage, {{ st.name|lower }}</td><td class="n">{{ st.used|bytes }} of {{ st.size|bytes }} ({{ st.pct|pct }})</td></tr>{% endfor %}
   </table>
   {% if m.updates %}<p class="note">Updates waiting: {% for u in m.updates %}{{ u.name }} ({{ u.model }}, {{ u.version }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+  <p class="note">Backups and UniFi OS / UniFi Network updates for the console itself aren't included: UniFi doesn't make them available to this report, so check them in the UniFi console.</p>
 
   {% if m.pools %}
   <h3 style="margin-top:14pt">Address pools</h3>
