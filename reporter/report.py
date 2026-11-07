@@ -442,13 +442,17 @@ def fduration(secs):
 # ---------------------------------------------------------------- maintenance
 
 def collect_maint(s: Source):
-    """Housekeeping: backups, updates, storage, address pools and fibre modules."""
+    """Housekeeping: access point and switch firmware, console storage, address pools and fibre modules."""
+    # Not reported: automatic backups, UniFi Network / UniFi OS updates and the console's own firmware.
+    # On UniFi OS consoles UnPoller can't read those (its controller_* metrics stay at 0, uptime included),
+    # so they'd say "off" / "up to date" whatever the truth is. Device firmware for access points and
+    # switches comes from each device's own status and is reliable.
     d = {}
-    d["backup"] = s.scalar("max(last_over_time(unpoller_controller_autobackup_enabled[$R]))")
-    d["controller_update"] = s.scalar("max(last_over_time(unpoller_controller_update_available[$R]))")
-    ver = {x["metric"].get("name"): x["metric"] for x in s.prom("last_over_time(unpoller_device_info[$R])") or []}
+    ver = {x["metric"].get("name"): x["metric"] for x in
+           s.prom(f'last_over_time(unpoller_device_info{{type!~"{CONSOLES}"}}[$R])') or []}
     d["updates"] = [{"name": n, "model": ver.get(n, {}).get("model", ""), "version": ver.get(n, {}).get("version", "")}
-                    for n, v in sorted(s.by("max by (name) (last_over_time(unpoller_device_upgradable[$R]))", "name").items()) if v >= 1]
+                    for n, v in sorted(s.by(f'max by (name) (last_over_time(unpoller_device_upgradable{{type!~"{CONSOLES}"}}[$R]))',
+                                            "name").items()) if v >= 1]
     d["devices"] = len(ver)
     size = s.by('max by (name, storage_name) (last_over_time(unpoller_device_storage{storage_reading="size"}[$R]))', "storage_name")
     used = s.by('max by (name, storage_name) (last_over_time(unpoller_device_storage{storage_reading="used"}[$R]))', "storage_name")
@@ -469,6 +473,7 @@ def collect_maint(s: Source):
     return d
 
 
+CONSOLES = "udm|ucg|udr|uxg|usg|ugw|uxgpro"  # gateways / consoles: firmware state not readable, see collect_maint
 SFP_WEAK_DBM = -20   # most 1G single-mode modules stop working around -20 to -24 dBm
 SFP_DROP_DB = 2      # a fall this large over a period means the fibre or a connector is degrading
 
@@ -660,7 +665,7 @@ SECTIONS = [
     ("wifi", "Wi-Fi experience and stability", "Satisfaction, weak-signal devices, 2.4/5 GHz split, disconnections, roaming, channel changes, IP conflicts"),
     ("security", "Firewall and security", "Blocked connections, top blocking rules and sources, threat totals, admin logins"),
     ("threats", "Threats blocked", "Each threat intrusion prevention detected, with device, target and severity"),
-    ("maintenance", "Maintenance", "Automatic backups, firmware updates, storage, address pools filling up, fibre module signal"),
+    ("maintenance", "Maintenance", "Access point and switch firmware updates, console storage, address pools filling up, fibre module signal"),
     ("events", "Changes and events", "Firewall changes by admins and internet failovers"),
 ]
 
@@ -814,11 +819,6 @@ def attention(d, on=None):
                 a.append(f"Internet line {l['name']} is {l['state'].lower()}")
     m = d.get("maint")
     if m and "maintenance" in on:
-        if m["backup"] is not None and m["backup"] < 1:
-            a.append("Automatic backups are off on the UniFi console; turn them on under Settings, Control Plane, "
-                     "Backups so a failed console can be restored")
-        if m["controller_update"]:
-            a.append("A UniFi Network update is available for the console")
         if m["updates"]:
             a.append(f"Firmware updates are waiting for {_join(u['name'] for u in m['updates'][:4])}"
                      + (f" and {len(m['updates']) - 4} more" if len(m["updates"]) > 4 else ""))
