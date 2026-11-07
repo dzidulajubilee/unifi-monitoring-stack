@@ -1,4 +1,4 @@
-from gf import Dashboard, target, steps
+from gf import Dashboard, target
 
 S = 'source=~"$Controller", site_name=~"$Site"'
 P = S + ', name=~"$PDU"'

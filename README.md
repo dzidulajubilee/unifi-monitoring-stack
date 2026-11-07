@@ -53,25 +53,21 @@ Based on [Techno Tim's unpoller-unifi](https://github.com/timothystewart6/unpoll
 
 ## Reports
 
-Open <http://localhost:8088> and sign in with a Grafana account.
+Open <http://localhost:8088> and sign in with a Grafana account. Make a report for any week, month, quarter or
+dates, download it, or let the schedule email it. Grafana admins set the name, time zone, what each version
+contains, recipients, schedule and email server under **Settings**. See [docs/reports.md](docs/reports.md).
 
-- **Everyone** can make a report for the last week, month or quarter, or any date range, and view or download saved reports.
-- **Grafana admins** also get **Settings**: the name shown on the portal and reports, the time zone, which sections reports include, the email server, who receives each report, and the schedule.
+## Project layout
 
-Scheduled reports are made after each week, month or quarter closes (07:00 by default) and emailed to the recipients set for them. Reports are saved in `reporter/out/`.
-
-From the command line:
-
-```bash
-docker compose exec reporter python report.py run weekly
-docker compose exec reporter python report.py run custom --start 2026-11-01 --end 2026-11-07
-```
-
-Add `--no-email` to only save the PDF.
-
-For Gmail use `smtp.gmail.com`, port 587, STARTTLS and an [app password](https://myaccount.google.com/apppasswords).
-
-The portal serves plain HTTP. Keep it on your LAN, or put it behind a reverse proxy with HTTPS before exposing it.
+| Path | What's there |
+|---|---|
+| `compose.yaml` | The stack |
+| `*/.env.example` | Settings for each service; copy to `.env` |
+| `reporter/` | Report generator and portal ([docs/reports.md](docs/reports.md), [docs/development.md](docs/development.md)) |
+| `grafana/build/` | Dashboard generators ([README](grafana/build/README.md)) |
+| `grafana/provisioning/` | Dashboards and data sources Grafana loads |
+| `prometheus/`, `loki/` | Their configuration; data folders are created on first start |
+| `docs/` | [Deployment](docs/deployment.md), [reports](docs/reports.md), [data notes](docs/data-notes.md), [development](docs/development.md) |
 
 ## Updating
 
@@ -80,7 +76,8 @@ git pull
 docker compose up -d --build
 ```
 
-Your `.env` files and `reporter/out/` (reports and portal settings) aren't touched by a pull.
+Your `.env` files and `reporter/out/` (reports and portal settings) aren't touched by a pull. More in
+[docs/deployment.md](docs/deployment.md).
 
 ## Troubleshooting
 

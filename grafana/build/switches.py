@@ -1,4 +1,4 @@
-from gf import Dashboard, target, steps, color, mirror, DOWN, UP, BLUE, ORANGE, GREY
+from gf import Dashboard, steps, target
 
 S = 'source=~"$Controller", site_name=~"$Site"'
 D = S + ', name=~"$Switch"'

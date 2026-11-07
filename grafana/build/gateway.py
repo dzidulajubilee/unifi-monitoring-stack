@@ -1,5 +1,4 @@
-from gf import (Dashboard, target, steps, color, color_regex, mirror, DOWN, UP, BLUE, ORANGE, AQUA, YELLOW,
-                MAGENTA, GREY)
+from gf import BLUE, DOWN, GREY, ORANGE, UP, Dashboard, color, mirror, steps, target
 
 S = 'source=~"$Controller", site_name=~"$Site"'
 G = S + ', name=~"$Gateway"'

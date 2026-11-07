@@ -1,0 +1,10 @@
+# Tooling settings for the Python parts of this repo (reporter/ and grafana/build/).
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E9", "F", "B", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["reporter/tests"]
