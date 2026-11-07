@@ -324,12 +324,16 @@ def collect_apps(s: Source):
     def share(label):
         out = {}
         for m in (DPI_RX, DPI_TX):
-            for k, v in s.by(f"avg_over_time(sum by ({label}) ({m})[$R:{step}])", label).items():
+            vals = s.by(f"avg_over_time(sum by ({label}) ({m})[$R:{step}])", label)
+            if not vals:  # data younger than one sampling step: use the raw samples (few, so cheap)
+                vals = s.by(f"sum by ({label}) (sum_over_time({m}[$R]))", label)
+            for k, v in vals.items():
                 k = re.sub(r"_\d+$", "", k).replace("_", " ")  # UniFi suffixes: "Unknown_255", "Network Protocols_20"
                 out[k] = out.get(k, 0) + v
         total = sum(out.values())
         return [{"name": k, "n": v / total} for k, v in sorted(out.items(), key=lambda kv: -kv[1]) if v > 0] if total else []
     d = {"apps": share("application")[:10], "categories": share("category")[:8]}
+    d["collecting"] = bool(s.scalar(f"count(last_over_time({DPI_RX}[$R]))"))
     have = s.scalar(f"count_over_time(count({DPI_RX})[$R:{step}])")
     d["coverage"] = min(1.0, (have or 0) / max(1, s.secs // int(step[:-1])))
     p2p = sum(r["n"] for r in d["categories"] if "peer" in r["name"].lower())

@@ -253,7 +253,8 @@ tr { break-inside: avoid; }
   </div>
   <p class="note">Share of the traffic UniFi's traffic identification (DPI) recognised, averaged over the {{ word }}. UniFi only reports recent application traffic, not running totals, so shares are shown rather than amounts. Unrecognised and encrypted traffic appears under generic names such as Unknown or SSL/TLS.{% if a.coverage < 0.05 %} Application data only started being collected recently, so these shares cover a small part of this {{ word }}.{% elif a.coverage < 0.95 %} Application data covers about {{ (a.coverage * 100)|round|int }}% of this {{ word }}.{% endif %}</p>
   {% else %}
-  <p class="empty">No application data for this {{ word }}. It needs traffic identification (DPI) on in UniFi and UP_UNIFI_CONTROLLER_0_SAVE_DPI=true in unpoller/.env</p>
+  {% if a.collecting %}<p class="empty">Not enough application data for this {{ word }} yet; collection started recently</p>
+  {% else %}<p class="empty">No application data for this {{ word }}. It needs traffic identification (DPI) on in UniFi and UP_UNIFI_CONTROLLER_0_SAVE_DPI=true in unpoller/.env</p>{% endif %}
   {% endif %}
 </section>
 {% endif %}
