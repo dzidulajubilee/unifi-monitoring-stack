@@ -94,6 +94,7 @@ tr { break-inside: avoid; }
 .log td { font-size: 8.5pt; }
 .log td.t { white-space: nowrap; font: 7.5pt PlexMono; color: var(--ink-2); padding-top: 6pt; }
 .errors { margin-top: 20pt; font-size: 8pt; color: var(--ink-3); }
+.warn { color: #b3261e; font-weight: 500; }
 </style>
 </head>
 <body>
@@ -183,6 +184,7 @@ tr { break-inside: avoid; }
     </table>
   </div>
 
+  {% if 'isp' not in on %}
   <h3 style="margin-top:16pt">Internet lines</h3>
   <table>
     <tr><th>Line</th><th class="n">Up</th></tr>
@@ -190,6 +192,40 @@ tr { break-inside: avoid; }
     <tr><td>{{ w.name }}</td><td class="n">{% if w.uptime is not none %}{{ '%.2f'|format(w.uptime) }}%{% else %}<span class="muted">standby, not in use</span>{% endif %}</td></tr>
     {% endfor %}
   </table>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if 'isp' in on and d.isp %}
+{% set q = d.isp %}
+<section>
+  <h2>Internet lines and quality</h2>
+  <table>
+    <tr><th>Line</th><th>Now</th><th class="n">Up</th><th class="n">Outages</th><th class="n">Down for</th><th class="n">Latency / loss events</th><th class="n">Speed test</th><th class="n">Data carried</th></tr>
+    {% for l in q.lines %}
+    <tr>
+      <td>{{ l.name }}<span class="sub">{{ l.wan }}</span></td>
+      <td>{{ l.state or '–' }}</td>
+      <td class="n">{% if l.up is not none %}{{ '%.2f'|format(l.up) }}%{% else %}<span class="muted">–</span>{% endif %}</td>
+      <td class="n">{{ l.outages }}</td>
+      <td class="n">{{ l.down_s|duration if l.down_s else '–' }}</td>
+      <td class="n">{{ l.latency }} / {{ l.loss }}</td>
+      <td class="n">{% if l.dl is not none %}{{ '%.0f'|format(l.dl) }} / {{ '%.0f'|format(l.ul or 0) }} Mbps<span class="sub">{{ '%.0f'|format(l.lat or 0) }} ms{% if l.promised %} · plan {{ '%.0f'|format(l.promised) }} Mbps{% endif %}</span>{% else %}–{% endif %}</td>
+      <td class="n">{{ l.carried|bytes }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <p class="note">Now is UniFi's view at the end of the {{ word }}: Active carries traffic, Backup waits for a failover. Up is UniFi's availability figure for lines in use. Outages and their length, and the latency and packet-loss events, come from UniFi's System Log. Speed test shows the average download / upload of the tests UniFi ran on that line, with their latency. Data carried is all traffic through the line's gateway port.</p>
+  {% if q.events %}
+  <h3 style="margin-top:12pt">What happened</h3>
+  <table class="log">
+    <tr><th>When</th><th>Line</th><th>Event</th></tr>
+    {% for e in q.events[-25:] %}<tr><td class="t">{{ e.t.strftime('%a %-d %b %H:%M') }}</td><td style="white-space:nowrap">{{ e.line }}</td><td>{{ e.msg }}</td></tr>{% endfor %}
+  </table>
+  {% if q.events|length > 25 %}<p class="note">The last 25 of {{ q.events|length }} events.</p>{% endif %}
+  {% else %}
+  <p class="empty">No outages, latency or packet-loss events this {{ word }}</p>
+  {% endif %}
 </section>
 {% endif %}
 
@@ -353,6 +389,42 @@ tr { break-inside: avoid; }
 </section>
 {% endif %}
 
+{% if 'maintenance' in on and d.maint %}
+{% set m = d.maint %}
+<section class="keep">
+  <h2>Maintenance</h2>
+  <table class="kv">
+    <tr><td>Automatic backups</td><td class="n">{% if m.backup is none %}–{% elif m.backup >= 1 %}On{% else %}<span class="warn">Off</span>{% endif %}</td></tr>
+    <tr><td>UniFi Network update</td><td class="n">{% if m.controller_update %}<span class="warn">Available</span>{% else %}Up to date{% endif %}</td></tr>
+    <tr><td>Device firmware</td><td class="n">{% if m.updates %}<span class="warn">{{ m.updates|length }} waiting</span>{% else %}All {{ m.devices }} up to date{% endif %}</td></tr>
+    {% for st in m.storage %}<tr><td>Console storage, {{ st.name|lower }}</td><td class="n">{{ st.used|bytes }} of {{ st.size|bytes }} ({{ st.pct|pct }})</td></tr>{% endfor %}
+  </table>
+  {% if m.updates %}<p class="note">Updates waiting: {% for u in m.updates %}{{ u.name }} ({{ u.model }}, {{ u.version }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+
+  {% if m.pools %}
+  <h3 style="margin-top:14pt">Address pools</h3>
+  <table>
+    <tr><th>Network</th><th class="n">Busiest</th><th class="n">Addresses in use at peak</th><th class="n">Pool size</th></tr>
+    {% for p_ in m.pools %}<tr><td>{{ p_.network }}</td><td class="n">{% if p_.peak >= 0.8 %}<span class="warn">{{ p_.peak|pct }}</span>{% else %}{{ p_.peak|pct }}{% endif %}</td><td class="n">{{ p_.leases|num }}</td><td class="n">{{ p_.size|num }}</td></tr>{% endfor %}
+  </table>
+  <p class="note">How full each network's DHCP pool got. When a pool is full, new devices on that network get no address and can't connect.</p>
+  {% endif %}
+
+  {% if m.sfp %}
+  <h3 style="margin-top:14pt">Fibre modules</h3>
+  <table>
+    <tr><th>Port</th><th class="n">Receive signal now</th><th class="n">Change</th><th class="n">Lowest</th><th class="n">Hottest</th></tr>
+    {% for f in m.sfp %}<tr><td>{{ f.port }}</td>
+      <td class="n">{% if f.rx < -20 %}<span class="warn">{{ '%.1f'|format(f.rx) }} dBm</span>{% else %}{{ '%.1f'|format(f.rx) }} dBm{% endif %}</td>
+      <td class="n">{% if f.drop is none %}–{% else %}{{ '%+.1f'|format(-f.drop) }} dB{% endif %}</td>
+      <td class="n">{{ '%.1f'|format(f.rx_min) if f.rx_min is not none else '–' }} dBm</td>
+      <td class="n">{{ '%.0f'|format(f.temp) if f.temp is not none else '–' }} °C</td></tr>{% endfor %}
+  </table>
+  <p class="note">Optical power the SFP modules receive. Most stop working below about −20 to −24 dBm; a steady fall over weeks means a dirty connector or degrading fibre. Change compares the last day with the first day of the {{ word }}.</p>
+  {% endif %}
+</section>
+{% endif %}
+
 {% if 'events' in on %}
 <section>
   <h2>Changes and events</h2>
@@ -365,7 +437,7 @@ tr { break-inside: avoid; }
   </table>
   {% if events|length > 40 %}<p class="note">Showing the last 40 of {{ events|length }} events.</p>{% endif %}
   {% else %}
-  <p class="empty">No firewall changes or internet failovers this {{ word }}</p>
+  <p class="empty">No firewall changes{{ ' or internet failovers' if 'isp' not in on }} this {{ word }}</p>
   {% endif %}
 </section>
 {% endif %}
