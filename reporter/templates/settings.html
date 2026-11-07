@@ -12,14 +12,16 @@
 .recips .col { font-size: 13px; color: var(--ink-2); }
 .recips .row-label { font-size: 14px; }
 @media (max-width: 640px) { .recips { grid-template-columns: 1fr; } .recips > span:first-child, .recips .col { display: none; } .recips .row-label { margin-top: 8px; } }
-.incl-head, .incl-row { display: grid; grid-template-columns: 1fr 96px 96px; gap: 12px; align-items: start; }
-.incl-head { font-size: 13px; color: var(--ink-2); padding-bottom: 6px; border-bottom: 1px solid var(--rule-2); }
-.incl-head span:not(:first-child), .tick { text-align: center; }
-.incl-row { padding: 10px 0; border-bottom: 1px solid var(--rule); }
-.incl-row:last-child { border-bottom: 0; }
+.incl { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; }
+.incl-row { align-items: flex-start; padding: 8px 0; margin: 0; border-bottom: 1px solid var(--rule); }
+.incl-row input { margin-top: 4px; }
 .incl-label { display: block; }
-.tick input { margin-top: 4px; accent-color: var(--accent); width: 16px; height: 16px; }
-@media (max-width: 640px) { .incl-head, .incl-row { grid-template-columns: 1fr 64px 64px; } }
+.flip { display: inline-grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--rule-2); border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
+.flip button { font: inherit; font-size: 13px; color: var(--ink-2); background: none; border: 0; padding: 7px 20px; cursor: pointer; transition: background-color .15s, color .15s; }
+.flip button + button { border-left: 1px solid var(--rule); }
+.flip button[aria-selected="true"] { background: var(--rule); color: var(--ink); font-weight: 500; }
+.flip button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+@media (max-width: 640px) { .incl { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
 </style>
 
@@ -46,17 +48,19 @@
 
   <section class="panel">
     <h2>What to include</h2>
-    <p class="intro">Every report is made in two versions. Tick what each one shows. Needs attention and the summary sentences cover everything ticked in either column, so the summary still warns about a problem whose section it leaves out</p>
-    <div class="incl" role="table" aria-label="Sections in each version">
-      <div class="incl-head" role="row"><span role="columnheader">Section</span><span role="columnheader">Full report</span><span role="columnheader">Summary</span></div>
+    <p class="intro">Every report is made in two versions; switch between them to choose what each one shows. Needs attention and the summary sentences cover everything ticked in either, so the summary still warns about a problem whose section it leaves out</p>
+    <div class="flip" role="tablist" aria-label="Report version">
+      <button type="button" role="tab" id="tab-full" aria-controls="incl-full" aria-selected="true">Full report</button>
+      <button type="button" role="tab" id="tab-summary" aria-controls="incl-summary" aria-selected="false">Summary</button>
+    </div>
+    {% for version, prefix, chosen in [('full', 'sec', s.sections), ('summary', 'sum', s.sections_summary)] %}
+    <div class="incl" id="incl-{{ version }}" role="tabpanel" aria-labelledby="tab-{{ version }}" {{ 'hidden' if version == 'summary' }}>
       {% for key, label, desc in sections %}
-      <div class="incl-row" role="row">
-        <span role="cell"><span class="incl-label">{{ label }}</span><span class="hint" style="display:block;margin:0">{{ desc }}</span></span>
-        <span role="cell" class="tick"><input type="checkbox" name="sec_{{ key }}" aria-label="{{ label }} in the full report" {{ 'checked' if s.sections.get(key, True) }}></span>
-        <span role="cell" class="tick"><input type="checkbox" name="sum_{{ key }}" aria-label="{{ label }} in the summary" {{ 'checked' if s.sections_summary.get(key) }}></span>
-      </div>
+      <label class="check incl-row"><input type="checkbox" name="{{ prefix }}_{{ key }}" {{ 'checked' if chosen.get(key, version == 'full') }}>
+        <span><span class="incl-label">{{ label }}</span><span class="hint" style="display:block;margin:0">{{ desc }}</span></span></label>
       {% endfor %}
     </div>
+    {% endfor %}
   </section>
 
   <section class="panel">
@@ -118,4 +122,15 @@
     </div>
   </section>
 </form>
+<script>
+// both versions' ticks stay in the form (hidden ones are still saved); the switch only changes which you see
+const tabs = document.querySelectorAll('.flip [role="tab"]');
+tabs.forEach(tab => tab.addEventListener('click', () => {
+  tabs.forEach(t => {
+    const on = t === tab;
+    t.setAttribute('aria-selected', String(on));
+    document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+  });
+}));
+</script>
 {% endblock %}
