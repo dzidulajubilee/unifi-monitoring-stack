@@ -78,7 +78,14 @@ def build(kind, end=None, start=None):
     env.filters.update(bytes=fbytes, bits=fbits, num=fnum, pct=fpct, duration=fduration)
     # The summary sentences and attention list cover every section ticked in either version, so
     # the summary still warns about, say, an access point problem when it leaves out the Wi-Fi pages.
-    lines, att = summary(d, p, word, covered, on), attention(d, on)
+    att = attention(d, on)
+
+    def sentences(style):
+        """Summary sentences for one version: everything ticked anywhere, except that the download
+        sentence follows that version's own Data downloaded switch."""
+        return summary(d, p, word, covered, on if "downloaded" in show[style] else on - {"downloaded"})
+
+    lines = {style: sentences(style) for style in STYLES}
     evts = events(cur, wan="isp" not in on) if "events" in on else []
     thr = threat_list(cur) if "threats" in on else ([], 0)
     chart = svg_chart(down, up, kind, start, end) if "throughput" in on else ""
@@ -106,7 +113,7 @@ def build(kind, end=None, start=None):
             p=p,
             ch=ch,
             covered=covered,
-            summary=lines,
+            summary=lines[style],
             attention=att,
             events=evts,
             threats=thr,
@@ -128,4 +135,5 @@ def build(kind, end=None, start=None):
     log.info("wrote %s and its summary (%d query errors)", pdfs["full"], len(cur.errors + prev.errors))
     what = f"{kind.capitalize()} report, {title}" if kind != "custom" else f"Report for {title}"
     subject = f"{name}: {what} ({dates})" if name else f"{what} ({dates})"
-    return pdfs, subject, lines, len(cur.errors + prev.errors)
+    # the email body uses the full version's sentences
+    return pdfs, subject, lines["full"], len(cur.errors + prev.errors)
