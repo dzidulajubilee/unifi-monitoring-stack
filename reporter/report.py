@@ -439,6 +439,34 @@ def fduration(secs):
     return f"{h} h {m} min" if m else f"{h} h"
 
 
+# ---------------------------------------------------------------- Grafana links
+
+# dashboard uids in grafana/provisioning/dashboards (kept stable on purpose)
+DASHBOARDS = {"sites": "9WaGWZaZk", "gateway": "4Yo8IZ-Wk", "aps": "g5wFWqxZk", "clients": "jMfvAjxWz",
+              "dpi": "w3usaHLZk", "firewall": "unpoller-firewall"}
+# report section heading -> dashboard that shows the same thing in detail
+SECTION_DASHBOARD = {
+    "Internet throughput": "gateway", "Trends": "sites", "Internet and gateway": "gateway",
+    "Internet lines and quality": "gateway", "Devices": "clients", "Access points": "aps",
+    "Applications": "dpi", "Wi-Fi experience and stability": "clients", "Security": "firewall",
+    "Threats blocked": "firewall", "Maintenance": "gateway", "Changes and events": "firewall",
+}
+
+
+def grafana_linker(settings, start, end):
+    """Returns link(dashboard, **variables) -> URL set to the report's dates, or None when links are off."""
+    g = settings["general"]
+    base = (g.get("grafana_url") or "").strip().rstrip("/")
+    if not base or not g.get("grafana_links", True):
+        return None
+    span = f"from={int(start.timestamp() * 1000)}&to={int(end.timestamp() * 1000)}"
+
+    def link(dash, **variables):
+        qs = "".join(f"&var-{k}={urllib.parse.quote(str(v))}" for k, v in variables.items() if v)
+        return f"{base}/d/{DASHBOARDS[dash]}?orgId=1&{span}{qs}"
+    return link
+
+
 # ---------------------------------------------------------------- trends
 
 TREND_COUNT = {"weekly": 8, "monthly": 6, "quarterly": 4}
@@ -1038,7 +1066,8 @@ def build(kind, end=None, start=None):
             tzname=str(TZ), generated=dt.datetime.now(TZ), d=d, p=p, ch=ch, covered=covered,
             summary=lines, attention=att, events=evts, threats=thr, chart=chart if style == "full" else chart_short,
             fonts=(HERE / "fonts").as_uri(),
-            trend_change=trend_change, minibars=svg_minibars,
+            trend_change=trend_change, minibars=svg_minibars, gf=grafana_linker(st, start, end),
+            section_dashboard=SECTION_DASHBOARD,
             errors=cur.errors + prev.errors + (d["trends"]["errors"] if d["trends"] else []), gap=gap, max_client=max([c["bytes"] for c in d["top_clients"]] or [1]),
         )
         pdf = report_path(kind, start, end, style)
@@ -1067,7 +1096,8 @@ def default_settings():
     env = os.environ.get
     to = env("REPORT_TO", "")
     return {
-        "general": {"name": env("REPORT_NAME", ""), "timezone": env("TZ") or "UTC"},
+        "general": {"name": env("REPORT_NAME", ""), "timezone": env("TZ") or "UTC",
+                    "grafana_url": env("GRAFANA_PUBLIC_URL", ""), "grafana_links": True},
         "sections": {k: True for k, *_ in SECTIONS},                            # full report
         "sections_summary": {k: k in SUMMARY_SECTIONS for k, *_ in SECTIONS},  # summary
         "smtp": {"host": env("SMTP_HOST", ""), "port": int(env("SMTP_PORT", 587)),
