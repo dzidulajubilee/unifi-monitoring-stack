@@ -15,3 +15,6 @@ reporter/out/*
 
 # Backups of config files, e.g. unpoller/.env.bak, can hold credentials
 *.bak
+
+# Python bytecode
+__pycache__/
