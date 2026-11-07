@@ -240,9 +240,13 @@ def collect(s: Source):
     u = {}
     for x in util:
         u.setdefault(x["metric"]["name"], {})[x["metric"].get("band")] = float(x["value"][1])
+    retries = s.by("sum by (name) (increase(unpoller_device_vap_transmit_retries_total[$R])) / "
+                   "sum by (name) (increase(unpoller_device_vap_transmit_packets_total[$R]))", "name")
+    signal = s.by("avg_over_time(avg by (name) (unpoller_device_vap_average_client_signal < 0)[$R:5m])", "name")
     d["aps"] = sorted(({"name": n, "peak": aps[n], "bytes": traffic.get(n), "sat": sat.get(n),
                         "u24": u.get(n, {}).get("2.4"), "u5": u.get(n, {}).get("5"),
-                        "reboots": reb.get(n, 0)} for n in aps), key=lambda a: -(a["bytes"] or 0))
+                        "reboots": reb.get(n, 0), "retries": retries.get(n), "signal": signal.get(n)}
+                       for n in aps), key=lambda a: -(a["bytes"] or 0))
 
     # security
     L = "loki"
@@ -260,6 +264,10 @@ def collect(s: Source):
     d["fw_changes"] = s.scalar(f"sum(count_over_time({AUDIT_FW} [$R]))", L)
     d["logins"] = s.scalar(f"sum(count_over_time({LOGINS} [$R]))", L)
     d["logins_outside"] = s.scalar(f"sum(count_over_time({LOGINS} | ip !~ `{PRIVATE}` [$R]))", L)
+    d["login_ips"] = _top(s.by(f"topk(3, sum by (ip) (count_over_time({LOGINS} | ip !~ `{PRIVATE}` [$R])))", "ip", L))
+    # the gateway's own internet addresses: logins "from outside" via these come through your own lines
+    d["own_ips"] = set(s.by("group by (port_ip) (last_over_time(unpoller_device_port_port_speed_bps[$R]))", "port_ip")) | \
+        set(s.by("group by (port_ip) (last_over_time(unpoller_device_port_sfp_rx_power[$R]))", "port_ip"))
     return d
 
 
@@ -338,17 +346,141 @@ def collect_apps(s: Source):
     d["coverage"] = min(1.0, (have or 0) / max(1, s.secs // int(step[:-1])))
     p2p = sum(r["n"] for r in d["categories"] if "peer" in r["name"].lower())
     d["p2p"] = p2p or sum(r["n"] for r in d["apps"] if "torrent" in r["name"].lower())
+    # which devices the peer-to-peer traffic came from, as a share of it
+    who = {}
+    for m in (DPI_RX, DPI_TX):
+        sel = m.replace("}", ', category=~"Peer-to-Peer.*"}')
+        vals = s.prom(f"avg_over_time(sum by (name, mac) ({sel})[$R:{step}])") or \
+            s.prom(f"sum by (name, mac) (sum_over_time({sel}[$R]))") or []
+        for x in vals:
+            k = (x["metric"].get("name", ""), x["metric"].get("mac", ""))
+            who[k] = who.get(k, 0) + float(x["value"][1])
+    tot = sum(who.values())
+    d["p2p_devices"] = [{"name": device_label(n, mac), "share": v / tot}
+                        for (n, mac), v in sorted(who.items(), key=lambda kv: -kv[1])[:3]] if tot else []
     return d
+
+
+def device_label(name, mac):
+    """'moto-g06 (…5a:bd)': a name people recognise plus enough MAC to find it in UniFi."""
+    if not name or re.fullmatch(r"([0-9a-f]{2}:){5}[0-9a-f]{2}", name):
+        name = "Unnamed device"
+    return f"{name} (…{mac[-5:]})" if mac else name
+
+
+ISP_EVENTS = {
+    "NETWORK_FAILED_OVER_TO_BACKUP_WAN": "Went down, traffic moved to {to}",
+    "NETWORK_FAILED_OVER_TO_BACKUP_WAN_TEMPORARY": "Dropped for {dur}, traffic briefly moved to {to}",
+    "NETWORK_WAN_RESTORED": "Back up after {dur} on {to}",
+    "ISP_HIGH_LATENCY": "High latency{lat}",
+    "ISP_PACKET_LOSS": "Packet loss",
+    "NETWORK_WAN_FAILED_MULTIPLE_TIMES": "Went down {count} times in 24 hours ({dur} in total)",
+}
+
+
+def collect_isp(s: Source):
+    """Per internet line: state, availability, speed tests, data carried and ISP events from the System Log."""
+    by = lambda q, lbl: s.by(q, lbl)
+    state = {}
+    for x in s.prom("max by (wan_interface, wan_networkgroup, state) (last_over_time(unpoller_wan_interface_state[$R]))") or []:
+        m = x["metric"]
+        state[m.get("wan_networkgroup")] = {"name": m.get("wan_interface"), "state": (m.get("state") or "").capitalize()}
+    up = by("avg_over_time(max by (wan_networkgroup) (unpoller_wan_uptime_percentage >= 0)[$R:5m])", "wan_networkgroup")
+    promised = by("max by (wan_networkgroup) (last_over_time(unpoller_wan_provider_download_kbps[$R]))", "wan_networkgroup")
+    dl = by("avg_over_time(max by (wan_group) (unpoller_speedtest_download_mbps)[$R:15m])", "wan_group")
+    dl_min = by("min_over_time(max by (wan_group) (unpoller_speedtest_download_mbps)[$R:15m])", "wan_group")
+    ul = by("avg_over_time(max by (wan_group) (unpoller_speedtest_upload_mbps)[$R:15m])", "wan_group")
+    lat = by("avg_over_time(max by (wan_group) (unpoller_speedtest_latency_ms)[$R:15m])", "wan_group")
+    carried = by("sum by (port_name) (increase(unpoller_device_port_receive_bytes_total[$R]) + "
+                 "increase(unpoller_device_port_transmit_bytes_total[$R]))", "port_name")
+    lines = {}
+    for wan, st in state.items():
+        lines[st["name"]] = {"name": st["name"], "wan": wan, "state": st["state"], "up": up.get(wan),
+                             "promised": (promised.get(wan) or 0) / 1000 or None, "dl": dl.get(wan),
+                             "dl_min": dl_min.get(wan), "ul": ul.get(wan), "lat": lat.get(wan),
+                             "carried": carried.get(st["name"]), "outages": 0, "down_s": 0,
+                             "latency": 0, "loss": 0}
+
+    events = []
+    for stream in s.loki_lines(WAN_EVENTS, 1000) or []:
+        for ts, raw in stream["values"]:
+            j = _json(raw)
+            evt = j.get("event", "")
+            if evt not in ISP_EVENTS:
+                continue
+            prm = j.get("parameters", {})
+            val = lambda k, f="name": (prm.get(k) or {}).get(f) or ""
+            line = val("WAN_NAME") or val("WAN_NAME", "id")
+            secs = int(val("DURATION", "id") or 0)
+            text = ISP_EVENTS[evt].format(to=val("FAILOVER_WAN_NAME") or "a backup line", dur=val("DURATION") or "a while",
+                                          lat=f" ({val('LATENCY')} ms)" if val("LATENCY") else "", count=val("COUNT") or "several")
+            events.append({"t": dt.datetime.fromtimestamp(int(ts) / 1e9, TZ), "line": line, "msg": text, "evt": evt})
+            ln = lines.setdefault(line, {"name": line, "wan": "", "state": "", "up": None, "promised": None, "dl": None,
+                                         "dl_min": None, "ul": None, "lat": None, "carried": None,
+                                         "outages": 0, "down_s": 0, "latency": 0, "loss": 0})
+            if evt in ("NETWORK_FAILED_OVER_TO_BACKUP_WAN", "NETWORK_FAILED_OVER_TO_BACKUP_WAN_TEMPORARY"):
+                ln["outages"] += 1
+            if evt in ("NETWORK_WAN_RESTORED", "NETWORK_FAILED_OVER_TO_BACKUP_WAN_TEMPORARY"):
+                ln["down_s"] += secs  # each outage ends with one of these, carrying its length
+            if evt == "ISP_HIGH_LATENCY":
+                ln["latency"] += 1
+            if evt == "ISP_PACKET_LOSS":
+                ln["loss"] += 1
+    return {"lines": sorted(lines.values(), key=lambda l: l["wan"] or "~"), "events": sorted(events, key=lambda e: e["t"])}
+
+
+def fduration(secs):
+    secs = int(secs or 0)
+    if secs < 60:
+        return f"{secs} s"
+    if secs < 3600:
+        return f"{secs // 60} min"
+    h, m = divmod(secs // 60, 60)
+    return f"{h} h {m} min" if m else f"{h} h"
+
+
+# ---------------------------------------------------------------- maintenance
+
+def collect_maint(s: Source):
+    """Housekeeping: backups, updates, storage, address pools and fibre modules."""
+    d = {}
+    d["backup"] = s.scalar("max(last_over_time(unpoller_controller_autobackup_enabled[$R]))")
+    d["controller_update"] = s.scalar("max(last_over_time(unpoller_controller_update_available[$R]))")
+    ver = {x["metric"].get("name"): x["metric"] for x in s.prom("last_over_time(unpoller_device_info[$R])") or []}
+    d["updates"] = [{"name": n, "model": ver.get(n, {}).get("model", ""), "version": ver.get(n, {}).get("version", "")}
+                    for n, v in sorted(s.by("max by (name) (last_over_time(unpoller_device_upgradable[$R]))", "name").items()) if v >= 1]
+    d["devices"] = len(ver)
+    size = s.by('max by (name, storage_name) (last_over_time(unpoller_device_storage{storage_reading="size"}[$R]))', "storage_name")
+    used = s.by('max by (name, storage_name) (last_over_time(unpoller_device_storage{storage_reading="used"}[$R]))', "storage_name")
+    d["storage"] = [{"name": k, "used": used.get(k, 0), "size": v, "pct": used.get(k, 0) / v if v else None}
+                    for k, v in sorted(size.items())]
+    peak = s.by("max by (network) (max_over_time(unpoller_dhcp_utilization_percent[$R]))", "network")
+    pool = s.by("max by (network) (last_over_time(unpoller_dhcp_pool_size[$R]))", "network")
+    leases = s.by("max by (network) (max_over_time(unpoller_dhcp_active_leases[$R]))", "network")
+    d["pools"] = sorted(({"network": n, "peak": v / 100, "size": pool.get(n), "leases": leases.get(n)}
+                         for n, v in peak.items()), key=lambda x: -x["peak"])
+    first = s.secs - 86400
+    rx_end = s.by("avg by (port_name) (avg_over_time(unpoller_device_port_sfp_rx_power[1d]))", "port_name")
+    rx_start = s.by(f"avg by (port_name) (avg_over_time(unpoller_device_port_sfp_rx_power[1d] offset {first}s))", "port_name") if first > 0 else {}
+    rx_min = s.by("min by (port_name) (min_over_time(unpoller_device_port_sfp_rx_power[$R]))", "port_name")
+    temp = s.by("max by (port_name) (max_over_time(unpoller_device_port_sfp_temperature[$R]))", "port_name")
+    d["sfp"] = [{"port": p, "rx": v, "rx_start": rx_start.get(p), "rx_min": rx_min.get(p), "temp": temp.get(p),
+                 "drop": (rx_start[p] - v) if p in rx_start else None} for p, v in sorted(rx_end.items())]
+    return d
+
+
+SFP_WEAK_DBM = -20   # most 1G single-mode modules stop working around -20 to -24 dBm
+SFP_DROP_DB = 2      # a fall this large over a period means the fibre or a connector is degrading
 
 
 def _top(m):
     return [{"name": k or "unknown", "n": v} for k, v in sorted(m.items(), key=lambda kv: -kv[1])]
 
 
-def events(s: Source):
+def events(s: Source, wan=True):
     """Notable events: each internet failover, and firewall changes grouped per admin per day."""
     out, changes = [], {}
-    for stream in s.loki_lines(f'{WAN_EVENTS} |= `FAILED_OVER`', 200) or []:
+    for stream in (s.loki_lines(f'{WAN_EVENTS} |= `FAILED_OVER`', 200) if wan else None) or []:
         for ts, line in stream["values"]:
             t = dt.datetime.fromtimestamp(int(ts) / 1e9, TZ)
             out.append({"t": t, "kind": "Internet", "msg": _json(line).get("message", line)})
@@ -521,12 +653,14 @@ SECTIONS = [
     ("gap_note", "Missing-data note", "A note when metrics weren't collected for part of the period"),
     ("throughput", "Internet throughput chart", "Download and upload over the period"),
     ("internet", "Internet and gateway", "Data used, latency, failovers, internet lines, gateway CPU, memory and temperature"),
+    ("isp", "Internet lines and quality", "Per line: active or backup, availability, outages and their length, ISP latency and packet-loss events, speed tests, data carried"),
     ("devices", "Devices", "Devices online and the ten that used the most data"),
     ("aps", "Access points", "Traffic, clients, Wi-Fi experience and channel use per access point"),
     ("apps", "Applications", "Top applications and categories by traffic (needs DPI on in UniFi and SAVE_DPI=true in unpoller/.env)"),
     ("wifi", "Wi-Fi experience and stability", "Satisfaction, weak-signal devices, 2.4/5 GHz split, disconnections, roaming, channel changes, IP conflicts"),
     ("security", "Firewall and security", "Blocked connections, top blocking rules and sources, threat totals, admin logins"),
     ("threats", "Threats blocked", "Each threat intrusion prevention detected, with device, target and severity"),
+    ("maintenance", "Maintenance", "Automatic backups, firmware updates, storage, address pools filling up, fibre module signal"),
     ("events", "Changes and events", "Firewall changes by admins and internet failovers"),
 ]
 
@@ -545,6 +679,22 @@ def summary(d, p, word, covered, on=None):
         tail = (f" It failed over to a backup line {fo:.0f} time{'s' * (fo != 1)}"
                 if fo else " There were no failovers to the backup lines")
         lines.append(f"The main internet line ({prim['name']}) was up {prim['uptime']:.2f}% of the {word}.{tail}.")
+    isp = d.get("isp")
+    if isp and "isp" in on:
+        probs = []
+        for l in isp["lines"]:
+            bits = []
+            if l["outages"]:
+                bits.append(f"went down {_times(l['outages'])}"
+                            + (f" ({fduration(l['down_s'])} in total)" if l["down_s"] else ""))
+            if l["latency"]:
+                bits.append(f"had high latency {_times(l['latency'])}")
+            if l["loss"]:
+                bits.append(f"lost packets {_times(l['loss'])}")
+            if bits:
+                probs.append(f"{l['name']} " + _join(bits))
+        lines.append(("Internet lines: " + "; ".join(probs) + ".") if probs else
+                     f"No internet line reported outages, high latency or packet loss this {word}.")
     if d["wan_down"] is not None and "downloaded" in on:
         ch = change(d["wan_down"], p.get("wan_down"), "", word, covered["prom"])
         lines.append(f"The network downloaded {fbytes(d['wan_down'])} and uploaded {fbytes(d['wan_up'])}"
@@ -563,16 +713,33 @@ def summary(d, p, word, covered, on=None):
     return lines
 
 
+def _times(n):
+    n = int(n)
+    return "once" if n == 1 else "twice" if n == 2 else f"{n} times"
+
+
+def _who(x):
+    """A device name, MAC or IP from the logs, in the report's usual 'name (…ab:cd)' form."""
+    if re.fullmatch(r"([0-9a-f]{2}:){5}[0-9a-f]{2}", x or ""):
+        return f"Unnamed device (…{x[-5:]})"
+    return x
+
+
+def _join(items):
+    items = list(items)
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
+
+
 def attention(d, on=None):
     """Things a reader should act on, limited to the sections switched on."""
     on = on if on is not None else {k for k, *_ in SECTIONS}
     a = []
     gw, aps, sec = "internet" in on, "aps" in on, bool(on & {"security", "threats"})
     if gw and d["gw_reboots"]:
-        a.append(f"The gateway restarted {d['gw_reboots']:.0f} time(s)")
+        a.append(f"The gateway restarted {_times(d['gw_reboots'])}")
     for ap in d["aps"] if aps else []:
         if ap["reboots"]:
-            a.append(f"Access point {ap['name']} restarted {ap['reboots']:.0f} time(s)")
+            a.append(f"Access point {ap['name']} restarted {_times(ap['reboots'])}")
     if gw and d["mem_end"] is not None and d["mem_start"] is not None and d["mem_end"] - d["mem_start"] > 0.05:
         a.append(f"Gateway memory use climbed from {fpct(d['mem_start'])} to {fpct(d['mem_end'])}")
     if gw and d["mem_max"] and d["mem_max"] > 0.9:
@@ -580,22 +747,48 @@ def attention(d, on=None):
     if sec and d["threats_open"]:
         a.append(f"{fnum(d['threats_open'])} threats were detected but not blocked, see Security")
     if sec and d["threats_high"]:
+        top = d["threat_devices"][0] if d["threat_devices"] else None
         a.append(f"{fnum(d['threats_high'])} high-severity threats were detected"
-                 + (", all blocked" if not d["threats_open"] else "") + ", see Security")
+                 + (", all blocked" if not d["threats_open"] else "")
+                 + (f"; {top['n']:.0f} of them involved {_who(top['name'])}" if top else ""))
     if "security" in on and d["logins_outside"]:
-        a.append(f"{fnum(d['logins_outside'])} admin logins came from outside the local network")
-    for ap in d["aps"] if aps else []:
-        if (ap["u24"] or 0) > 0.6:
-            a.append(f"{ap['name']} 2.4 GHz channel averaged {fpct(ap['u24'])} busy, clients there will feel slow")
+        own = d.get("own_ips", set())
+        ips = ", ".join(f"{r['name']} ({r['n']:.0f}" + (", your own internet address" if r["name"] in own else "") + ")"
+                        for r in d.get("login_ips", []))
+        a.append(f"{fnum(d['logins_outside'])} admin logins came from outside the local network"
+                 + (f", from {ips}; check these are your admins" if ips else ""))
+    if aps:
+        busy = sorted((ap for ap in d["aps"] if (ap["u24"] or 0) > 0.6), key=lambda ap: -ap["u24"])
+        if busy:
+            a.append("2.4 GHz channel busy most of the time on " + _join(f"{ap['name']} ({fpct(ap['u24'])})" for ap in busy)
+                     + "; devices there will feel slow")
+        resend = sorted((ap for ap in d["aps"] if (ap.get("retries") or 0) > 0.15), key=lambda ap: -ap["retries"])
+        if resend:
+            a.append("Access points resending many Wi-Fi packets (healthy is under 15%): "
+                     + _join(f"{ap['name']} {fpct(ap['retries'])}" for ap in resend)
+                     + "; a sign of interference or devices with weak signal")
+        weak_ap = sorted((ap for ap in d["aps"] if ap.get("signal") is not None and ap["signal"] < WEAK_DBM),
+                         key=lambda ap: ap["signal"])
+        if weak_ap:
+            a.append("Devices averaged a weak signal on " + _join(f"{ap['name']} ({ap['signal']:.0f} dBm)" for ap in weak_ap)
+                     + "; they're too far from the access point or behind walls")
     a_ = d.get("dpi")
     if a_ and "apps" in on and a_["p2p"] > 0.05:
-        a.append(f"Peer-to-peer file sharing (such as BitTorrent) was {fpct(a_['p2p'])} of identified traffic; "
+        who = a_.get("p2p_devices") or []
+        src = ""
+        if who:
+            first = who[0]
+            src = (f", nearly all from {first['name']}" if first["share"] > 0.9 else
+                   "; mostly from " + _join(f"{w['name']} ({fpct(w['share'])})" for w in who))
+        a.append(f"Peer-to-peer file sharing (such as BitTorrent) was {fpct(a_['p2p'])} of identified traffic{src}; "
                  "check it's allowed, it often carries pirated content and malware")
     w = d.get("wifi")
     if w and "wifi" in on:
         if w["weak"]:
             n = len(w["weak"])
-            a.append(f"{n} device{'s' * (n != 1)} had a weak Wi-Fi signal on average (below {WEAK_DBM} dBm), see Wi-Fi")
+            names = _join(f"{x['name']}" + (f" on {x['ap']}" if x["ap"] else "") for x in w["weak"][:3])
+            a.append(f"{n} device{'s' * (n != 1)} had a weak Wi-Fi signal on average (below {WEAK_DBM} dBm): {names}"
+                     + (f" and {n - 3} more" if n > 3 else ""))
         if w["sat"] is not None and w["sat"] < 0.8:
             a.append(f"Average Wi-Fi experience was {fpct(w['sat'])}, below the 80% UniFi treats as good")
         days = max(1, d.get("_days", 7))
@@ -604,7 +797,46 @@ def attention(d, on=None):
                 a.append(f"{r['name']} changed channel {r['n']:.0f} times, a sign of interference near it")
         if w["ip_conflicts"]:
             n = len(w["ip_conflicts"])
-            a.append(f"{n} IP address conflict{'s' * (n != 1)} on the network, see Wi-Fi")
+            a.append(f"{n} IP address conflict{'s' * (n != 1)} on the network: {w['ip_conflicts'][-1]['msg']}")
+    isp = d.get("isp")
+    if isp and "isp" in on:
+        for l in isp["lines"]:
+            if l["outages"]:
+                a.append(f"Internet line {l['name']} went down {_times(l['outages'])}"
+                         + (f", {fduration(l['down_s'])} in total" if l["down_s"] else ""))
+            if l["latency"] + l["loss"] >= 3:
+                a.append(f"{l['name']} reported high latency {l['latency']} and packet loss {l['loss']} times; "
+                         "worth raising with the provider")
+            if l["promised"] and l["dl"] and l["dl"] < 0.5 * l["promised"]:
+                a.append(f"{l['name']} speed tests averaged {l['dl']:.0f} Mbps, under half the {l['promised']:.0f} Mbps "
+                         "the plan promises")
+            if l["state"] and l["state"] not in ("Active", "Backup"):
+                a.append(f"Internet line {l['name']} is {l['state'].lower()}")
+    m = d.get("maint")
+    if m and "maintenance" in on:
+        if m["backup"] is not None and m["backup"] < 1:
+            a.append("Automatic backups are off on the UniFi console; turn them on under Settings, Control Plane, "
+                     "Backups so a failed console can be restored")
+        if m["controller_update"]:
+            a.append("A UniFi Network update is available for the console")
+        if m["updates"]:
+            a.append(f"Firmware updates are waiting for {_join(u['name'] for u in m['updates'][:4])}"
+                     + (f" and {len(m['updates']) - 4} more" if len(m["updates"]) > 4 else ""))
+        for p_ in m["pools"]:
+            if p_["peak"] >= 0.8:
+                a.append(f"The {p_['network']} address pool reached {fpct(p_['peak'])} full; new devices can't "
+                         "connect once it's full, so enlarge it or shorten the lease time")
+        for st in m["storage"]:
+            if (st["pct"] or 0) >= 0.85:
+                a.append(f"Console storage '{st['name']}' is {fpct(st['pct'])} full")
+        for f in m["sfp"]:
+            if f["rx"] is not None and f["rx"] < SFP_WEAK_DBM:
+                a.append(f"The fibre module on {f['port']} receives a weak {f['rx']:.1f} dBm; clean or check the fibre")
+            elif f["drop"] is not None and f["drop"] >= SFP_DROP_DB:
+                a.append(f"The fibre signal on {f['port']} fell {f['drop']:.1f} dB over the {d.get('_word', 'period')}; "
+                         "a connector or the fibre may be degrading")
+            if (f["temp"] or 0) >= 70:
+                a.append(f"The fibre module on {f['port']} reached {f['temp']:.0f} °C")
     return a
 
 
@@ -626,6 +858,9 @@ def build(kind, end=None, start=None):
     d["_days"] = (end - start).days
     d["wifi"] = collect_wifi(cur) if "wifi" in on else None
     d["dpi"] = collect_apps(cur) if "apps" in on else None
+    d["isp"] = collect_isp(cur) if "isp" in on else None
+    d["maint"] = collect_maint(cur) if "maintenance" in on else None
+    d["_word"] = word
     cov = prev.coverage()
     gap = 1 - cur.coverage()["prom"]
     covered = {k: v >= 0.95 for k, v in cov.items()}
@@ -645,12 +880,12 @@ def build(kind, end=None, start=None):
     page1 = bool(on & {"summary", "figures", "throughput"})
 
     env = Environment(loader=FileSystemLoader(HERE), autoescape=True)
-    env.filters.update(bytes=fbytes, bits=fbits, num=fnum, pct=fpct)
+    env.filters.update(bytes=fbytes, bits=fbits, num=fnum, pct=fpct, duration=fduration)
     html_out = env.get_template("template.html").render(
         name=name, on=on, figs=figs, page1=page1, aps_break=page1 or bool(on & {"internet", "devices"}), kind=kind, word=word, title=title, dates=dates,
         tzname=str(TZ), generated=dt.datetime.now(TZ), d=d, p=p, ch=ch, covered=covered,
         summary=summary(d, p, word, covered, on), attention=attention(d, on),
-        events=events(cur) if "events" in on else [],
+        events=events(cur, wan="isp" not in on) if "events" in on else [],
         threats=threat_list(cur) if "threats" in on else ([], 0),
         chart=svg_chart(down, up, kind, start, end) if "throughput" in on else "", fonts=(HERE / "fonts").as_uri(),
         errors=cur.errors + prev.errors, gap=gap, max_client=max([c["bytes"] for c in d["top_clients"]] or [1]),
