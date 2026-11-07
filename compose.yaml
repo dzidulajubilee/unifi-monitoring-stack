@@ -79,12 +79,14 @@ services:
       - grafana
 
 # optional log viewer for docker containers
+  # pinned so a pull doesn't change it unexpectedly (v11 added Dozzle Cloud); update the tag on purpose
   dozzle:
-    image: amir20/dozzle:latest
+    image: amir20/dozzle:v11.4.1
     restart: unless-stopped
     container_name: dozzle
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./dozzle/data:/data   # users.yml for the login (not in git; see dozzle/.env.example)
     env_file:
       - ./dozzle/.env
     ports:
