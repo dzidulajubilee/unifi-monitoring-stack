@@ -1,1497 +1,1568 @@
 {
-    "__inputs": [],
-    "__requires": [
-        {
-            "type": "panel",
-            "id": "gauge",
-            "name": "Gauge",
-            "version": ""
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
         },
-        {
-            "type": "grafana",
-            "id": "grafana",
-            "name": "Grafana",
-            "version": "11.0.0"
-        },
-        {
-            "type": "panel",
-            "id": "graph",
-            "name": "Graph",
-            "version": ""
-        },
-        {
-            "type": "datasource",
-            "id": "prometheus",
-            "name": "Prometheus",
-            "version": "1.0.0"
-        },
-        {
-            "type": "panel",
-            "id": "singlestat",
-            "name": "Singlestat",
-            "version": ""
-        },
-        {
-            "type": "panel",
-            "id": "text",
-            "name": "Text",
-            "version": ""
-        }
-    ],
-    "annotations": {
-        "list": [
-            {
-                "builtIn": 1,
-                "datasource": "-- Grafana --",
-                "enable": true,
-                "hide": true,
-                "iconColor": "rgba(0, 211, 255, 1)",
-                "name": "Annotations & Alerts",
-                "type": "dashboard"
-            }
-        ]
-    },
-    "description": "UniFi Poller v2.0 Displays detailed information for network Sites in a UniFi controller using Prometheus.",
-    "editable": true,
-    "gnetId": 11311,
-    "graphTooltip": 1,
-    "id": null,
-    "iteration": 1580616399315,
-    "links": [
-        {
-            "asDropdown": true,
-            "icon": "external link",
-            "includeVars": false,
-            "keepTime": true,
-            "tags": [
-                "unifi-poller"
-            ],
-            "title": "UniFi Poller",
-            "type": "dashboards"
-        }
-    ],
-    "panels": [
-        {
-            "cacheTimeout": null,
-            "colorBackground": false,
-            "colorValue": false,
-            "colors": [
-                "#299c46",
-                "rgba(237, 129, 40, 0.89)",
-                "#d44a3a"
-            ],
-            "datasource": "Prometheus",
-            "decimals": null,
-            "format": "none",
-            "gauge": {
-                "maxValue": 100,
-                "minValue": 0,
-                "show": false,
-                "thresholdLabels": false,
-                "thresholdMarkers": true
-            },
-            "gridPos": {
-                "h": 4,
-                "w": 3,
-                "x": 0,
-                "y": 0
-            },
-            "id": 41,
-            "interval": null,
-            "links": [],
-            "mappingType": 1,
-            "mappingTypes": [
-                {
-                    "name": "value to text",
-                    "value": 1
-                },
-                {
-                    "name": "range to text",
-                    "value": 2
-                }
-            ],
-            "maxDataPoints": 100,
-            "nullPointMode": "connected",
-            "nullText": null,
-            "options": {},
-            "pluginVersion": "6.4.4",
-            "postfix": "",
-            "postfixFontSize": "50%",
-            "prefix": "",
-            "prefixFontSize": "50%",
-            "rangeMaps": [
-                {
-                    "from": "null",
-                    "text": "N/A",
-                    "to": "null"
-                }
-            ],
-            "sparkline": {
-                "fillColor": "rgba(31, 118, 189, 0.18)",
-                "full": false,
-                "lineColor": "rgb(31, 120, 193)",
-                "show": false,
-                "ymax": null,
-                "ymin": null
-            },
-            "tableColumn": "",
-            "targets": [
-                {
-                    "expr": "sum(unpoller_site_switches)",
-                    "format": "time_series",
-                    "instant": true,
-                    "interval": "$Smooth",
-                    "refId": "A"
-                }
-            ],
-            "thresholds": "",
-            "timeFrom": null,
-            "timeShift": null,
-            "title": "USW",
-            "type": "singlestat",
-            "valueFontSize": "100%",
-            "valueMaps": [
-                {
-                    "op": "=",
-                    "text": "N/A",
-                    "value": "null"
-                }
-            ],
-            "valueName": "current"
-        },
-        {
-            "cacheTimeout": null,
-            "colorBackground": false,
-            "colorValue": false,
-            "colors": [
-                "#299c46",
-                "rgba(237, 129, 40, 0.89)",
-                "#d44a3a"
-            ],
-            "datasource": "Prometheus",
-            "decimals": null,
-            "format": "none",
-            "gauge": {
-                "maxValue": 100,
-                "minValue": 0,
-                "show": false,
-                "thresholdLabels": false,
-                "thresholdMarkers": true
-            },
-            "gridPos": {
-                "h": 4,
-                "w": 3,
-                "x": 3,
-                "y": 0
-            },
-            "id": 42,
-            "interval": null,
-            "links": [],
-            "mappingType": 1,
-            "mappingTypes": [
-                {
-                    "name": "value to text",
-                    "value": 1
-                },
-                {
-                    "name": "range to text",
-                    "value": 2
-                }
-            ],
-            "maxDataPoints": 100,
-            "nullPointMode": "connected",
-            "nullText": null,
-            "options": {},
-            "pluginVersion": "6.4.4",
-            "postfix": "",
-            "postfixFontSize": "50%",
-            "prefix": "",
-            "prefixFontSize": "50%",
-            "rangeMaps": [
-                {
-                    "from": "null",
-                    "text": "N/A",
-                    "to": "null"
-                }
-            ],
-            "sparkline": {
-                "fillColor": "rgba(31, 118, 189, 0.18)",
-                "full": false,
-                "lineColor": "rgb(31, 120, 193)",
-                "show": false,
-                "ymax": null,
-                "ymin": null
-            },
-            "tableColumn": "",
-            "targets": [
-                {
-                    "expr": "sum(unpoller_site_aps)",
-                    "format": "time_series",
-                    "instant": true,
-                    "interval": "$Smooth",
-                    "refId": "A"
-                }
-            ],
-            "thresholds": "",
-            "timeFrom": null,
-            "timeShift": null,
-            "title": "UAP",
-            "type": "singlestat",
-            "valueFontSize": "100%",
-            "valueMaps": [
-                {
-                    "op": "=",
-                    "text": "N/A",
-                    "value": "null"
-                }
-            ],
-            "valueName": "current"
-        },
-        {
-            "cacheTimeout": null,
-            "colorBackground": false,
-            "colorValue": false,
-            "colors": [
-                "#299c46",
-                "rgba(237, 129, 40, 0.89)",
-                "#d44a3a"
-            ],
-            "datasource": "Prometheus",
-            "decimals": null,
-            "format": "none",
-            "gauge": {
-                "maxValue": 100,
-                "minValue": 0,
-                "show": false,
-                "thresholdLabels": false,
-                "thresholdMarkers": true
-            },
-            "gridPos": {
-                "h": 4,
-                "w": 3,
-                "x": 6,
-                "y": 0
-            },
-            "id": 43,
-            "interval": null,
-            "links": [],
-            "mappingType": 1,
-            "mappingTypes": [
-                {
-                    "name": "value to text",
-                    "value": 1
-                },
-                {
-                    "name": "range to text",
-                    "value": 2
-                }
-            ],
-            "maxDataPoints": 100,
-            "nullPointMode": "connected",
-            "nullText": null,
-            "options": {},
-            "pluginVersion": "6.4.4",
-            "postfix": "",
-            "postfixFontSize": "50%",
-            "prefix": "",
-            "prefixFontSize": "50%",
-            "rangeMaps": [
-                {
-                    "from": "null",
-                    "text": "N/A",
-                    "to": "null"
-                }
-            ],
-            "sparkline": {
-                "fillColor": "rgba(31, 118, 189, 0.18)",
-                "full": false,
-                "lineColor": "rgb(31, 120, 193)",
-                "show": false,
-                "ymax": null,
-                "ymin": null
-            },
-            "tableColumn": "",
-            "targets": [
-                {
-                    "expr": "sum(unpoller_site_gateways)",
-                    "format": "time_series",
-                    "instant": true,
-                    "interval": "$Smooth",
-                    "refId": "A"
-                }
-            ],
-            "thresholds": "",
-            "timeFrom": null,
-            "timeShift": null,
-            "title": "USG",
-            "type": "singlestat",
-            "valueFontSize": "100%",
-            "valueMaps": [
-                {
-                    "op": "=",
-                    "text": "N/A",
-                    "value": "null"
-                }
-            ],
-            "valueName": "current"
-        },
-        {
-            "cacheTimeout": null,
-            "colorBackground": false,
-            "colorValue": false,
-            "colors": [
-                "#299c46",
-                "rgba(237, 129, 40, 0.89)",
-                "#d44a3a"
-            ],
-            "datasource": "Prometheus",
-            "decimals": null,
-            "format": "none",
-            "gauge": {
-                "maxValue": 100,
-                "minValue": 0,
-                "show": false,
-                "thresholdLabels": false,
-                "thresholdMarkers": true
-            },
-            "gridPos": {
-                "h": 4,
-                "w": 3,
-                "x": 9,
-                "y": 0
-            },
-            "id": 44,
-            "interval": null,
-            "links": [],
-            "mappingType": 1,
-            "mappingTypes": [
-                {
-                    "name": "value to text",
-                    "value": 1
-                },
-                {
-                    "name": "range to text",
-                    "value": 2
-                }
-            ],
-            "maxDataPoints": 100,
-            "nullPointMode": "connected",
-            "nullText": null,
-            "options": {},
-            "pluginVersion": "6.4.4",
-            "postfix": "",
-            "postfixFontSize": "50%",
-            "prefix": "",
-            "prefixFontSize": "50%",
-            "rangeMaps": [
-                {
-                    "from": "null",
-                    "text": "N/A",
-                    "to": "null"
-                }
-            ],
-            "sparkline": {
-                "fillColor": "rgba(31, 118, 189, 0.18)",
-                "full": false,
-                "lineColor": "rgb(31, 120, 193)",
-                "show": true,
-                "ymax": null,
-                "ymin": null
-            },
-            "tableColumn": "",
-            "targets": [
-                {
-                    "expr": "sum(unpoller_site_stations)",
-                    "format": "time_series",
-                    "instant": false,
-                    "interval": "$Smooth",
-                    "refId": "A"
-                }
-            ],
-            "thresholds": "",
-            "timeFrom": null,
-            "timeShift": null,
-            "title": "Stations",
-            "type": "singlestat",
-            "valueFontSize": "100%",
-            "valueMaps": [
-                {
-                    "op": "=",
-                    "text": "N/A",
-                    "value": "null"
-                }
-            ],
-            "valueName": "current"
-        },
-        {
-            "content": "Each site contains 5 subsystems: wan, lan, wlan, www, vpn. Each subsystem contains data specific to that system. \nAll subsystems except vpn have data rate. VPN has data transfer though.\nThere's not a ton of juicy info here, and most of it can be gleaned on other the dashboards.\nThe row below is purposely collapsed because some installationd have hundreds of sites. \nLoading them all at once is often not possible.\n",
-            "gridPos": {
-                "h": 4,
-                "w": 12,
-                "x": 12,
-                "y": 0
-            },
-            "id": 37,
-            "links": [],
-            "mode": "html",
-            "options": {},
-            "timeFrom": null,
-            "timeShift": null,
-            "title": "Information",
-            "type": "text"
-        },
-        {
-            "collapsed": true,
-            "gridPos": {
-                "h": 1,
-                "w": 24,
-                "x": 0,
-                "y": 4
-            },
-            "id": 4,
-            "panels": [
-                {
-                    "cacheTimeout": null,
-                    "colorBackground": false,
-                    "colorValue": false,
-                    "colors": [
-                        "#299c46",
-                        "rgba(237, 129, 40, 0.89)",
-                        "#d44a3a"
-                    ],
-                    "datasource": "Prometheus",
-                    "decimals": null,
-                    "format": "s",
-                    "gauge": {
-                        "maxValue": 100,
-                        "minValue": 0,
-                        "show": false,
-                        "thresholdLabels": false,
-                        "thresholdMarkers": true
-                    },
-                    "gridPos": {
-                        "h": 3,
-                        "w": 6,
-                        "x": 0,
-                        "y": 5
-                    },
-                    "id": 40,
-                    "interval": null,
-                    "links": [],
-                    "mappingType": 1,
-                    "mappingTypes": [
-                        {
-                            "name": "value to text",
-                            "value": 1
-                        },
-                        {
-                            "name": "range to text",
-                            "value": 2
-                        }
-                    ],
-                    "maxDataPoints": 100,
-                    "nullPointMode": "connected",
-                    "nullText": null,
-                    "options": {},
-                    "pluginVersion": "6.4.4",
-                    "postfix": "",
-                    "postfixFontSize": "50%",
-                    "prefix": "",
-                    "prefixFontSize": "50%",
-                    "rangeMaps": [
-                        {
-                            "from": "null",
-                            "text": "N/A",
-                            "to": "null"
-                        }
-                    ],
-                    "sparkline": {
-                        "fillColor": "rgba(31, 118, 189, 0.18)",
-                        "full": false,
-                        "lineColor": "rgb(31, 120, 193)",
-                        "show": false,
-                        "ymax": null,
-                        "ymin": null
-                    },
-                    "tableColumn": "",
-                    "targets": [
-                        {
-                            "expr": "unpoller_site_uptime_seconds",
-                            "format": "time_series",
-                            "instant": true,
-                            "interval": "$Smooth",
-                            "refId": "A"
-                        }
-                    ],
-                    "thresholds": "",
-                    "timeFrom": null,
-                    "timeShift": null,
-                    "title": "Uplink Uptime",
-                    "type": "singlestat",
-                    "valueFontSize": "80%",
-                    "valueMaps": [
-                        {
-                            "op": "=",
-                            "text": "N/A",
-                            "value": "null"
-                        }
-                    ],
-                    "valueName": "current"
-                },
-                {
-                    "aliasColors": {},
-                    "bars": false,
-                    "dashLength": 10,
-                    "dashes": false,
-                    "datasource": "Prometheus",
-                    "decimals": 0,
-                    "description": "These are counters, totals, but they don't change much so the graph does not show rate.",
-                    "fill": 0,
-                    "fillGradient": 0,
-                    "gridPos": {
-                        "h": 11,
-                        "w": 18,
-                        "x": 6,
-                        "y": 5
-                    },
-                    "hiddenSeries": false,
-                    "id": 38,
-                    "legend": {
-                        "alignAsTable": true,
-                        "avg": false,
-                        "current": true,
-                        "hideEmpty": true,
-                        "hideZero": false,
-                        "max": true,
-                        "min": false,
-                        "rightSide": true,
-                        "show": true,
-                        "sort": "max",
-                        "sortDesc": true,
-                        "total": false,
-                        "values": true
-                    },
-                    "lines": true,
-                    "linewidth": 2,
-                    "links": [],
-                    "nullPointMode": "null",
-                    "options": {
-                        "dataLinks": []
-                    },
-                    "percentage": false,
-                    "pointradius": 2,
-                    "points": false,
-                    "renderer": "flot",
-                    "repeatDirection": "h",
-                    "scopedVars": {
-                        "Site": {
-                            "selected": false,
-                            "text": "Default (default)",
-                            "value": "Default (default)"
-                        }
-                    },
-                    "seriesOverrides": [],
-                    "spaceLength": 10,
-                    "stack": false,
-                    "steppedLine": false,
-                    "targets": [
-                        {
-                            "expr": "unpoller_site_iots{site_name=~\"$Site\",subsystem=~\"$Subsystem\"}",
-                            "interval": "$Smooth",
-                            "legendFormat": "{{subsystem}} IoT",
-                            "refId": "A"
-                        },
-                        {
-                            "expr": "unpoller_site_adopted{site_name=~\"$Site\",subsystem=~\"$Subsystem\"}",
-                            "interval": "$Smooth",
-                            "legendFormat": "{{subsystem}} Adopted",
-                            "refId": "B"
-                        },
-                        {
-                            "expr": "unpoller_site_disabled{site_name=~\"$Site\",subsystem=~\"$Subsystem\"}",
-                            "interval": "$Smooth",
-                            "legendFormat": "{{subsystem}} Disabled",
-                            "refId": "C"
-                        },
-                        {
-                            "expr": "unpoller_site_disconnected{site_name=~\"$Site\",subsystem=~\"$Subsystem\"}",
-                            "interval": "$Smooth",
-                            "legendFormat": "{{subsystem}} Disconnected",
-                            "refId": "D"
-                        },
-                        {
-                            "expr": "unpoller_site_pending{site_name=~\"$Site\",subsystem=~\"$Subsystem\"}",
-                            "interval": "$Smooth",
-                            "legendFormat": "{{subsystem}} Pending",
-                            "refId": "E"
-                        },
-                        {
-                            "expr": "unpoller_site_gateways{site_name=~\"$Site\",subsystem=~\"$Subsystem\"}",
-                            "interval": "$Smooth",
-                            "legendFormat": "{{subsystem}} Gateways",
-                            "refId": "F"
-                        },
-                        {
-                            "expr": "unpoller_site_switches{site_name=~\"$Site\",subsystem=~\"$Subsystem\"}",
-                            "interval": "$Smooth",
-                            "legendFormat": "{{subsystem}} Switches",
-                            "refId": "G"
-                        },
-                        {
-                            "expr": "unpoller_site_intenet_drops_total{site_name=~\"$Site\",subsystem=~\"$Subsystem\"}",
-                            "interval": "$Smooth",
-                            "legendFormat": "{{subsystem}} Drops",
-                            "refId": "H"
-                        }
-                    ],
-                    "thresholds": [],
-                    "timeFrom": null,
-                    "timeRegions": [],
-                    "timeShift": null,
-                    "title": "Item Counts",
-                    "tooltip": {
-                        "shared": true,
-                        "sort": 2,
-                        "value_type": "individual"
-                    },
-                    "type": "graph",
-                    "xaxis": {
-                        "buckets": null,
-                        "mode": "time",
-                        "name": null,
-                        "show": true,
-                        "values": []
-                    },
-                    "yaxes": [
-                        {
-                            "decimals": 0,
-                            "format": "short",
-                            "label": "Item Counts",
-                            "logBase": 1,
-                            "max": null,
-                            "min": null,
-                            "show": true
-                        },
-                        {
-                            "format": "short",
-                            "label": null,
-                            "logBase": 1,
-                            "max": null,
-                            "min": null,
-                            "show": true
-                        }
-                    ],
-                    "yaxis": {
-                        "align": false,
-                        "alignLevel": null
-                    }
-                },
-                {
-                    "cacheTimeout": null,
-                    "datasource": "Prometheus",
-                    "gridPos": {
-                        "h": 8,
-                        "w": 3,
-                        "x": 0,
-                        "y": 8
-                    },
-                    "id": 32,
-                    "links": [],
-                    "options": {
-                        "fieldOptions": {
-                            "calcs": [
-                                "lastNotNull"
-                            ],
-                            "defaults": {
-                                "color": {
-                                    "mode": "thresholds"
-                                },
-                                "decimals": 0,
-                                "mappings": [
-                                    {
-                                        "id": 0,
-                                        "op": "=",
-                                        "text": "N/A",
-                                        "type": 1,
-                                        "value": "null"
-                                    }
-                                ],
-                                "max": 400,
-                                "min": 10,
-                                "nullValueMode": "connected",
-                                "thresholds": {
-                                    "mode": "absolute",
-                                    "steps": [
-                                        {
-                                            "color": "#299c46",
-                                            "value": null
-                                        },
-                                        {
-                                            "color": "rgba(237, 129, 40, 0.89)",
-                                            "value": 100
-                                        },
-                                        {
-                                            "color": "#d44a3a",
-                                            "value": 200
-                                        }
-                                    ]
-                                },
-                                "title": "Latency",
-                                "unit": "s"
-                            },
-                            "overrides": [],
-                            "values": false
-                        },
-                        "orientation": "horizontal",
-                        "showThresholdLabels": false,
-                        "showThresholdMarkers": true
-                    },
-                    "pluginVersion": "6.6.0",
-                    "scopedVars": {
-                        "Site": {
-                            "selected": false,
-                            "text": "Default (default)",
-                            "value": "Default (default)"
-                        }
-                    },
-                    "targets": [
-                        {
-                            "expr": "unpoller_site_latency_seconds{site_name=~\"$Site\"}",
-                            "instant": true,
-                            "interval": "$Smooth",
-                            "refId": "A"
-                        }
-                    ],
-                    "timeFrom": null,
-                    "timeShift": null,
-                    "title": "",
-                    "type": "gauge"
-                },
-                {
-                    "cacheTimeout": null,
-                    "datasource": "Prometheus",
-                    "gridPos": {
-                        "h": 8,
-                        "w": 3,
-                        "x": 3,
-                        "y": 8
-                    },
-                    "id": 33,
-                    "links": [],
-                    "options": {
-                        "fieldOptions": {
-                            "calcs": [
-                                "lastNotNull"
-                            ],
-                            "defaults": {
-                                "color": {
-                                    "mode": "thresholds"
-                                },
-                                "mappings": [
-                                    {
-                                        "id": 0,
-                                        "op": "=",
-                                        "text": "N/A",
-                                        "type": 1,
-                                        "value": "null"
-                                    }
-                                ],
-                                "max": 200,
-                                "min": 1,
-                                "nullValueMode": "connected",
-                                "thresholds": {
-                                    "mode": "absolute",
-                                    "steps": [
-                                        {
-                                            "color": "#299c46",
-                                            "value": null
-                                        },
-                                        {
-                                            "color": "rgba(237, 129, 40, 0.89)",
-                                            "value": 50
-                                        },
-                                        {
-                                            "color": "#d44a3a",
-                                            "value": 100
-                                        }
-                                    ]
-                                },
-                                "title": "Speed Test Ping",
-                                "unit": "s"
-                            },
-                            "overrides": [],
-                            "values": false
-                        },
-                        "orientation": "horizontal",
-                        "showThresholdLabels": false,
-                        "showThresholdMarkers": true
-                    },
-                    "pluginVersion": "6.6.0",
-                    "scopedVars": {
-                        "Site": {
-                            "selected": false,
-                            "text": "Default (default)",
-                            "value": "Default (default)"
-                        }
-                    },
-                    "targets": [
-                        {
-                            "expr": "unpoller_site_speedtest_ping{site_name=~\"$Site\"}",
-                            "interval": "$Smooth",
-                            "refId": "A"
-                        }
-                    ],
-                    "timeFrom": null,
-                    "timeShift": null,
-                    "title": "",
-                    "type": "gauge"
-                },
-                {
-                    "aliasColors": {},
-                    "bars": false,
-                    "dashLength": 10,
-                    "dashes": false,
-                    "datasource": "Prometheus",
-                    "decimals": null,
-                    "description": "Shows data transfer for each subsystem on the site. RX is on the negative axis.",
-                    "fill": 0,
-                    "fillGradient": 0,
-                    "gridPos": {
-                        "h": 8,
-                        "w": 24,
-                        "x": 0,
-                        "y": 16
-                    },
-                    "hiddenSeries": false,
-                    "id": 15,
-                    "legend": {
-                        "alignAsTable": true,
-                        "avg": false,
-                        "current": true,
-                        "max": true,
-                        "min": false,
-                        "rightSide": true,
-                        "show": true,
-                        "sort": "max",
-                        "sortDesc": true,
-                        "total": false,
-                        "values": true
-                    },
-                    "lines": true,
-                    "linewidth": 1,
-                    "links": [],
-                    "maxPerRow": 2,
-                    "nullPointMode": "connected",
-                    "options": {
-                        "dataLinks": []
-                    },
-                    "percentage": false,
-                    "pointradius": 2,
-                    "points": false,
-                    "renderer": "flot",
-                    "repeatDirection": "h",
-                    "scopedVars": {
-                        "Site": {
-                            "selected": false,
-                            "text": "Default (default)",
-                            "value": "Default (default)"
-                        }
-                    },
-                    "seriesOverrides": [
-                        {
-                            "alias": "/Rx$/",
-                            "transform": "negative-Y"
-                        }
-                    ],
-                    "spaceLength": 10,
-                    "stack": false,
-                    "steppedLine": false,
-                    "targets": [
-                        {
-                            "expr": "unpoller_site_transmit_rate_bytes{site_name=~\"$Site\", subsystem=~\"$Subsystem\"}",
-                            "interval": "$Smooth",
-                            "legendFormat": "{{subsystem}} Tx",
-                            "refId": "A"
-                        },
-                        {
-                            "expr": "unpoller_site_receive_rate_bytes{site_name=~\"$Site\", subsystem=~\"$Subsystem\"}",
-                            "interval": "$Smooth",
-                            "legendFormat": "{{subsystem}} Rx",
-                            "refId": "B"
-                        }
-                    ],
-                    "thresholds": [],
-                    "timeFrom": null,
-                    "timeRegions": [],
-                    "timeShift": null,
-                    "title": "Data Transfer",
-                    "tooltip": {
-                        "shared": true,
-                        "sort": 2,
-                        "value_type": "individual"
-                    },
-                    "type": "graph",
-                    "xaxis": {
-                        "buckets": null,
-                        "mode": "time",
-                        "name": null,
-                        "show": true,
-                        "values": []
-                    },
-                    "yaxes": [
-                        {
-                            "decimals": null,
-                            "format": "Bps",
-                            "label": "bytes / second",
-                            "logBase": 1,
-                            "max": null,
-                            "min": null,
-                            "show": true
-                        },
-                        {
-                            "format": "short",
-                            "label": null,
-                            "logBase": 1,
-                            "max": null,
-                            "min": null,
-                            "show": true
-                        }
-                    ],
-                    "yaxis": {
-                        "align": false,
-                        "alignLevel": null
-                    }
-                },
-                {
-                    "aliasColors": {},
-                    "bars": false,
-                    "dashLength": 10,
-                    "dashes": false,
-                    "datasource": "Prometheus",
-                    "decimals": 0,
-                    "description": "This graphs shows clients connected to the site.",
-                    "fill": 0,
-                    "fillGradient": 0,
-                    "gridPos": {
-                        "h": 7,
-                        "w": 24,
-                        "x": 0,
-                        "y": 24
-                    },
-                    "hiddenSeries": false,
-                    "id": 2,
-                    "legend": {
-                        "alignAsTable": true,
-                        "avg": false,
-                        "current": true,
-                        "max": true,
-                        "min": false,
-                        "rightSide": true,
-                        "show": true,
-                        "sort": "current",
-                        "sortDesc": true,
-                        "total": false,
-                        "values": true
-                    },
-                    "lines": true,
-                    "linewidth": 3,
-                    "links": [],
-                    "nullPointMode": "connected",
-                    "options": {
-                        "dataLinks": []
-                    },
-                    "percentage": false,
-                    "pointradius": 2,
-                    "points": false,
-                    "renderer": "flot",
-                    "repeat": null,
-                    "repeatDirection": "h",
-                    "scopedVars": {
-                        "Site": {
-                            "selected": false,
-                            "text": "Default (default)",
-                            "value": "Default (default)"
-                        }
-                    },
-                    "seriesOverrides": [],
-                    "spaceLength": 10,
-                    "stack": false,
-                    "steppedLine": false,
-                    "targets": [
-                        {
-                            "expr": "unpoller_site_users{site_name=~\"$Site\", subsystem=~\"$Subsystem\"}",
-                            "interval": "$Smooth",
-                            "legendFormat": "{{subsystem}} Users",
-                            "refId": "A"
-                        },
-                        {
-                            "expr": "unpoller_site_guests{site_name=~\"$Site\", subsystem=~\"$Subsystem\"}",
-                            "interval": "$Smooth",
-                            "legendFormat": "{{subsystem}} Guests",
-                            "refId": "B"
-                        },
-                        {
-                            "expr": "unpoller_site_remote_user_active{site_name=~\"$Site\", subsystem=~\"$Subsystem\"}",
-                            "interval": "$Smooth",
-                            "legendFormat": "{{subsystem}} Active",
-                            "refId": "C"
-                        },
-                        {
-                            "expr": "unpoller_site_remote_user_inactive{site_name=~\"$Site\", subsystem=~\"$Subsystem\"}",
-                            "interval": "$Smooth",
-                            "legendFormat": "{{subsystem}} Inactive",
-                            "refId": "D"
-                        },
-                        {
-                            "expr": "unpoller_site_stations{site_name=~\"$Site\", subsystem=~\"$Subsystem\"}",
-                            "interval": "$Smooth",
-                            "legendFormat": "{{subsystem}} Stations",
-                            "refId": "E"
-                        }
-                    ],
-                    "thresholds": [],
-                    "timeFrom": null,
-                    "timeRegions": [],
-                    "timeShift": null,
-                    "title": "Client Counts",
-                    "tooltip": {
-                        "shared": true,
-                        "sort": 2,
-                        "value_type": "individual"
-                    },
-                    "type": "graph",
-                    "xaxis": {
-                        "buckets": null,
-                        "mode": "time",
-                        "name": null,
-                        "show": true,
-                        "values": []
-                    },
-                    "yaxes": [
-                        {
-                            "decimals": 0,
-                            "format": "short",
-                            "label": null,
-                            "logBase": 1,
-                            "max": null,
-                            "min": null,
-                            "show": true
-                        },
-                        {
-                            "format": "short",
-                            "label": null,
-                            "logBase": 1,
-                            "max": null,
-                            "min": null,
-                            "show": true
-                        }
-                    ],
-                    "yaxis": {
-                        "align": false,
-                        "alignLevel": null
-                    }
-                },
-                {
-                    "aliasColors": {},
-                    "bars": false,
-                    "dashLength": 10,
-                    "dashes": false,
-                    "datasource": "Prometheus",
-                    "decimals": 0,
-                    "description": "This graphs shows clients connected to the site.",
-                    "fill": 0,
-                    "fillGradient": 0,
-                    "gridPos": {
-                        "h": 7,
-                        "w": 24,
-                        "x": 0,
-                        "y": 31
-                    },
-                    "hiddenSeries": false,
-                    "id": 39,
-                    "legend": {
-                        "alignAsTable": true,
-                        "avg": false,
-                        "current": true,
-                        "max": true,
-                        "min": false,
-                        "rightSide": true,
-                        "show": true,
-                        "sort": "current",
-                        "sortDesc": true,
-                        "total": false,
-                        "values": true
-                    },
-                    "lines": true,
-                    "linewidth": 3,
-                    "links": [],
-                    "nullPointMode": "connected",
-                    "options": {
-                        "dataLinks": []
-                    },
-                    "percentage": false,
-                    "pointradius": 2,
-                    "points": false,
-                    "renderer": "flot",
-                    "repeatDirection": "h",
-                    "scopedVars": {
-                        "Site": {
-                            "selected": false,
-                            "text": "Default (default)",
-                            "value": "Default (default)"
-                        }
-                    },
-                    "seriesOverrides": [
-                        {
-                            "alias": "/Rx$/",
-                            "transform": "negative-Y"
-                        }
-                    ],
-                    "spaceLength": 10,
-                    "stack": false,
-                    "steppedLine": false,
-                    "targets": [
-                        {
-                            "expr": "rate(unpoller_site_remote_user_transmit_bytes_total{site_name=~\"$Site\"}[$__interval])",
-                            "interval": "$Smooth",
-                            "legendFormat": "VPN Users Tx",
-                            "refId": "A"
-                        },
-                        {
-                            "expr": "rate(unpoller_site_remote_user_receive_bytes_total{site_name=~\"$Site\"}[$__interval])",
-                            "interval": "$Smooth",
-                            "legendFormat": "VPN Users Rx",
-                            "refId": "B"
-                        }
-                    ],
-                    "thresholds": [],
-                    "timeFrom": null,
-                    "timeRegions": [],
-                    "timeShift": null,
-                    "title": "VPN Users Data Rate",
-                    "tooltip": {
-                        "shared": true,
-                        "sort": 2,
-                        "value_type": "individual"
-                    },
-                    "type": "graph",
-                    "xaxis": {
-                        "buckets": null,
-                        "mode": "time",
-                        "name": null,
-                        "show": true,
-                        "values": []
-                    },
-                    "yaxes": [
-                        {
-                            "decimals": 0,
-                            "format": "Bps",
-                            "label": null,
-                            "logBase": 1,
-                            "max": null,
-                            "min": null,
-                            "show": true
-                        },
-                        {
-                            "format": "short",
-                            "label": null,
-                            "logBase": 1,
-                            "max": null,
-                            "min": null,
-                            "show": true
-                        }
-                    ],
-                    "yaxis": {
-                        "align": false,
-                        "alignLevel": null
-                    }
-                },
-                {
-                    "aliasColors": {},
-                    "bars": false,
-                    "dashLength": 10,
-                    "dashes": false,
-                    "datasource": "Prometheus",
-                    "decimals": 0,
-                    "description": "This graph only works if DPI is enabled on the controller and DPI collection is enabled in UniFi Poller. Rx is on the negative axis.",
-                    "fill": 0,
-                    "fillGradient": 0,
-                    "gridPos": {
-                        "h": 17,
-                        "w": 24,
-                        "x": 0,
-                        "y": 38
-                    },
-                    "hiddenSeries": false,
-                    "id": 45,
-                    "legend": {
-                        "alignAsTable": true,
-                        "avg": true,
-                        "current": false,
-                        "hideEmpty": true,
-                        "hideZero": true,
-                        "max": true,
-                        "min": false,
-                        "rightSide": true,
-                        "show": true,
-                        "sort": "max",
-                        "sortDesc": true,
-                        "total": false,
-                        "values": true
-                    },
-                    "lines": true,
-                    "linewidth": 3,
-                    "links": [],
-                    "nullPointMode": "connected",
-                    "options": {
-                        "dataLinks": []
-                    },
-                    "percentage": false,
-                    "pointradius": 2,
-                    "points": false,
-                    "renderer": "flot",
-                    "repeatDirection": "h",
-                    "scopedVars": {
-                        "Site": {
-                            "selected": false,
-                            "text": "Default (default)",
-                            "value": "Default (default)"
-                        }
-                    },
-                    "seriesOverrides": [
-                        {
-                            "alias": "/Rx$/",
-                            "transform": "negative-Y"
-                        }
-                    ],
-                    "spaceLength": 10,
-                    "stack": false,
-                    "steppedLine": false,
-                    "targets": [
-                        {
-                            "expr": "sum by (category) (rate(unpoller_site_dpi_receive_bytes{site_name=~\"$Site\"}[$__interval]))",
-                            "hide": false,
-                            "interval": "$Smooth",
-                            "legendFormat": "{{category}} Rx",
-                            "refId": "A"
-                        },
-                        {
-                            "expr": "sum by (category) (rate(unpoller_site_dpi_transmit_bytes{site_name=~\"$Site\"}[$__interval]))",
-                            "hide": false,
-                            "interval": "$Smooth",
-                            "legendFormat": "{{category}} Tx",
-                            "refId": "B"
-                        }
-                    ],
-                    "thresholds": [],
-                    "timeFrom": null,
-                    "timeRegions": [],
-                    "timeShift": null,
-                    "title": "Data Transfer by Category",
-                    "tooltip": {
-                        "shared": true,
-                        "sort": 2,
-                        "value_type": "individual"
-                    },
-                    "type": "graph",
-                    "xaxis": {
-                        "buckets": null,
-                        "mode": "time",
-                        "name": null,
-                        "show": true,
-                        "values": []
-                    },
-                    "yaxes": [
-                        {
-                            "decimals": 0,
-                            "format": "Bps",
-                            "label": null,
-                            "logBase": 1,
-                            "max": null,
-                            "min": null,
-                            "show": true
-                        },
-                        {
-                            "format": "short",
-                            "label": null,
-                            "logBase": 1,
-                            "max": null,
-                            "min": null,
-                            "show": true
-                        }
-                    ],
-                    "yaxis": {
-                        "align": false,
-                        "alignLevel": null
-                    }
-                }
-            ],
-            "repeat": "Site",
-            "title": "Site: $Site",
-            "type": "row"
-        }
-    ],
-    "refresh": "1m",
-    "schemaVersion": 22,
-    "style": "dark",
-    "tags": [
-        "unifi",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Overview of each UniFi site: devices, clients, internet availability and latency, health by subsystem, VPN use and traffic. Start here, then open the Gateway, Access Points or Clients dashboards for detail.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "liveNow": false,
+  "links": [
+    {
+      "asDropdown": true,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [
         "unifi-poller"
-    ],
-    "templating": {
-        "list": [
-            {
-                "allValue": null,
-                "current": {
-                    "selected": false,
-                    "text": "All",
-                    "value": "$__all"
-                },
-                "datasource": "Prometheus",
-                "definition": "label_values(unpoller_site_transmit_rate_bytes,source)",
-                "hide": 0,
-                "includeAll": true,
-                "label": "",
-                "multi": true,
-                "name": "Controller",
-                "options": [],
-                "query": "label_values(unpoller_site_transmit_rate_bytes,source)",
-                "refresh": 1,
-                "regex": "",
-                "skipUrlSync": false,
-                "sort": 1,
-                "tagValuesQuery": "",
-                "tags": [],
-                "tagsQuery": "",
-                "type": "query",
-                "useTags": false
+      ],
+      "title": "UniFi dashboards",
+      "type": "dashboards"
+    }
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "UniFi devices",
+      "description": "Gateways, switches and access points adopted on the site.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(unpoller_site_adopted{source=~\"$Controller\", site_name=~\"$Site\"})",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": null,
+          "noValue": "\u2013",
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "id": 1,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Offline devices",
+      "description": "Adopted devices that aren't connected to the controller. Red when any are offline.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(unpoller_site_disconnected{source=~\"$Controller\", site_name=~\"$Site\"})",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": null,
+          "noValue": "\u2013",
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "id": 2,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Waiting for adoption",
+      "description": "Devices that have been found but not adopted yet.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(unpoller_site_pending{source=~\"$Controller\", site_name=~\"$Site\"})",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": null,
+          "noValue": "\u2013",
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "id": 3,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Clients",
+      "description": "Devices connected now, wired and wireless.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(unpoller_site_users{source=~\"$Controller\", site_name=~\"$Site\", subsystem=~\"lan|wlan\"}) + sum(unpoller_site_guests{source=~\"$Controller\", site_name=~\"$Site\"})",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": null,
+          "noValue": "\u2013",
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "id": 4,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Internet up for",
+      "description": "Time since the internet connection last dropped, including failovers.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "min(unpoller_site_uptime_seconds{source=~\"$Controller\", site_name=~\"$Site\", subsystem=\"www\"})",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dtdurations",
+          "decimals": null,
+          "noValue": "\u2013",
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "id": 5,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Internet drops",
+      "description": "Times the internet connection dropped in the selected time range.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(unpoller_site_intenet_drops_total{source=~\"$Controller\", site_name=~\"$Site\"}[$__range]))",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "textMode": "value",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "noValue": "\u2013",
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "id": 6,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Internet throughput",
+      "description": "Download above the line, upload below it, across all internet lines.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(unpoller_site_receive_rate_bytes{source=~\"$Controller\", site_name=~\"$Site\", subsystem=\"wan\"}) * 8",
+          "legendFormat": "Download",
+          "refId": "A",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(unpoller_site_transmit_rate_bytes{source=~\"$Controller\", site_name=~\"$Site\", subsystem=\"wan\"}) * 8",
+          "legendFormat": "Upload",
+          "refId": "B",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "decimals": null,
+          "min": 0,
+          "max": null,
+          "mappings": [],
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": 300000,
+            "axisPlacement": "auto",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
             },
-            {
-                "allValue": ".*",
-                "current": {
-                    "selected": false,
-                    "text": "All",
-                    "value": "$__all"
-                },
-                "datasource": "Prometheus",
-                "definition": "label_values(unpoller_site_transmit_rate_bytes{source=~\"$Controller\"},site_name)",
-                "hide": 0,
-                "includeAll": true,
-                "label": "",
-                "multi": false,
-                "name": "Site",
-                "options": [],
-                "query": "label_values(unpoller_site_transmit_rate_bytes{source=~\"$Controller\"},site_name)",
-                "refresh": 1,
-                "regex": "",
-                "skipUrlSync": false,
-                "sort": 1,
-                "tagValuesQuery": "",
-                "tags": [],
-                "tagsQuery": "",
-                "type": "query",
-                "useTags": false
-            },
-            {
-                "allValue": ".*",
-                "current": {
-                    "selected": false,
-                    "text": "All",
-                    "value": "$__all"
-                },
-                "datasource": "Prometheus",
-                "definition": "label_values(unpoller_site_transmit_rate_bytes,subsystem)",
-                "hide": 0,
-                "includeAll": true,
-                "label": null,
-                "multi": true,
-                "name": "Subsystem",
-                "options": [],
-                "query": "label_values(unpoller_site_transmit_rate_bytes,subsystem)",
-                "refresh": 1,
-                "regex": "",
-                "skipUrlSync": false,
-                "sort": 0,
-                "tagValuesQuery": "",
-                "tags": [],
-                "tagsQuery": "",
-                "type": "query",
-                "useTags": false
-            },
-            {
-                "allValue": null,
-                "current": {
-                    "selected": true,
-                    "text": "2m",
-                    "value": "2m"
-                },
-                "hide": 0,
-                "includeAll": false,
-                "label": null,
-                "multi": false,
-                "name": "Smooth",
-                "options": [
-                    {
-                        "selected": false,
-                        "text": "30s",
-                        "value": "30s"
-                    },
-                    {
-                        "selected": true,
-                        "text": "1m",
-                        "value": "1m"
-                    },
-                    {
-                        "selected": false,
-                        "text": "2m",
-                        "value": "2m"
-                    },
-                    {
-                        "selected": false,
-                        "text": "5m",
-                        "value": "5m"
-                    },
-                    {
-                        "selected": false,
-                        "text": "10m",
-                        "value": "10m"
-                    }
-                ],
-                "query": "30s,1m,2m,5m,10m",
-                "skipUrlSync": false,
-                "type": "custom"
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Download"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Upload"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "Upload"
+            },
+            "properties": [
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
         ]
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 16,
+        "h": 9
+      },
+      "id": 7,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      }
     },
-    "time": {
-        "from": "now-3h",
-        "to": "now"
-    },
-    "timepicker": {
-        "nowDelay": "5s",
-        "refresh_intervals": [
-            "30s",
-            "1m",
-            "5m",
-            "15m",
-            "30m",
-            "1h",
-            "2h"
-        ],
-        "time_options": [
-            "5m",
-            "15m",
-            "1h",
-            "6h",
-            "12h",
-            "24h",
-            "2d",
-            "7d",
-            "30d"
+    {
+      "type": "table",
+      "title": "Health by subsystem",
+      "description": "UniFi's health status for each part of the site: internet (www), WAN, LAN, Wi-Fi (wlan) and VPN.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (subsystem, status) ({__name__=~\"unpoller_site_(adopted|users|uptime_seconds|stations)\", source=~\"$Controller\", site_name=~\"$Site\"})",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true
+            },
+            "indexByName": {
+              "subsystem": 0,
+              "status": 1
+            },
+            "renameByName": {
+              "subsystem": "Subsystem",
+              "status": "Status"
+            }
+          }
+        }
+      ],
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true,
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "fields": "",
+          "countRows": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "filterable": false,
+            "inspect": false,
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Subsystem"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "www": {
+                        "text": "Internet",
+                        "index": 0
+                      },
+                      "wan": {
+                        "text": "WAN",
+                        "index": 1
+                      },
+                      "lan": {
+                        "text": "LAN",
+                        "index": 2
+                      },
+                      "wlan": {
+                        "text": "Wi-Fi",
+                        "index": 3
+                      },
+                      "vpn": {
+                        "text": "VPN",
+                        "index": 4
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "ok": {
+                        "text": "OK",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "warning": {
+                        "text": "Warning",
+                        "color": "orange",
+                        "index": 1
+                      },
+                      "error": {
+                        "text": "Error",
+                        "color": "red",
+                        "index": 2
+                      },
+                      "unknown": {
+                        "text": "Unknown",
+                        "color": "text",
+                        "index": 3
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         ]
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 4,
+        "w": 8,
+        "h": 9
+      },
+      "id": 8,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      }
     },
-    "timezone": "browser",
-    "title": "UniFi Sites",
-    "uid": "9WaGWZaZk",
-    "version": 9
+    {
+      "type": "timeseries",
+      "title": "Clients",
+      "description": "Connected devices over time by how they connect.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(unpoller_site_users{source=~\"$Controller\", site_name=~\"$Site\", subsystem=\"wlan\"})",
+          "legendFormat": "Wi-Fi",
+          "refId": "A",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(unpoller_site_users{source=~\"$Controller\", site_name=~\"$Site\", subsystem=\"lan\"})",
+          "legendFormat": "Wired",
+          "refId": "B",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(unpoller_site_guests{source=~\"$Controller\", site_name=~\"$Site\"})",
+          "legendFormat": "Guests",
+          "refId": "C",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(unpoller_site_users{source=~\"$Controller\", site_name=~\"$Site\", subsystem=\"vpn\"})",
+          "legendFormat": "VPN",
+          "refId": "D",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "min": 0,
+          "max": null,
+          "mappings": [],
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "fillOpacity": 40,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": 300000,
+            "axisPlacement": "auto",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Wi-Fi"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Wired"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Guests"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "VPN"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "id": 9,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "UniFi devices",
+      "description": "Adopted, offline and waiting devices over time. Steps mean a device was added, removed or went offline.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(unpoller_site_adopted{source=~\"$Controller\", site_name=~\"$Site\"})",
+          "legendFormat": "Adopted",
+          "refId": "A",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(unpoller_site_disconnected{source=~\"$Controller\", site_name=~\"$Site\"})",
+          "legendFormat": "Offline",
+          "refId": "B",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(unpoller_site_pending{source=~\"$Controller\", site_name=~\"$Site\"})",
+          "legendFormat": "Waiting",
+          "refId": "C",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "min": 0,
+          "max": null,
+          "mappings": [],
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": 300000,
+            "axisPlacement": "auto",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Adopted"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8a8984"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Offline"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#e66767"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Waiting"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "id": 10,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Internet latency",
+      "description": "UniFi's latency check to the internet. Dashed line at 100 ms.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(unpoller_site_latency_seconds{source=~\"$Controller\", site_name=~\"$Site\", subsystem=\"www\"}) * 1000",
+          "legendFormat": "Latency",
+          "refId": "A",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "hidden",
+          "placement": "right",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 0,
+          "min": 0,
+          "max": null,
+          "mappings": [],
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": 300000,
+            "axisPlacement": "auto",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 100
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 12,
+        "h": 8
+      },
+      "id": 11,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Internet drops per hour",
+      "description": "How many times the internet connection dropped in each hour.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(unpoller_site_intenet_drops_total{source=~\"$Controller\", site_name=~\"$Site\"}[1h]))",
+          "legendFormat": "Drops",
+          "refId": "A",
+          "range": true,
+          "instant": false,
+          "format": "time_series",
+          "interval": "1h"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "hidden",
+          "placement": "right",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "min": 0,
+          "max": null,
+          "mappings": [],
+          "custom": {
+            "drawStyle": "bars",
+            "lineInterpolation": "smooth",
+            "lineWidth": 0,
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "spanNulls": 300000,
+            "axisPlacement": "auto",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 21,
+        "w": 12,
+        "h": 8
+      },
+      "id": 12,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "VPN users",
+      "description": "Remote users connected over UniFi VPN.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(unpoller_site_remote_user_active{source=~\"$Controller\", site_name=~\"$Site\"})",
+          "legendFormat": "Connected",
+          "refId": "A",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "hidden",
+          "placement": "right",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "min": 0,
+          "max": null,
+          "mappings": [],
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": 300000,
+            "axisPlacement": "auto",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 12,
+        "h": 8
+      },
+      "id": 13,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Wi-Fi and wired traffic",
+      "description": "Traffic on the local networks, from UniFi's per-subsystem rates.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(unpoller_site_receive_rate_bytes{source=~\"$Controller\", site_name=~\"$Site\", subsystem=\"wlan\"}) * 8",
+          "legendFormat": "Wi-Fi",
+          "refId": "A",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(unpoller_site_receive_rate_bytes{source=~\"$Controller\", site_name=~\"$Site\", subsystem=\"lan\"}) * 8",
+          "legendFormat": "Wired",
+          "refId": "B",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "decimals": null,
+          "min": 0,
+          "max": null,
+          "mappings": [],
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": 300000,
+            "axisPlacement": "auto",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Wi-Fi"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Wired"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 29,
+        "w": 12,
+        "h": 8
+      },
+      "id": 14,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      }
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": [
+    "unifi",
+    "unifi-poller",
+    "sites"
+  ],
+  "templating": {
+    "list": [
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        },
+        "definition": "label_values(unpoller_site_adopted, source)",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "label": "Controller",
+        "name": "Controller",
+        "options": [],
+        "query": {
+          "query": "label_values(unpoller_site_adopted, source)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        },
+        "definition": "label_values(unpoller_site_adopted{source=~\"$Controller\"}, site_name)",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "label": "Site",
+        "name": "Site",
+        "options": [],
+        "query": {
+          "query": "label_values(unpoller_site_adopted{source=~\"$Controller\"}, site_name)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "UniFi Sites",
+  "uid": "9WaGWZaZk",
+  "version": 1,
+  "weekStart": ""
 }
