@@ -31,6 +31,7 @@
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 Plex, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
 a { color: inherit; }
 .mono { font-family: PlexMono, ui-monospace, monospace; font-size: 12px; }
@@ -91,6 +92,31 @@ td.n, th.n { text-align: right; }
 @keyframes live { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .dot.running { animation: none; } }
 
+/* notifications */
+.bell-wrap { position: relative; }
+.bell { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0 !important; }
+.bell svg { width: 18px; height: 18px; }
+.bell .count { position: absolute; top: 3px; right: 1px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
+               background: var(--accent); color: var(--on-accent); font: 500 10px/16px Plex, sans-serif; text-align: center; }
+.notes { position: absolute; right: 0; top: 44px; width: 380px; max-width: calc(100vw - 32px); z-index: 10;
+         background: var(--surface); border: 1px solid var(--rule-2); border-radius: 12px;
+         box-shadow: 0 8px 24px rgba(0,0,0,.08); overflow: hidden; }
+.notes-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--rule); }
+.notes-head h2 { margin: 0; font-size: 14px; }
+.notes-list { max-height: min(480px, 70vh); overflow-y: auto; }
+.note { display: grid; grid-template-columns: 8px 1fr; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--rule); }
+.note:last-child { border-bottom: 0; }
+.note .mark { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; }
+.note.unread .mark { background: var(--accent); }
+.note.error .mark { background: var(--bad); }
+.note.read .mark { background: transparent; }
+.note.read .text { color: var(--ink-2); }
+.note .text { font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.note .meta { display: flex; gap: 12px; align-items: center; margin-top: 4px; font-size: 12px; color: var(--ink-3); }
+.note .meta a, .note .meta button { font: inherit; color: var(--ink-2); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.note .meta a:hover, .note .meta button:hover { color: var(--ink); }
+.notes-empty { padding: 24px 16px; color: var(--ink-3); font-size: 13px; text-align: center; }
+
 @media (max-width: 760px) {
   header { padding: 0 16px; }
   main { padding: 24px 16px 48px; }
@@ -107,6 +133,16 @@ td.n, th.n { text-align: right; }
     <a href="{{ url_for('index') }}" class="{{ 'on' if request.endpoint == 'index' }}">Reports</a>
     {% if is_admin %}<a href="{{ url_for('settings') }}" class="{{ 'on' if request.endpoint == 'settings' }}">Settings</a>{% endif %}
     <span class="who">{{ user }}</span>
+    <div class="bell-wrap">
+      <button class="bell" id="bell" aria-label="Notifications" aria-expanded="false" aria-controls="notes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+        <span class="count" id="bell-count" hidden></span>
+      </button>
+      <div class="notes" id="notes" hidden>
+        <div class="notes-head"><h2>Notifications</h2><button class="btn link small" id="read-all" style="color:var(--ink-2)">Mark all as read</button></div>
+        <div class="notes-list" id="notes-list"><p class="notes-empty">Loading…</p></div>
+      </div>
+    </div>
     <form method="post" action="{{ url_for('logout') }}" style="margin:0"><button>Sign out</button></form>
   </nav>
 </header>
@@ -115,5 +151,53 @@ td.n, th.n { text-align: right; }
   {% for m in get_flashed_messages() %}<p class="flash">{{ m }}</p>{% endfor %}
   {% block body %}{% endblock %}
 </main>
+{% if user %}
+<script>
+(() => {
+  const csrf = {{ csrf|tojson }};
+  const bell = document.getElementById('bell'), panel = document.getElementById('notes');
+  const list = document.getElementById('notes-list'), count = document.getElementById('bell-count');
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  function show(data) {
+    count.hidden = !data.unread;
+    count.textContent = data.unread > 99 ? '99+' : data.unread;
+    bell.setAttribute('aria-label', data.unread ? `Notifications, ${data.unread} unread` : 'Notifications');
+    document.getElementById('read-all').hidden = !data.unread;
+    list.innerHTML = data.items.length ? data.items.map(n => `
+      <div class="note ${n.read ? 'read' : 'unread'} ${n.level === 'error' ? 'error' : ''}">
+        <span class="mark" aria-hidden="true"></span>
+        <div><div class="text">${n.level === 'error' ? '<span class="sr-only">Problem: </span>' : ''}${esc(n.text)}</div>
+          <div class="meta"><span class="mono">${esc(n.when)}</span>
+            ${n.file ? `<a href="/download/${encodeURIComponent(n.file)}">Download</a>` : ''}
+            ${n.read ? '' : `<button data-read="${esc(n.id)}">Mark as read</button>`}</div></div>
+      </div>`).join('') : '<p class="notes-empty">No notifications yet</p>';
+  }
+  async function load() {
+    try { const r = await fetch('/notifications'); if (!r.redirected) show(await r.json()); } catch (e) {}
+  }
+  async function markRead(body) {
+    body.append('csrf', csrf);
+    const r = await fetch('/notifications/read', {method: 'POST', body});
+    if (r.ok) show(await r.json());
+  }
+  bell.addEventListener('click', e => {
+    e.stopPropagation();
+    panel.hidden = !panel.hidden;
+    bell.setAttribute('aria-expanded', String(!panel.hidden));
+    if (!panel.hidden) load();
+  });
+  document.addEventListener('click', e => { if (!panel.hidden && !panel.contains(e.target)) { panel.hidden = true; bell.setAttribute('aria-expanded', 'false'); } });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) { panel.hidden = true; bell.focus(); } });
+  list.addEventListener('click', e => {
+    const id = e.target.dataset && e.target.dataset.read;
+    if (id) { e.stopPropagation(); const b = new FormData(); b.append('id', id); markRead(b); }
+  });
+  document.getElementById('read-all').addEventListener('click', e => { e.stopPropagation(); const b = new FormData(); b.append('all', '1'); markRead(b); });
+  window.refreshNotes = load;
+  load();
+  setInterval(load, 30000);
+})();
+</script>
+{% endif %}
 </body>
 </html>
