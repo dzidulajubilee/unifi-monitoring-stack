@@ -72,6 +72,9 @@ def build(kind, end=None, start=None):
     d["maint"] = collect_maint(cur) if "maintenance" in on else None
     d["trends"] = collect_trends(kind, start) if "trends" in on else None
     d["_word"] = word
+    hidden = {n.strip().lower() for n in st["general"].get("hidden_networks", "").split(",") if n.strip()}
+    for x in (d, p):  # e.g. a network that only holds infrastructure
+        x["networks"] = [n for n in x.get("networks") or [] if (n["key"] or "").lower() not in hidden]
     gap = 1 - cur.coverage()["prom"]
     d["dns"] = p["dns"] = None
     if "dns" in on and dns.servers(st):

@@ -81,14 +81,14 @@ def collect(s: Source):
     d["top_clients"] = sorted(top, key=lambda c: -c["bytes"])[:10]
 
     # devices by network, as in Grafana's Clients dashboard: the most online at once, the average, and how many
-    # different devices used each network ("" is devices UnPoller reports without a network, e.g. VPN clients)
-    per_net = f"count by (network) ({clients})"
+    # different devices used each network ("" is Wi-Fi devices caught before they got an address)
+    per_net = f"count by (network) (count by (network, mac) ({clients}))"  # each device once, even with two addresses
     peak = s.by(f"max_over_time({per_net}[$R:5m])", "network")
     avg = s.by(f"avg_over_time({per_net}[$R:5m])", "network")
     seen = s.by(f"count by (network) (count by (network, mac) (last_over_time({clients}[$R])))", "network")
     d["networks"] = sorted(
         (
-            {"name": n or "No network", "peak": peak.get(n), "avg": avg.get(n), "unique": seen.get(n), "key": n}
+            {"name": n or "No address yet", "peak": peak.get(n), "avg": avg.get(n), "unique": seen.get(n), "key": n}
             for n in set(peak) | set(seen)
         ),
         key=lambda x: (-(x["peak"] or 0), x["name"]),

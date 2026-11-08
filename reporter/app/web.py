@@ -579,6 +579,9 @@ def settings():
             return redirect(url_for("settings"))
         s["general"]["name"] = f.get("name", "").strip()[:60]
         s["general"]["grafana_links"] = bool(f.get("grafana_links"))
+        s["general"]["hidden_networks"] = ", ".join(
+            n.strip() for n in f.get("hidden_networks", "").split(",") if n.strip()
+        )[:300]
         gurl = f.get("grafana_url", "").strip().rstrip("/")
         if gurl and not re.match(r"^https?://[^\s/]+", gurl):
             flash("The Grafana address must start with http:// or https://, for example http://10.0.0.5:3000")

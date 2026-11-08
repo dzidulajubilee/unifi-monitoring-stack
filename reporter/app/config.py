@@ -106,6 +106,7 @@ def default_settings():
             "timezone": env("TZ") or "UTC",
             "grafana_url": env("GRAFANA_PUBLIC_URL", ""),
             "grafana_links": True,
+            "hidden_networks": "",  # networks left out of Devices by network, comma-separated
         },
         "sections": {k: True for k, *_ in SECTIONS},  # full report
         "sections_summary": {k: k in SUMMARY_SECTIONS for k, *_ in SECTIONS},  # summary

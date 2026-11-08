@@ -82,6 +82,9 @@
       {% endfor %}
     </div>
     {% endfor %}
+    <div class="field" style="margin:16px 0 0;max-width:420px"><label for="hidden_networks">Leave out of Devices by network</label>
+      <input type="text" id="hidden_networks" name="hidden_networks" value="{{ s.general.get('hidden_networks', '') }}" placeholder="e.g. Default">
+      <div class="hint">UniFi network names, separated by commas, for networks that only hold infrastructure. The other device figures still count them</div></div>
     {% if has_dns %}<input type="hidden" name="dns_shown" value="1">{% endif %}
   </section>
 
