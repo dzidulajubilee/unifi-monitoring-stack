@@ -119,7 +119,7 @@ def default_settings():
         },
         "recipients": {k: to for k in ("weekly", "monthly", "quarterly")},  # full report
         "recipients_summary": {k: "" for k in ("weekly", "monthly", "quarterly")},  # summary only
-        "dns": {"servers": []},  # [{kind, name, url, secret, verify}], see dns.py
+        "dns": {"enabled": True, "servers": []},  # servers: [{kind, name, url, secret, verify}], see dns.py
         "schedule": {
             "enabled": True,
             "hour": int(env("SEND_HOUR", 7)),

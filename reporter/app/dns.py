@@ -23,7 +23,10 @@ OWN = ("127.0.0.1", "::1")  # queries the DNS server makes itself, e.g. a health
 
 def servers(settings):
     """Configured servers, in the order they were added; blank rows are ignored."""
-    return [x for x in settings.get("dns", {}).get("servers", []) if x.get("url")]
+    dns = settings.get("dns", {})
+    if not dns.get("enabled", True):  # switched off in Settings: servers are kept but not used
+        return []
+    return [x for x in dns.get("servers", []) if x.get("url")]
 
 
 def _blank(srv):

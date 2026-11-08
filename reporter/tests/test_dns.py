@@ -154,7 +154,8 @@ def test_settings_keep_the_saved_token(tmp_path, monkeypatch):
     page = c.get("/settings").get_data(as_text=True)
     assert "DNS servers" in page and 'name="sec_dns"' not in page  # no tick until a server is added
     form = {"csrf": "t", "hour": "7", "port": "587", "timezone": "UTC", "sec_summary": "on", "sum_summary": "on",
-            "dns_rows": "1", "dns_url_0": "http://10.0.0.53/", "dns_kind_0": "pihole", "dns_secret_0": "app-pw"}
+            "dns_enabled": "on", "dns_rows": "1", "dns_url_0": "http://10.0.0.53/", "dns_kind_0": "pihole",
+            "dns_secret_0": "app-pw"}
     assert c.post("/settings", data=form).status_code == 302
     assert config.load_settings()["dns"]["servers"] == [
         {"kind": "pihole", "name": "Pi-hole", "url": "http://10.0.0.53", "secret": "app-pw", "verify": True}]
@@ -164,9 +165,35 @@ def test_settings_keep_the_saved_token(tmp_path, monkeypatch):
     c.post("/settings", data=form)
     (srv,) = config.load_settings()["dns"]["servers"]
     assert srv["secret"] == "app-pw" and srv["name"] == "Office Pi-hole"
-    form.update(dns_remove_0="on")
-    c.post("/settings", data=form)
+    # the switch turns the whole section off but keeps the servers
+    off = {k: v for k, v in form.items() if k != "dns_enabled"}
+    c.post("/settings", data=off)
+    s = config.load_settings()
+    assert s["dns"]["enabled"] is False and len(s["dns"]["servers"]) == 1 and dns.servers(s) == []
+    page = c.get("/settings").get_data(as_text=True)
+    assert 'name="sec_dns"' not in page and 'id="dns-body" hidden' in page
+    # a removed row is simply missing from the form
+    c.post("/settings", data={k: v for k, v in form.items() if not k.startswith("dns_") or k in ("dns_enabled", "dns_rows")})
     assert config.load_settings()["dns"]["servers"] == []
+
+
+def test_dns_test_button_checks_without_saving(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "SETTINGS", tmp_path / "settings.json")
+    s = config.load_settings()
+    s["dns"]["servers"] = [{"kind": "technitium", "name": "T", "url": "https://10.0.0.5:53443", "secret": "tok", "verify": False}]
+    config.save_settings(s)
+    seen = []
+    monkeypatch.setattr(dns, "test", lambda srv: seen.append(srv) or (None if srv["secret"] == "tok" else "the API token was refused"))
+    c = web.app.test_client()
+    with c.session_transaction() as sess:
+        sess.update(user="Juby", login="juby", admin=True, csrf="t")
+    form = {"csrf": "t", "i": "0", "url": "https://10.0.0.5:53443", "kind": "technitium", "secret": "", "noverify": "1"}
+    assert c.post("/settings/dns-test", data=form).get_json() == {"ok": True, "message": "Technitium answered"}
+    assert seen[-1] == {"kind": "technitium", "url": "https://10.0.0.5:53443", "secret": "tok", "verify": False}
+    r = c.post("/settings/dns-test", data={**form, "url": "https://10.0.0.6"}).get_json()  # new address: no saved token
+    assert r == {"ok": False, "message": "The API token was refused"}
+    assert c.post("/settings/dns-test", data={**form, "csrf": "x"}).status_code == 400
+    assert config.load_settings()["dns"]["servers"][0]["url"] == "https://10.0.0.5:53443"  # nothing saved
 
 
 def test_certificate_option_applies_after_a_redirect_to_https():
