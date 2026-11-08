@@ -23,7 +23,15 @@
 .flip button + button { border-left: 1px solid var(--rule); }
 .flip button[aria-selected="true"] { background: var(--rule); color: var(--ink); font-weight: 500; }
 .flip button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.dns-row + .dns-row { border-top: 1px solid var(--rule); padding-top: 16px; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+#dns-body { margin-top: 12px; }
+.panel-head h2, .panel-head .check { margin: 0; }
+.dns-row { border-bottom: 1px solid var(--rule); padding-bottom: 16px; margin-bottom: 16px; }
+.dns-actions { display: flex; align-items: center; gap: 12px; }
+.dns-result { font-size: 13px; color: var(--ink-2); }
+.dns-result.ok { color: var(--ok); }
+.dns-result.bad { color: var(--bad); }
+.dns-remove { margin-left: auto; font-size: 13px; }
 .dns-checks { display: flex; flex-direction: column; justify-content: end; gap: 4px; }
 .dns-checks .check { margin: 0; }
 @media (max-width: 640px) { .incl { grid-template-columns: 1fr; } }
@@ -77,15 +85,11 @@
     {% if has_dns %}<input type="hidden" name="dns_shown" value="1">{% endif %}
   </section>
 
-  <section class="panel">
-    <h2>DNS servers</h2>
-    <p class="intro">Optional. Add a Pi-hole (version 6) or Technitium server and the reports get a DNS filtering section: queries, the share blocked, top domains and the devices asking most. Figures are read from the server when a report is made</p>
-    <input type="hidden" name="dns_rows" value="{{ dns_rows|length }}">
-    {% for x in dns_rows %}{% set i = loop.index0 %}{% set new = not x.url %}
-    <div class="dns-row">
+  {% macro dns_row(i, x) %}
+    <div class="dns-row" data-i="{{ i }}">
       <div class="grid3">
-        <div class="field"><label for="dns_url_{{ i }}">{{ 'Add a server: address' if new and i else 'Address' }}</label>
-          <input type="text" id="dns_url_{{ i }}" name="dns_url_{{ i }}" value="{{ x.url or '' }}" placeholder="http://10.0.0.53"></div>
+        <div class="field"><label for="dns_url_{{ i }}">Address</label>
+          <input type="text" id="dns_url_{{ i }}" name="dns_url_{{ i }}" value="{{ x.url or '' }}" placeholder="https://10.0.0.53"></div>
         <div class="field"><label for="dns_kind_{{ i }}">Type</label>
           <select id="dns_kind_{{ i }}" name="dns_kind_{{ i }}">
             {% for k, l in dns_kinds.items() %}<option value="{{ k }}" {{ 'selected' if x.kind == k }}>{{ l }}</option>{% endfor %}
@@ -98,13 +102,30 @@
           <input type="password" id="dns_secret_{{ i }}" name="dns_secret_{{ i }}" autocomplete="new-password" placeholder="{{ 'Saved, leave blank to keep' if x.secret else '' }}"></div>
         <div class="field dns-checks">
           <label class="check"><input type="checkbox" name="dns_noverify_{{ i }}" {{ 'checked' if x.verify is false }}> Don't check the HTTPS certificate</label>
-          {% if not new %}<label class="check"><input type="checkbox" name="dns_remove_{{ i }}"> Remove this server</label>{% endif %}
         </div>
       </div>
+      <div class="dns-actions">
+        <button type="button" class="btn quiet small" data-test>Test</button>
+        <span class="dns-result" role="status" aria-live="polite"></span>
+        <button type="button" class="btn link dns-remove" data-remove>Remove</button>
+      </div>
     </div>
-    {% endfor %}
-    <div class="hint" style="margin-bottom:12px">Pi-hole: the address of its web interface, and an app password from Settings → Web interface / API (expert mode) → Configure app password. Technitium: the address with its port, usually :5380, and a token from Administration → Sessions → Create Token; a user that can only view the dashboard is enough. The certificate option is for servers with a self-signed HTTPS certificate</div>
-    <button class="btn quiet" name="action" value="test_dns">Save and test DNS servers</button>
+  {% endmacro %}
+  <section class="panel">
+    <div class="panel-head">
+      <h2>DNS servers</h2>
+      <label class="check"><input type="checkbox" name="dns_enabled" id="dns-on" {{ 'checked' if dns_enabled }}> Use in reports</label>
+    </div>
+    <div id="dns-body" {{ 'hidden' if not dns_enabled }}>
+      <p class="intro">Add a Pi-hole (version 6) or Technitium server and the reports get a DNS filtering section: queries, the share blocked, top domains and the devices asking most. Figures are read from the server when a report is made. Changes take effect when you save the settings</p>
+      <input type="hidden" name="dns_rows" id="dns-rows" value="{{ dns_rows|length }}">
+      <div id="dns-list">
+        {% for x in dns_rows %}{{ dns_row(loop.index0, x) }}{% endfor %}
+      </div>
+      <template id="dns-new">{{ dns_row('__i__', {'kind': 'pihole', 'verify': True}) }}</template>
+      <button type="button" class="btn quiet" id="dns-add">Add DNS server</button>
+      <div class="hint" style="margin-top:12px">Pi-hole: the address of its web interface, and an app password from Settings → Web interface / API (expert mode) → Configure app password. Technitium: the address with its port, usually :5380 or :53443, and a token from Administration → Sessions → Create Token, for a user that can view the dashboard and settings. Tick the certificate option for a server with a self-signed HTTPS certificate</div>
+    </div>
   </section>
 
   <section class="panel">
@@ -167,6 +188,39 @@
   </section>
 </form>
 <script>
+// DNS servers: the switch hides the list (it's still saved), rows are added from the template and
+// removed in place; row numbers never shift, so a saved password stays with its server
+const dnsOn = document.getElementById('dns-on');
+dnsOn.addEventListener('change', () => { document.getElementById('dns-body').hidden = !dnsOn.checked; });
+const dnsRows = document.getElementById('dns-rows');
+const dnsList = document.getElementById('dns-list');
+document.getElementById('dns-add').addEventListener('click', () => {
+  const i = dnsRows.value;
+  const html = document.getElementById('dns-new').innerHTML.replaceAll('__i__', i);
+  dnsList.insertAdjacentHTML('beforeend', html);
+  dnsRows.value = Number(i) + 1;
+  dnsList.lastElementChild.querySelector('input').focus();
+});
+dnsList.addEventListener('click', async (e) => {
+  const row = e.target.closest('.dns-row');
+  if (!row) return;
+  if (e.target.matches('[data-remove]')) { row.remove(); return; }
+  if (!e.target.matches('[data-test]')) return;
+  const i = row.dataset.i, out = row.querySelector('.dns-result'), btn = e.target;
+  const body = new FormData();
+  body.append('csrf', '{{ csrf }}');
+  body.append('i', i);
+  for (const k of ['url', 'kind', 'secret']) body.append(k, row.querySelector(`[name="dns_${k}_${i}"]`).value);
+  if (row.querySelector(`[name="dns_noverify_${i}"]`).checked) body.append('noverify', '1');
+  btn.disabled = true; out.className = 'dns-result'; out.textContent = 'Testing…';
+  try {
+    const r = await (await fetch('{{ url_for("dns_test") }}', { method: 'POST', body })).json();
+    out.className = 'dns-result ' + (r.ok ? 'ok' : 'bad');
+    out.textContent = r.message;
+  } catch (err) {
+    out.className = 'dns-result bad'; out.textContent = 'The test could not be run; try again';
+  } finally { btn.disabled = false; }
+});
 const gl = document.getElementById('gl');
 gl.addEventListener('change', () => { document.getElementById('gl-url').hidden = !gl.checked; });
 // both versions' ticks stay in the form (hidden ones are still saved); the switch only changes which you see

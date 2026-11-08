@@ -46,8 +46,10 @@ are read from the server when a report is made, from the history it keeps itself
 | Pi-hole v6 | Its web interface, e.g. `http://10.0.0.53` | An app password: Settings → Web interface / API (expert mode) → Configure app password. Pi-hole shows it once |
 | Technitium | With its port, e.g. `http://10.0.0.53:5380` (if it redirects to HTTPS on 53443, tick the certificate option) | An API token: Administration → Sessions → Create Token, for a user that can view the dashboard. If it can also view settings, the report can tell blocked answers apart from names that don't exist |
 
-**Save and test DNS servers** checks each one. Tick *Don't check the HTTPS certificate* for a server with a
-self-signed certificate. Passwords and tokens are kept in `settings.json` and never shown again.
+Use **Add DNS server** for each one; **Test** checks a server without saving anything, and Save settings
+keeps the changes. The switch next to the heading turns the whole section off without forgetting the servers.
+Tick *Don't check the HTTPS certificate* for a server with a self-signed certificate. Passwords and tokens are
+kept in `settings.json` and never shown again.
 
 - **Device names.** Both servers only know addresses, so the report names devices from UniFi where the address
   matches. If one device asks for everything, that's usually the gateway forwarding DNS for the network; point DHCP

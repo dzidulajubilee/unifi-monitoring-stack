@@ -531,6 +531,26 @@ def dns_servers_from(form, saved):
     return out, None
 
 
+@app.route("/settings/dns-test", methods=["POST"])
+@login_required(admin=True)
+def dns_test():
+    """Test one server row from the Settings form without saving anything. A blank password uses the
+    one saved for that row, as long as its address hasn't changed."""
+    f = request.form
+    url = f.get("url", "").strip().rstrip("/")
+    if not re.match(r"^https?://[^\s/]+", url):
+        return jsonify(ok=False, message="Enter an address starting with http:// or https://")
+    saved = R.load_settings()["dns"].get("servers", [])
+    try:
+        old = saved[int(f.get("i", -1))]
+    except (ValueError, IndexError):
+        old = {}
+    kind = f.get("kind") if f.get("kind") in R.dns.KINDS else "pihole"
+    secret = f.get("secret") or (old.get("secret", "") if old.get("url") == url else "")
+    why = R.dns.test({"kind": kind, "url": url, "secret": secret, "verify": not f.get("noverify")})
+    return jsonify(ok=not why, message=f"{R.dns.KINDS[kind]} answered" if not why else why[0].upper() + why[1:])
+
+
 @app.route("/settings", methods=["GET", "POST"])
 @login_required(admin=True)
 def settings():
@@ -572,6 +592,7 @@ def settings():
         s["sections"] = sections
         s["sections_summary"] = sections_summary
         s["dns"]["servers"] = servers
+        s["dns"]["enabled"] = bool(f.get("dns_enabled"))
         s["smtp"].update(
             host=f.get("host", "").strip(),
             port=port,
@@ -595,12 +616,6 @@ def settings():
         log.info("settings changed by %s", session["user"])
         R.notify(f"Settings were changed by {session['user']}", by=session["user"], admins_only=True)
         flash("Settings saved")
-        if f.get("action") == "test_dns":
-            for srv in servers:
-                why = R.dns.test(srv)
-                flash(f"{srv['name']} answered" if not why else f"{srv['name']} ({srv['url']}): {why}")
-            if not servers:
-                flash("Add a DNS server address first")
         if f.get("action") == "test":
             to = f.get("test_to", "").strip()
             try:
@@ -618,7 +633,8 @@ def settings():
         "settings.html",
         s=s,
         has_password=bool(s["smtp"].get("password")),
-        dns_rows=s["dns"].get("servers", []) + [{"kind": "pihole", "verify": True}],
+        dns_rows=s["dns"].get("servers", []),
+        dns_enabled=s["dns"].get("enabled", True),
         dns_kinds=R.dns.KINDS,
         has_dns=bool(R.dns.servers(s)),
         sections=R.SECTIONS,
