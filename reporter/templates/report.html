@@ -474,7 +474,7 @@ a.plain { color: inherit; text-decoration: none; }
     <div class="keep"><h3>Most blocked domains</h3>{{ dns_ranked(c.top_blocked, "Nothing was blocked") }}</div>
     <div class="keep"><h3>Most asked-for domains</h3>{{ dns_ranked(c.top_domains, "No queries recorded") }}</div>
   </div>
-  <p class="note">{{ c.version or c.name }}, queries per {{ 'hour' if c.step == 3600 else 'day' }}. Devices are named from UniFi where their address matches.{% if c.coverage is not none and c.coverage < 0.95 %} {{ c.name }} only holds history for about {{ (c.coverage * 100)|round|int }}% of this {{ word }}, so totals are low; raise its database retention for longer reports.{% endif %}</p>
+  <p class="note">{{ c.version or c.name }}, queries per {{ 'hour' if c.step == 3600 else 'day' }}. Devices are named from UniFi where their address matches.{% if c.own %} {{ c.own|num }} queries the server made itself, such as its own internet checks, are left out of every figure.{% endif %}{% if c.coverage is not none and c.coverage < 0.95 %} {{ c.name }} only holds history for about {{ (c.coverage * 100)|round|int }}% of this {{ word }}, so totals are low; raise its database retention for longer reports.{% endif %}</p>
   {% endif %}
 </section>
 {% endfor %}

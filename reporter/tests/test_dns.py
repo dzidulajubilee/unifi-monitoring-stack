@@ -18,7 +18,8 @@ def fake_pihole(monkeypatch, calls=None):
             {"timestamp": t0 + 600, "total": 600, "cached": 200, "blocked": 100, "forwarded": 300},
             {"timestamp": t0 + 86400 + 600, "total": 400, "cached": 100, "blocked": 50, "forwarded": 250},
         ]},
-        "/api/stats/database/top_clients": {"clients": [{"ip": "10.0.0.7", "name": None, "count": 700},
+        "/api/stats/database/top_clients": {"clients": [{"ip": "127.0.0.1", "name": "localhost", "count": 100},
+                                                        {"ip": "10.0.0.7", "name": None, "count": 700},
                                                         {"ip": "10.0.0.9", "name": "nas.lan", "count": 300}]},
         "/api/stats/database/upstreams": {"upstreams": [
             {"ip": "blocklist", "name": "blocklist", "port": -1, "count": 150},
@@ -30,9 +31,14 @@ def fake_pihole(monkeypatch, calls=None):
     def call(self, path, params=None, method="GET", body=None):
         if calls is not None:
             calls.append((method, path, params, dict(self.headers)))
+        if path == "/api/queries":  # the server's own queries: 100 lookups of google.com, all from cache
+            if params.get("client_ip") != "127.0.0.1":
+                return {"recordsFiltered": 0, "queries": []}
+            return {"recordsFiltered": 100, "queries": [{"domain": "google.com", "status": "CACHE"}] * 4}
         if path == "/api/stats/database/top_domains":
-            name = "ads.example" if (params or {}).get("blocked") else "example.com"
-            return {"domains": [{"domain": name, "count": 90}]}
+            if (params or {}).get("blocked"):
+                return {"domains": [{"domain": "ads.example", "count": 90}]}
+            return {"domains": [{"domain": "google.com", "count": 120}, {"domain": "example.com", "count": 90}]}
         return answers.get(path, {})
 
     monkeypatch.setattr(dns._Http, "call", call)
@@ -42,14 +48,18 @@ def test_pihole_figures_and_logout(monkeypatch):
     calls = []
     fake_pihole(monkeypatch, calls)
     cur, prev = dns.read({"kind": "pihole", "url": "http://ph", "secret": "pw"}, START, END, START - (END - START))
-    assert cur["error"] is None and cur["total"] == 1000 and cur["blocked"] == 150 and cur["cached"] == 300
-    assert cur["forwarded"] == 550 and cur["clients"] == 12 and cur["version"] == "Pi-hole 6.1"
-    assert cur["top_blocked"][0]["name"] == "ads.example" and cur["top_domains"][0]["name"] == "example.com"
+    # the server's own 100 cached lookups of google.com are taken out of every figure
+    assert cur["error"] is None and cur["own"] == 100 and cur["total"] == 900 and cur["blocked"] == 150
+    assert cur["cached"] == 200 and cur["forwarded"] == 550 and cur["clients"] == 11 and cur["version"] == "Pi-hole 6.1"
+    assert [(r["name"], r["n"]) for r in cur["top_domains"]] == [("example.com", 90), ("google.com", 20)]
+    assert cur["top_blocked"][0]["name"] == "ads.example"
+    assert "127.0.0.1" not in [c["ip"] for c in cur["top_clients"]]
+    assert sum(x[1] for x in cur["series"]) == 900
     assert [u["name"] for u in cur["upstreams"]] == ["one.one.one.one"]  # the blocklist pseudo-upstream is left out
     assert calls[0][1] == "/api/auth" and calls[0][2] is None
     assert calls[1][3]["X-FTL-SID"] == "abc"
     assert calls[-1][:2] == ("DELETE", "/api/auth")  # the session is given back
-    assert prev["total"] == 1000 and prev["top_domains"] == []
+    assert prev["total"] == 900 and prev["top_domains"] == []
 
 
 def test_a_server_that_fails_does_not_break_the_report(monkeypatch):
@@ -162,3 +172,15 @@ def test_settings_keep_the_saved_token(tmp_path, monkeypatch):
 def test_certificate_option_applies_after_a_redirect_to_https():
     assert dns._Http("http://10.0.0.5:5380", verify=False).ctx.verify_mode.name == "CERT_NONE"
     assert dns._Http("http://10.0.0.5:5380", verify=True).ctx is None
+
+
+def test_technitium_own_checks_come_off_the_matching_domain():
+    out = server(total=1000, cached=900, recursive=100, blocked=10, clients=5,
+                 top_clients=[{"name": "127.0.0.1", "ip": "127.0.0.1", "n": 700}, {"name": "x", "ip": "10.0.0.7", "n": 300}],
+                 top_domains=[{"name": "google.com", "n": 705}, {"name": "example.com", "n": 50}],
+                 series=[(0, 500, 5), (3600, 500, 5)])
+    out["_own"] = {"n": 700, "cached": 700, "recursive": 0, "blocked": 0, "domains": None}
+    dns.drop_own(out)
+    assert (out["total"], out["cached"], out["clients"], out["own"]) == (300, 200, 4, 700)
+    assert [(r["name"], r["n"]) for r in out["top_domains"]] == [("example.com", 50), ("google.com", 5)]
+    assert [c["ip"] for c in out["top_clients"]] == ["10.0.0.7"] and [x[1] for x in out["series"]] == [150, 150]
