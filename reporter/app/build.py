@@ -5,7 +5,7 @@ import datetime as dt
 from jinja2 import Environment, FileSystemLoader
 
 from . import config, dns
-from .charts import svg_chart, svg_dns, svg_minibars
+from .charts import net_color, svg_chart, svg_dns, svg_minibars, svg_networks
 from .collect import (
     client_names,
     collect,
@@ -75,6 +75,11 @@ def build(kind, end=None, start=None):
     hidden = {n.strip().lower() for n in st["general"].get("hidden_networks", "").split(",") if n.strip()}
     for x in (d, p):  # e.g. a network that only holds infrastructure
         x["networks"] = [n for n in x.get("networks") or [] if (n["key"] or "").lower() not in hidden]
+    net_chart = (
+        svg_networks(d["networks"], d.get("net_series") or {}, d.get("net_step", 3600), start, end)
+        if "devices" in on and d["networks"]
+        else ""
+    )
     gap = 1 - cur.coverage()["prom"]
     d["dns"] = p["dns"] = None
     if "dns" in on and dns.servers(st):
@@ -155,6 +160,8 @@ def build(kind, end=None, start=None):
             fonts=(config.ROOT / "fonts").as_uri(),
             trend_change=trend_change,
             dns_pairs=dns_pairs,
+            net_chart=net_chart,
+            net_color=net_color,
             dns_comparable=dns_comparable,
             dns_change=change,
             ch_value=lambda cur, prev: delta(cur, prev, covered["prom"]),
