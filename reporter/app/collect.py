@@ -80,6 +80,20 @@ def collect(s: Source):
         top.append({"name": name, "mac": mac, "detail": detail, "bytes": rx.get(mac, 0) + tx.get(mac, 0)})
     d["top_clients"] = sorted(top, key=lambda c: -c["bytes"])[:10]
 
+    # devices by network, as in Grafana's Clients dashboard: the most online at once, the average, and how many
+    # different devices used each network ("" is devices UnPoller reports without a network, e.g. VPN clients)
+    per_net = f"count by (network) ({clients})"
+    peak = s.by(f"max_over_time({per_net}[$R:5m])", "network")
+    avg = s.by(f"avg_over_time({per_net}[$R:5m])", "network")
+    seen = s.by(f"count by (network) (count by (network, mac) (last_over_time({clients}[$R])))", "network")
+    d["networks"] = sorted(
+        (
+            {"name": n or "No network", "peak": peak.get(n), "avg": avg.get(n), "unique": seen.get(n), "key": n}
+            for n in set(peak) | set(seen)
+        ),
+        key=lambda x: (-(x["peak"] or 0), x["name"]),
+    )
+
     # access points
     aps = s.by("max_over_time(sum by (name) (unpoller_device_radio_stations)[$R:5m])", "name")
     traffic = s.by('sum by (name) (increase(unpoller_device_bytes_total{type="uap"}[$R]))', "name")

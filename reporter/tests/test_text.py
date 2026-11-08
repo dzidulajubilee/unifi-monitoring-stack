@@ -26,3 +26,9 @@ def test_people_words():
     assert _times(1) == "once" and _times(2) == "twice" and _times(5) == "5 times"
     assert _join(["a"]) == "a" and _join(["a", "b", "c"]) == "a, b and c"
     assert _who("16:f9:c4:9d:c0:3d") == "Unnamed device (…c0:3d)" and _who("iPhone") == "iPhone"
+
+
+def test_delta_for_table_cells():
+    from app.text import delta
+    assert [delta(25, 20), delta(12, 9), delta(9, 9), delta(5, 0), delta(5, None), delta(30, 20, covered=False)] == [
+        "+25%", "+3", "same", "new", "–", "–"]

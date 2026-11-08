@@ -22,7 +22,7 @@ on: the device, access point, internet line or address.
 | Trends | Six key figures for this period and the 7 weeks, 5 months or 3 quarters before it |
 | Internet and gateway | Data used, latency, gateway CPU, memory, temperature |
 | Internet lines and quality | Per line: active or backup, availability, outages, ISP latency and packet-loss events, speed tests |
-| Devices | Devices online and the ten that used the most data |
+| Devices | Devices online, the ten that used the most data, and devices by network (peak, average and different devices, with the change from last time) |
 | Access points | Traffic, clients, Wi-Fi experience, channel use per access point |
 | Applications | Share of traffic per application and category (needs DPI) |
 | Wi-Fi experience and stability | Satisfaction, weak-signal devices, band split, disconnections, roaming, channel changes |
