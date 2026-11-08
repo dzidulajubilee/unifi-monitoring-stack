@@ -2092,7 +2092,7 @@
           },
           "decimals": 0,
           "min": 0,
-          "unit": "none",
+          "unit": "locale",
           "mappings": [],
           "noValue": "No blocks in this time range",
           "thresholds": {
@@ -2113,13 +2113,13 @@
         "namePlacement": "top",
         "showUnfilled": true,
         "sizing": "manual",
-        "minVizHeight": 18,
-        "maxVizHeight": 22,
+        "minVizHeight": 20,
+        "maxVizHeight": 26,
         "minVizWidth": 8,
         "valueMode": "color",
         "text": {
           "titleSize": 12,
-          "valueSize": 14
+          "valueSize": 12
         },
         "legend": {
           "showLegend": false,
@@ -2184,7 +2184,7 @@
           },
           "decimals": 0,
           "min": 0,
-          "unit": "none",
+          "unit": "locale",
           "mappings": [],
           "noValue": "No blocks in this time range",
           "thresholds": {
@@ -2205,13 +2205,13 @@
         "namePlacement": "top",
         "showUnfilled": true,
         "sizing": "manual",
-        "minVizHeight": 18,
-        "maxVizHeight": 22,
+        "minVizHeight": 20,
+        "maxVizHeight": 26,
         "minVizWidth": 8,
         "valueMode": "color",
         "text": {
           "titleSize": 12,
-          "valueSize": 14
+          "valueSize": 12
         },
         "legend": {
           "showLegend": false,
@@ -2276,7 +2276,7 @@
           },
           "decimals": 0,
           "min": 0,
-          "unit": "none",
+          "unit": "locale",
           "mappings": [],
           "noValue": "No internet blocks in this time range",
           "thresholds": {
@@ -2297,13 +2297,13 @@
         "namePlacement": "top",
         "showUnfilled": true,
         "sizing": "manual",
-        "minVizHeight": 18,
-        "maxVizHeight": 22,
+        "minVizHeight": 20,
+        "maxVizHeight": 26,
         "minVizWidth": 8,
         "valueMode": "color",
         "text": {
           "titleSize": 12,
-          "valueSize": 14
+          "valueSize": 12
         },
         "legend": {
           "showLegend": false,
@@ -2368,7 +2368,7 @@
           },
           "decimals": 0,
           "min": 0,
-          "unit": "none",
+          "unit": "locale",
           "mappings": [],
           "noValue": "No devices on your network were blocked",
           "thresholds": {
@@ -2389,13 +2389,13 @@
         "namePlacement": "top",
         "showUnfilled": true,
         "sizing": "manual",
-        "minVizHeight": 18,
-        "maxVizHeight": 22,
+        "minVizHeight": 20,
+        "maxVizHeight": 26,
         "minVizWidth": 8,
         "valueMode": "color",
         "text": {
           "titleSize": 12,
-          "valueSize": 14
+          "valueSize": 12
         },
         "legend": {
           "showLegend": false,
@@ -2460,7 +2460,7 @@
           },
           "decimals": 0,
           "min": 0,
-          "unit": "none",
+          "unit": "locale",
           "mappings": [],
           "noValue": "No blocks in this time range",
           "thresholds": {
@@ -2481,13 +2481,13 @@
         "namePlacement": "top",
         "showUnfilled": true,
         "sizing": "manual",
-        "minVizHeight": 18,
-        "maxVizHeight": 22,
+        "minVizHeight": 20,
+        "maxVizHeight": 26,
         "minVizWidth": 8,
         "valueMode": "color",
         "text": {
           "titleSize": 12,
-          "valueSize": 14
+          "valueSize": 12
         },
         "legend": {
           "showLegend": false,
@@ -3005,7 +3005,7 @@
           },
           "decimals": 0,
           "min": 0,
-          "unit": "none",
+          "unit": "locale",
           "mappings": [],
           "noValue": "No threats in this time range",
           "thresholds": {
@@ -3026,13 +3026,13 @@
         "namePlacement": "top",
         "showUnfilled": true,
         "sizing": "manual",
-        "minVizHeight": 18,
-        "maxVizHeight": 22,
+        "minVizHeight": 20,
+        "maxVizHeight": 26,
         "minVizWidth": 8,
         "valueMode": "color",
         "text": {
           "titleSize": 12,
-          "valueSize": 14
+          "valueSize": 12
         },
         "legend": {
           "showLegend": false,
@@ -3097,7 +3097,7 @@
           },
           "decimals": 0,
           "min": 0,
-          "unit": "none",
+          "unit": "locale",
           "mappings": [],
           "noValue": "No threats with a target in this time range",
           "thresholds": {
@@ -3118,13 +3118,13 @@
         "namePlacement": "top",
         "showUnfilled": true,
         "sizing": "manual",
-        "minVizHeight": 18,
-        "maxVizHeight": 22,
+        "minVizHeight": 20,
+        "maxVizHeight": 26,
         "minVizWidth": 8,
         "valueMode": "color",
         "text": {
           "titleSize": 12,
-          "valueSize": 14
+          "valueSize": 12
         },
         "legend": {
           "showLegend": false,
