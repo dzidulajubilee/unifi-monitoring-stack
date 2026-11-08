@@ -18,6 +18,7 @@ from .config import log
 
 KINDS = {"pihole": "Pi-hole", "technitium": "Technitium"}
 TOP = 8
+OWN = ("127.0.0.1", "::1")  # queries the DNS server makes itself, e.g. a health check; left out of the figures
 
 
 def servers(settings):
@@ -48,6 +49,8 @@ def _blank(srv):
         "top_clients": [],
         "upstreams": [],
         "coverage": None,  # Pi-hole: share of the period its database still holds
+        "own": 0,  # queries the server made itself, already taken out of the figures above
+        "_own": None,  # what period() measured of them, for drop_own()
     }
 
 
@@ -89,8 +92,8 @@ def _err(e):
     return str(e) or e.__class__.__name__
 
 
-def _rows(items, name, n="count"):
-    return [{"name": x.get(name) or "–", "n": float(x.get(n) or 0)} for x in items[:TOP]]
+def _rows(items, name, n="count", limit=TOP):
+    return [{"name": x.get(name) or "–", "n": float(x.get(n) or 0)} for x in items[:limit]]
 
 
 # ------------------------------------------------------------------ Pi-hole v6
@@ -157,18 +160,19 @@ class PiHole:
             out["coverage"] = max(0.0, min(1.0, (end.timestamp() - first) / span)) if span else 1.0
         else:
             out["coverage"] = 0.0
+        out["_own"] = self.own(rng, full)
         if not full:
             return out
         out["series"] = [(h["timestamp"], h.get("total", 0), h.get("blocked", 0)) for h in hist]
         out["top_domains"] = _rows(
-            self.get("/stats/database/top_domains", **rng, count=TOP).get("domains", []), "domain"
+            self.get("/stats/database/top_domains", **rng, count=TOP + 4).get("domains", []), "domain", limit=TOP + 4
         )
         out["top_blocked"] = _rows(
             self.get("/stats/database/top_domains", **rng, count=TOP, blocked="true").get("domains", []), "domain"
         )
         out["top_clients"] = [
             {"name": c.get("name") or c.get("ip"), "ip": c.get("ip"), "n": float(c.get("count") or 0)}
-            for c in self.get("/stats/database/top_clients", **rng, count=TOP).get("clients", [])[:TOP]
+            for c in self.get("/stats/database/top_clients", **rng, count=TOP + 2).get("clients", [])
         ]
         ups = self.get("/stats/database/upstreams", **rng).get("upstreams", [])
         out["upstreams"] = [
@@ -186,6 +190,44 @@ class PiHole:
         except Exception:  # noqa: BLE001 - the version is a nicety
             pass
         return out
+
+    BLOCKED = {
+        "GRAVITY",
+        "REGEX",
+        "DENYLIST",
+        "GRAVITY_CNAME",
+        "REGEX_CNAME",
+        "DENYLIST_CNAME",
+        "SPECIAL_DOMAIN",
+        "EXTERNAL_BLOCKED_IP",
+        "EXTERNAL_BLOCKED_NULL",
+        "EXTERNAL_BLOCKED_NXRA",
+        "EXTERNAL_BLOCKED_EDE15",
+    }
+    CACHED = {"CACHE", "CACHE_STALE"}
+
+    def own(self, rng, full):
+        """The server's own queries, counted from its query log: how many, how they were answered
+        (from a sample of 500) and, for the report period, the exact count of each domain they asked for."""
+        own = {"n": 0, "blocked": 0, "cached": 0, "forwarded": 0, "domains": {}}
+        for ip in OWN:
+            r = self.get("/queries", **rng, client_ip=ip, length=500, disk="true")
+            n, sample = r.get("recordsFiltered") or 0, r.get("queries") or []
+            if not n or not sample:
+                continue
+            own["n"] += n
+            for key, statuses in (("blocked", self.BLOCKED), ("cached", self.CACHED)):
+                own[key] += n * sum(q.get("status") in statuses for q in sample) / len(sample)
+            own["forwarded"] += n * sum(q.get("status") == "FORWARDED" for q in sample) / len(sample)
+            if full:
+                seen = {}
+                for q in sample:
+                    seen[q.get("domain")] = seen.get(q.get("domain"), 0) + 1
+                for d, k in sorted(seen.items(), key=lambda kv: -kv[1])[:3]:
+                    if d and k >= len(sample) * 0.05:
+                        exact = self.get("/queries", **rng, client_ip=ip, domain=d, length=1, disk="true")
+                        own["domains"][d] = own["domains"].get(d, 0) + (exact.get("recordsFiltered") or 0)
+        return own
 
 
 # ------------------------------------------------------------------ Technitium
@@ -258,7 +300,8 @@ class Technitium:
                     out["series"].append(
                         (hour, total[i] if i < len(total) else 0, blocked[i] if i < len(blocked) else 0)
                     )
-                for kind, seen in tops.items():
+            for kind, seen in tops.items():
+                if full or kind == "TopClients":
                     extra = {"noReverseLookup": "true"} if kind == "TopClients" else {}
                     res = self.get("/dashboard/stats/getTop", type="custom", statsType=kind, limit=1000, **rng, **extra)
                     for x in next(iter(res.values()), []) if isinstance(res, dict) else []:
@@ -273,12 +316,17 @@ class Technitium:
             out["nxdomain"] = max(0, out["nxdomain"] - out["blocked"])
         elif mode is None:
             out["nxdomain"] = None
+        # Technitium can't say which domains or answers were the server's own without its query-log app;
+        # its own checks repeat one name, so they're taken as answered from cache (see drop_own for domains)
+        n = sum(tops["TopClients"].get(ip, 0) for ip in OWN)
+        cached = min(n, out["cached"])
+        out["_own"] = {"n": n, "cached": cached, "recursive": n - cached, "blocked": 0, "domains": None}
         if not full:
             return out
-        best = lambda d: sorted(d.items(), key=lambda kv: -kv[1])[:TOP]  # noqa: E731
-        out["top_domains"] = [{"name": k, "n": float(v)} for k, v in best(tops["TopDomains"])]
+        best = lambda d, k=TOP: sorted(d.items(), key=lambda kv: -kv[1])[:k]  # noqa: E731
+        out["top_domains"] = [{"name": k, "n": float(v)} for k, v in best(tops["TopDomains"], TOP + 4)]
         out["top_blocked"] = [{"name": k, "n": float(v)} for k, v in best(tops["TopBlockedDomains"])]
-        out["top_clients"] = [{"name": k, "ip": k, "n": float(v)} for k, v in best(tops["TopClients"])]
+        out["top_clients"] = [{"name": k, "ip": k, "n": float(v)} for k, v in best(tops["TopClients"], TOP + 2)]
         out["clients"] = len(tops["TopClients"])  # different addresses over the whole period
         try:
             info = self.http.call("/api/user/session/get").get("info", {})
@@ -292,14 +340,50 @@ class Technitium:
 CLIENTS = {"pihole": PiHole, "technitium": Technitium}
 
 
+def drop_own(out):
+    """Take the server's own queries out of every figure, so the report is about the network's devices."""
+    own = out.pop("_own", None) or {}
+    n = own.get("n") or 0
+    if n:
+        out["own"] = n
+        out["total"] = max(0, (out["total"] or 0) - n)
+        for k in ("blocked", "cached", "forwarded", "recursive"):
+            if out[k] is not None and own.get(k):
+                out[k] = max(0, out[k] - round(own[k]))
+        if out["clients"]:
+            out["clients"] -= sum(1 for c in out["top_clients"] if c.get("ip") in OWN) or 1
+        # the chart: the checks run at a steady rate, so they come off every hour or day with queries evenly
+        busy = [i for i, x in enumerate(out["series"]) if x[1]]
+        per, per_b = n / max(1, len(busy)), (own.get("blocked") or 0) / max(1, len(busy))
+        for i in busy:
+            t, a, b = out["series"][i]
+            out["series"][i] = (t, max(0, a - per), max(0, min(a - per, b - per_b)))
+        known = own.get("domains")
+        rows = out["top_domains"]
+        if known is not None:
+            for r in rows:
+                r["n"] -= known.get(r["name"], 0)
+        elif rows:
+            # without a query log: a domain asked for about as often as the server's own queries is its check
+            for r in rows:
+                if n <= r["n"] <= n * 1.05 + 50:
+                    r["n"] -= n
+                    break
+        out["top_domains"] = sorted((r for r in rows if r["n"] > 0), key=lambda r: -r["n"])
+    out["top_clients"] = [c for c in out["top_clients"] if c.get("ip") not in OWN]
+    out["top_clients"] = out["top_clients"][:TOP]
+    out["top_domains"] = out["top_domains"][:TOP]
+    return out
+
+
 def read(srv, start, end, prev_start):
     """(this period, previous period) for one server; on failure both carry `error`."""
     cur, prev = _blank(srv), _blank(srv)
     try:
         with CLIENTS[srv["kind"]](srv) as c:
-            c.period(start, end, cur)
+            drop_own(c.period(start, end, cur))
             try:
-                c.period(prev_start, start, prev, full=False)
+                drop_own(c.period(prev_start, start, prev, full=False))
             except Exception as e:  # noqa: BLE001 - only the comparison is lost
                 prev = _blank(srv)
                 prev["error"] = _err(e)
