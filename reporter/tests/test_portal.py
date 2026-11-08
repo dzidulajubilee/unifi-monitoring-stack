@@ -8,7 +8,7 @@ def client():
     return web.app.test_client()
 
 
-def signed_in(client, admin=True, login="juby"):
+def signed_in(client, admin=True, login="admin"):
     with client.session_transaction() as s:
         s.update(user=login.title(), login=login, admin=admin, csrf="t")
     return client
@@ -44,11 +44,11 @@ def test_notification_visibility_and_read_state(client):
 
 def test_clear_all_is_per_user():
     notify.notify("to be cleared")
-    juby = signed_in(web.app.test_client(), admin=True, login="juby")
+    admin = signed_in(web.app.test_client(), admin=True, login="admin")
     ama = signed_in(web.app.test_client(), admin=False, login="ama")
-    assert juby.post("/notifications/clear", data={"all": "1"}).status_code == 400  # needs the csrf token
-    after = juby.post("/notifications/clear", data={"csrf": "t"}).get_json()
+    assert admin.post("/notifications/clear", data={"all": "1"}).status_code == 400  # needs the csrf token
+    after = admin.post("/notifications/clear", data={"csrf": "t"}).get_json()
     assert after == {"unread": 0, "items": []}
     assert "to be cleared" in [n["text"] for n in ama.get("/notifications").get_json()["items"]]
     notify.notify("arrived later")
-    assert [n["text"] for n in juby.get("/notifications").get_json()["items"]] == ["arrived later"]
+    assert [n["text"] for n in admin.get("/notifications").get_json()["items"]] == ["arrived later"]
