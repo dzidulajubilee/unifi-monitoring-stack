@@ -112,13 +112,36 @@ def test_technitium_reads_exact_hours_in_chunks(monkeypatch):
     assert step == 86400 and [r[1] for r in rows] == [2400] * 7
 
 
-def test_devices_get_unifi_names():
-    rows = dns.name_clients([{"name": "10.0.0.7", "ip": "10.0.0.7", "n": 5}, {"name": "nas.lan", "ip": "10.0.0.9", "n": 1}],
-                            {"10.0.0.7": "Kitchen iPad"})
-    assert rows[0]["name"] == "Kitchen iPad" and rows[0]["detail"] == "10.0.0.7"
-    assert rows[1]["name"] == "nas.lan" and rows[1]["detail"] == "10.0.0.9"
-    (own,) = dns.name_clients([{"name": "127.0.0.1", "ip": "127.0.0.1", "n": 9}], {})
-    assert own["name"] == "The DNS server itself"
+def test_devices_are_named_only_when_certain():
+    names = {"10.0.0.7": ("Kitchen iPad", "aa:01"), "10.0.0.8": ("Kitchen iPad", "aa:01"), "10.0.0.9": None}
+    rows = dns.name_clients([
+        {"name": "10.0.0.9", "ip": "10.0.0.9", "n": 50},  # two devices had this address: no name
+        {"name": "10.0.0.7", "ip": "10.0.0.7", "n": 30},
+        {"name": "nas.lan", "ip": "10.0.0.20", "n": 25},  # UniFi never saw it: the DNS server's name stays
+        {"name": "10.0.0.8", "ip": "10.0.0.8", "n": 40},  # the iPad's second address: one row, counts added
+        {"name": "localhost", "ip": "127.0.0.1", "n": 5},
+    ], names)
+    assert [(r["name"], r["n"], r["detail"]) for r in rows] == [
+        ("Kitchen iPad", 70, "10.0.0.7, 10.0.0.8"),
+        ("More than one device", 50, "10.0.0.9"),
+        ("nas.lan", 25, "10.0.0.20"),
+        ("The DNS server itself", 5, "127.0.0.1"),
+    ]
+
+
+def test_unifi_names_by_address():
+    from app.collect import client_names
+
+    class FakeSource:
+        def prom(self, q):
+            def m(ip, mac, name=None, oui=None):
+                return {"metric": {k: v for k, v in (("ip", ip), ("mac", mac), ("name", name), ("oui", oui)) if v}}
+            return [m("10.0.0.7", "aa:01", "Kitchen iPad"), m("10.0.0.8", "aa:01", "Kitchen iPad"),
+                    m("10.0.0.9", "bb:02", "Pixel"), m("10.0.0.9", "cc:03", "Mac"),
+                    m("10.0.0.10", "dd:04:00:00:00:01", oui="Dell Inc.")]
+
+    assert client_names(FakeSource()) == {"10.0.0.7": ("Kitchen iPad", "aa:01"), "10.0.0.8": ("Kitchen iPad", "aa:01"),
+                                          "10.0.0.9": None, "10.0.0.10": ("Dell Inc. device", "dd:04:00:00:00:01")}
 
 
 def server(**kw):

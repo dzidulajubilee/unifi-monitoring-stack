@@ -71,13 +71,16 @@ def build(kind, end=None, start=None):
     d["maint"] = collect_maint(cur) if "maintenance" in on else None
     d["trends"] = collect_trends(kind, start) if "trends" in on else None
     d["_word"] = word
+    gap = 1 - cur.coverage()["prom"]
     d["dns"] = p["dns"] = None
     if "dns" in on and dns.servers(st):
         d["dns"], p["dns"] = [], []
-        names = client_names(cur)
+        # devices are only named when UniFi data covers the period, or an address could look unshared
+        names = client_names(cur) if gap <= 0.05 else {}
+        d["dns_named"] = bool(names)
         for srv in dns.servers(st):
             c, before = dns.read(srv, start, end, prev_start)
-            dns.name_clients(c["top_clients"], names)
+            c["top_clients"] = dns.name_clients(c["top_clients"], names)
             rows, c["step"] = dns.buckets(c["series"], start, end)
             c["chart"] = svg_dns(rows, c["step"], start, end)
             c["series"] = []  # only the chart needs it
@@ -85,7 +88,6 @@ def build(kind, end=None, start=None):
             p["dns"].append(before)
         d["_dns_prev"] = p["dns"]  # attention() only sees d
     cov = prev.coverage()
-    gap = 1 - cur.coverage()["prom"]
     covered = {k: v >= 0.95 for k, v in cov.items()}
     down, up, step = wan_series(cur, kind) if "throughput" in on else ([], [], 0)
     ch = lambda key, src="prom": change(d.get(key), p.get(key), "", word, covered[src])

@@ -409,17 +409,29 @@ def test(srv):
 
 
 def name_clients(rows, names):
-    """Swap IP addresses for the device names UniFi knows. `names`: ip -> label."""
+    """Name the devices asking most. `names` comes from collect.client_names: ip -> (name, mac) when
+    only one device used the address in the period, None when several did. A device that used more than
+    one address becomes one row; an address several devices shared says so instead of guessing."""
+    out, by_mac = [], {}
     for r in rows:
         ip = r.get("ip") or ""
-        if ip in ("127.0.0.1", "::1"):
+        if ip in OWN:
             r["name"], r["detail"] = "The DNS server itself", ip
-            continue
-        if ip in names:  # UniFi's name beats the DNS server's own guess (often a reverse-lookup name)
-            r["name"], r["detail"] = names[ip], ip
+        elif ip in names and names[ip] is None:
+            r["name"], r["detail"] = "More than one device", ip
+        elif ip in names:  # UniFi's name beats the DNS server's own guess (often a reverse-lookup name)
+            name, mac = names[ip]
+            if mac in by_mac:
+                first = by_mac[mac]
+                first["n"] += r["n"]
+                first["detail"] += f", {ip}"
+                continue
+            r["name"], r["detail"] = name, ip
+            by_mac[mac] = r
         elif ip and r["name"] != ip:
             r["detail"] = ip
-    return rows
+        out.append(r)
+    return sorted(out, key=lambda r: -r["n"])
 
 
 def buckets(series, start, end):
