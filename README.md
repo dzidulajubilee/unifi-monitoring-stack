@@ -74,7 +74,7 @@ contains, recipients, schedule and email server under **Settings**. See [docs/re
 | `grafana/build/` | Dashboard generators ([README](grafana/build/README.md)) |
 | `grafana/provisioning/` | Dashboards and data sources Grafana loads |
 | `prometheus/`, `loki/` | Their configuration; data folders are created on first start |
-| `docs/` | [Deployment](docs/deployment.md), [reports](docs/reports.md), [data notes](docs/data-notes.md), [development](docs/development.md) |
+| `docs/` | [Deployment](docs/deployment.md), [reports](docs/reports.md), [how the reporter works](docs/how-reports-work.md), [data notes](docs/data-notes.md), [development](docs/development.md) |
 
 ## Updating
 
