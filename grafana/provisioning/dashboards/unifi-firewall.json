@@ -1966,7 +1966,7 @@
       "type": "timeseries",
       "description": "Blocked connections per time bucket, split by where they came from. Internet traffic is mostly scanners hitting your WAN address and is shown in grey; blocks from your own network are the ones worth reading. Source: UniFi System Log 'Blocked by Firewall' entries, pushed to Loki by UnPoller.",
       "gridPos": {
-        "h": 9,
+        "h": 12,
         "w": 16,
         "x": 0,
         "y": 44
@@ -2079,7 +2079,7 @@
       "type": "bargauge",
       "description": "Which firewall policies are blocking your own devices, with internet scanner traffic left out. Use it to spot a device hitting a rule over and over, or a rule that is stricter than intended.",
       "gridPos": {
-        "h": 9,
+        "h": 12,
         "w": 8,
         "x": 16,
         "y": 44
@@ -2092,7 +2092,7 @@
           },
           "decimals": 0,
           "min": 0,
-          "unit": "locale",
+          "unit": "none",
           "mappings": [],
           "noValue": "No blocks in this time range",
           "thresholds": {
@@ -2172,10 +2172,10 @@
       "type": "bargauge",
       "description": "The firewall policies that blocked the most connections in the selected time range. Source: UniFi System Log 'Blocked by Firewall' entries, pushed to Loki by UnPoller. UniFi does not include ports or protocol in these entries.",
       "gridPos": {
-        "h": 10,
+        "h": 13,
         "w": 6,
         "x": 0,
-        "y": 53
+        "y": 56
       },
       "fieldConfig": {
         "defaults": {
@@ -2184,7 +2184,7 @@
           },
           "decimals": 0,
           "min": 0,
-          "unit": "locale",
+          "unit": "none",
           "mappings": [],
           "noValue": "No blocks in this time range",
           "thresholds": {
@@ -2264,10 +2264,10 @@
       "type": "bargauge",
       "description": "Public IP addresses blocked most often. Repeat offenders are good candidates for a block list. Source: UniFi System Log 'Blocked by Firewall' entries, pushed to Loki by UnPoller. UniFi does not include ports or protocol in these entries.",
       "gridPos": {
-        "h": 10,
+        "h": 13,
         "w": 6,
         "x": 6,
-        "y": 53
+        "y": 56
       },
       "fieldConfig": {
         "defaults": {
@@ -2276,7 +2276,7 @@
           },
           "decimals": 0,
           "min": 0,
-          "unit": "locale",
+          "unit": "none",
           "mappings": [],
           "noValue": "No internet blocks in this time range",
           "thresholds": {
@@ -2356,10 +2356,10 @@
       "type": "bargauge",
       "description": "Devices or private IPs on your network that were blocked most often. UniFi names known clients (name plus the last part of the MAC); unknown ones appear as their IP. Source: UniFi System Log 'Blocked by Firewall' entries, pushed to Loki by UnPoller. UniFi does not include ports or protocol in these entries.",
       "gridPos": {
-        "h": 10,
+        "h": 13,
         "w": 6,
         "x": 12,
-        "y": 53
+        "y": 56
       },
       "fieldConfig": {
         "defaults": {
@@ -2368,7 +2368,7 @@
           },
           "decimals": 0,
           "min": 0,
-          "unit": "locale",
+          "unit": "none",
           "mappings": [],
           "noValue": "No devices on your network were blocked",
           "thresholds": {
@@ -2448,10 +2448,10 @@
       "type": "bargauge",
       "description": "What the blocked connections were trying to reach: your public IPs for internet traffic, or a device/IP for internal traffic. Source: UniFi System Log 'Blocked by Firewall' entries, pushed to Loki by UnPoller. UniFi does not include ports or protocol in these entries.",
       "gridPos": {
-        "h": 10,
+        "h": 13,
         "w": 6,
         "x": 18,
-        "y": 53
+        "y": 56
       },
       "fieldConfig": {
         "defaults": {
@@ -2460,7 +2460,7 @@
           },
           "decimals": 0,
           "min": 0,
-          "unit": "locale",
+          "unit": "none",
           "mappings": [],
           "noValue": "No blocks in this time range",
           "thresholds": {
@@ -2543,7 +2543,7 @@
         "h": 10,
         "w": 12,
         "x": 0,
-        "y": 63
+        "y": 69
       },
       "options": {
         "dedupStrategy": "none",
@@ -2583,7 +2583,7 @@
         "h": 10,
         "w": 12,
         "x": 12,
-        "y": 63
+        "y": 69
       },
       "options": {
         "dedupStrategy": "none",
@@ -2616,7 +2616,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 73
+        "y": 79
       },
       "id": 26,
       "panels": [],
@@ -2636,7 +2636,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 74
+        "y": 80
       },
       "fieldConfig": {
         "defaults": {
@@ -2706,7 +2706,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 74
+        "y": 80
       },
       "fieldConfig": {
         "defaults": {
@@ -2776,7 +2776,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 74
+        "y": 80
       },
       "fieldConfig": {
         "defaults": {
@@ -2846,7 +2846,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 74
+        "y": 80
       },
       "fieldConfig": {
         "defaults": {
@@ -2913,10 +2913,10 @@
       "type": "timeseries",
       "description": "Threat detections per time bucket, stacked by UniFi threat type. Source: UniFi System Log Security entries other than firewall blocks (intrusion prevention/detection, honeypot), pushed to Loki by UnPoller. These entries name the clients involved (or their MAC address when UniFi has no name for them) but carry no IP addresses, signature or threat category; see Insights > Inspection in UniFi for those details.",
       "gridPos": {
-        "h": 8,
+        "h": 11,
         "w": 12,
         "x": 0,
-        "y": 78
+        "y": 84
       },
       "interval": "5m",
       "fieldConfig": {
@@ -2993,10 +2993,10 @@
       "type": "bargauge",
       "description": "Clients (by name, or MAC when unnamed) or IPs that triggered the most threat detections. Source: UniFi System Log Security entries other than firewall blocks (intrusion prevention/detection, honeypot), pushed to Loki by UnPoller. These entries name the clients involved (or their MAC address when UniFi has no name for them) but carry no IP addresses, signature or threat category; see Insights > Inspection in UniFi for those details.",
       "gridPos": {
-        "h": 8,
+        "h": 11,
         "w": 6,
         "x": 12,
-        "y": 78
+        "y": 84
       },
       "fieldConfig": {
         "defaults": {
@@ -3005,7 +3005,7 @@
           },
           "decimals": 0,
           "min": 0,
-          "unit": "locale",
+          "unit": "none",
           "mappings": [],
           "noValue": "No threats in this time range",
           "thresholds": {
@@ -3085,10 +3085,10 @@
       "type": "bargauge",
       "description": "What the detected threats were aimed at. Honeypot triggers have no target and are not listed. Source: UniFi System Log Security entries other than firewall blocks (intrusion prevention/detection, honeypot), pushed to Loki by UnPoller. These entries name the clients involved (or their MAC address when UniFi has no name for them) but carry no IP addresses, signature or threat category; see Insights > Inspection in UniFi for those details.",
       "gridPos": {
-        "h": 8,
+        "h": 11,
         "w": 6,
         "x": 18,
-        "y": 78
+        "y": 84
       },
       "fieldConfig": {
         "defaults": {
@@ -3097,7 +3097,7 @@
           },
           "decimals": 0,
           "min": 0,
-          "unit": "locale",
+          "unit": "none",
           "mappings": [],
           "noValue": "No threats with a target in this time range",
           "thresholds": {
@@ -3180,7 +3180,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 86
+        "y": 95
       },
       "fieldConfig": {
         "defaults": {
@@ -3395,7 +3395,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 93
+        "y": 102
       },
       "options": {
         "dedupStrategy": "none",
@@ -3428,7 +3428,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 101
+        "y": 110
       },
       "id": 43,
       "panels": [],
@@ -3448,7 +3448,7 @@
         "h": 4,
         "w": 4,
         "x": 0,
-        "y": 102
+        "y": 111
       },
       "fieldConfig": {
         "defaults": {
@@ -3514,7 +3514,7 @@
         "h": 4,
         "w": 4,
         "x": 4,
-        "y": 102
+        "y": 111
       },
       "fieldConfig": {
         "defaults": {
@@ -3580,7 +3580,7 @@
         "h": 4,
         "w": 4,
         "x": 8,
-        "y": 102
+        "y": 111
       },
       "fieldConfig": {
         "defaults": {
@@ -3650,7 +3650,7 @@
         "h": 4,
         "w": 4,
         "x": 12,
-        "y": 102
+        "y": 111
       },
       "fieldConfig": {
         "defaults": {
@@ -3716,7 +3716,7 @@
         "h": 4,
         "w": 4,
         "x": 16,
-        "y": 102
+        "y": 111
       },
       "fieldConfig": {
         "defaults": {
@@ -3786,7 +3786,7 @@
         "h": 4,
         "w": 4,
         "x": 20,
-        "y": 102
+        "y": 111
       },
       "fieldConfig": {
         "defaults": {
@@ -3852,7 +3852,7 @@
         "h": 11,
         "w": 15,
         "x": 0,
-        "y": 106
+        "y": 115
       },
       "options": {
         "dedupStrategy": "none",
@@ -3892,7 +3892,7 @@
         "h": 11,
         "w": 9,
         "x": 15,
-        "y": 106
+        "y": 115
       },
       "fieldConfig": {
         "defaults": {
@@ -4033,7 +4033,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 117
+        "y": 126
       },
       "id": 37,
       "panels": [
@@ -4050,7 +4050,7 @@
             "h": 10,
             "w": 24,
             "x": 0,
-            "y": 118
+            "y": 127
           },
           "fieldConfig": {
             "defaults": {
@@ -4138,7 +4138,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 118
+        "y": 127
       },
       "id": 40,
       "panels": [
@@ -4155,7 +4155,7 @@
             "h": 9,
             "w": 14,
             "x": 0,
-            "y": 119
+            "y": 128
           },
           "fieldConfig": {
             "defaults": {
@@ -4227,7 +4227,7 @@
             "h": 9,
             "w": 10,
             "x": 14,
-            "y": 119
+            "y": 128
           },
           "options": {
             "mode": "markdown",
