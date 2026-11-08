@@ -452,14 +452,15 @@ a.plain { color: inherit; text-decoration: none; }
     <div>
     <table class="kv">
       <tr><td>Queries</td><td class="n">{{ c.total|num }}{% if cmp %}<span class="sub">{{ dns_change(c.total, before.total, "", word, true) }}</span>{% endif %}</td></tr>
-      <tr><td>Blocked</td><td class="n">{{ c.blocked|num }}<span class="sub">{{ share(c.blocked, c.total)|pct(1) }}{% if cmp %} · {{ points_change(share(c.blocked, c.total), share(before.blocked, before.total), word) }}{% endif %}</span></td></tr>
+      <tr><td>Blocked</td><td class="n">{{ c.blocked|num }}</td></tr>
+      <tr><td>Share blocked</td><td class="n">{{ share(c.blocked, c.total)|pct(1) }}{% if cmp %}<span class="sub">{{ points_change(share(c.blocked, c.total), share(before.blocked, before.total), word) }}</span>{% endif %}</td></tr>
       <tr><td>Answered from cache</td><td class="n">{{ share(c.cached, c.total)|pct }}</td></tr>
       {% if c.kind == 'pihole' %}
       <tr><td>Sent to upstream servers</td><td class="n">{{ share(c.forwarded, c.total)|pct }}</td></tr>
       {% else %}
       <tr><td>Resolved by the server</td><td class="n">{{ share(c.recursive, c.total)|pct }}</td></tr>
       <tr><td>Failed lookups</td><td class="n">{% if share(c.failed, c.total) and share(c.failed, c.total) > 0.02 %}<span class="warn">{{ share(c.failed, c.total)|pct(1) }}</span>{% else %}{{ share(c.failed, c.total)|pct(1) }}{% endif %}</td></tr>
-      <tr><td>Names that don't exist</td><td class="n">{{ share(c.nxdomain, c.total)|pct }}</td></tr>
+      {% if c.nxdomain is not none %}<tr><td>Names that don't exist</td><td class="n">{{ share(c.nxdomain, c.total)|pct(1) }}</td></tr>{% endif %}
       {% endif %}
       <tr><td>Devices asking</td><td class="n">{{ c.clients|num }}</td></tr>
       <tr><td>Domains on blocklists</td><td class="n">{{ c.blocklist_domains|num }}</td></tr>

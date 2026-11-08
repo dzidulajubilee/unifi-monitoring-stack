@@ -44,7 +44,7 @@ are read from the server when a report is made, from the history it keeps itself
 | Server | Address | Password |
 |---|---|---|
 | Pi-hole v6 | Its web interface, e.g. `http://10.0.0.53` | An app password: Settings → Web interface / API (expert mode) → Configure app password. Pi-hole shows it once |
-| Technitium | With its port, e.g. `http://10.0.0.53:5380` | An API token: Administration → Sessions → Create Token. A user that can only view the dashboard is enough |
+| Technitium | With its port, e.g. `http://10.0.0.53:5380` (if it redirects to HTTPS on 53443, tick the certificate option) | An API token: Administration → Sessions → Create Token, for a user that can view the dashboard. If it can also view settings, the report can tell blocked answers apart from names that don't exist |
 
 **Save and test DNS servers** checks each one. Tick *Don't check the HTTPS certificate* for a server with a
 self-signed certificate. Passwords and tokens are kept in `settings.json` and never shown again.
@@ -52,6 +52,8 @@ self-signed certificate. Passwords and tokens are kept in `settings.json` and ne
 - **Device names.** Both servers only know addresses, so the report names devices from UniFi where the address
   matches. If one device asks for everything, that's usually the gateway forwarding DNS for the network; point DHCP
   at the DNS server instead to see each device.
+- **Technitium's own queries.** Queries the server makes itself (from 127.0.0.1, e.g. a health check) are counted
+  like any other and show as *The DNS server itself*.
 - **History.** Pi-hole keeps 91 days by default (`database.maxDBdays`), enough for weekly and monthly reports. For
   quarterly reports raise it to at least 92; the report notes when a server holds less than the whole period.
 - **Needs attention** warns when a server can't be read, when the share blocked rises by more than 10 points on the
