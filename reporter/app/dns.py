@@ -52,8 +52,9 @@ def _blank(srv):
 
 
 class _Http:
-    def __init__(self, base, verify=True, headers=None):
+    def __init__(self, base, verify=True, headers=None, timeout=120):
         self.base = base.rstrip("/")
+        self.timeout = timeout
         self.headers = headers or {}
         self.ctx = None
         if not verify:  # also covers http addresses that redirect to https, as Technitium does
@@ -67,7 +68,7 @@ class _Http:
         req = urllib.request.Request(url, data=data, method=method, headers=dict(self.headers))
         if data is not None:
             req.add_header("Content-Type", "application/json")
-        with urllib.request.urlopen(req, timeout=120, context=self.ctx) as r:
+        with urllib.request.urlopen(req, timeout=self.timeout, context=self.ctx) as r:
             raw = r.read()
         return json.loads(raw) if raw else {}
 
@@ -97,7 +98,8 @@ def _rows(items, name, n="count"):
 
 class PiHole:
     def __init__(self, srv):
-        self.http = _Http(srv["url"], srv.get("verify", True))
+        # database queries take about 10 s per month of history each, so a quarter needs room
+        self.http = _Http(srv["url"], srv.get("verify", True), timeout=300)
         self.password = srv.get("secret", "")
         self.sid = None
 
@@ -107,8 +109,16 @@ class PiHole:
         except urllib.error.HTTPError as e:
             if e.code == 401:
                 raise RuntimeError("the password was refused") from e
-            if e.code == 429:
-                raise RuntimeError("Pi-hole has no free API sessions; raise webserver.api.max_sessions") from e
+            if e.code == 429:  # either too many failed logins or every API session in use
+                try:
+                    key = json.loads(e.read() or b"{}").get("error", {}).get("key")
+                except ValueError:
+                    key = None
+                if key == "api_seats_exceeded":
+                    raise RuntimeError("Pi-hole has no free API sessions; raise webserver.api.max_sessions") from e
+                raise RuntimeError(
+                    "Pi-hole is refusing logins for a while after failed attempts; try again later"
+                ) from e
             raise
         s = r.get("session", {})
         if not s.get("valid"):
@@ -130,11 +140,15 @@ class PiHole:
 
     def period(self, start, end, out, full=True):
         rng = {"from": int(start.timestamp()), "until": int(end.timestamp())}
-        s = self.get("/stats/database/summary", **rng)
-        out["total"] = s.get("sum_queries")
-        out["blocked"] = s.get("sum_blocked")
-        out["clients"] = s.get("total_clients")
         hist = self.get("/history/database", **rng).get("history", [])
+        if full:  # the summary only adds the device count; the comparison period does without it
+            s = self.get("/stats/database/summary", **rng)
+            out["total"] = s.get("sum_queries")
+            out["blocked"] = s.get("sum_blocked")
+            out["clients"] = s.get("total_clients")
+        else:
+            out["total"] = sum(h.get("total", 0) for h in hist)
+            out["blocked"] = sum(h.get("blocked", 0) for h in hist)
         if hist:
             out["cached"] = sum(h.get("cached", 0) for h in hist)
             out["forwarded"] = sum(h.get("forwarded", 0) for h in hist)

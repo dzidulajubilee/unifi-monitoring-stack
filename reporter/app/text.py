@@ -199,7 +199,7 @@ def summary(d, p, word, covered, on=None):
             lines.append(
                 f"{c['name']} answered {fnum(c['total'])} DNS queries"
                 + (f" from {fnum(c['clients'])} devices" if c["clients"] else "")
-                + f" and blocked {fpct(blocked)} of them"
+                + f" and blocked {fpct(blocked, 1 if blocked < 0.1 else 0)} of them"
                 + (f" ({ch})" if ch else "")
                 + "."
             )

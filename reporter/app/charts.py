@@ -160,7 +160,20 @@ def svg_dns(rows, step, start, end, w=658, h=150):
             g.append(
                 f'<rect x="{x:.1f}" y="{y(blk):.1f}" width="{bw:.1f}" height="{T + ph - y(blk):.1f}" fill="#2a78d6"/>'
             )
-    # x labels: every day for short periods, then every week or fortnight
+    # x labels: every 6 hours for hourly bars, every day for short periods, then every week or fortnight
+    if step == 3600:
+        t = start
+        while t < end:
+            xx = L + (t.timestamp() - start.timestamp()) / (end.timestamp() - start.timestamp()) * pw
+            g.append(
+                f'<text x="{xx:.1f}" y="{h - 6}" font-family="PlexMono" font-size="7pt" fill="#8a8984" '
+                f'text-anchor="start">{t:%H:%M}{f" {t:%a}" if t.hour == 0 else ""}</text>'
+            )
+            t += dt.timedelta(hours=6)
+        return (
+            f'<svg viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" '
+            f'aria-label="DNS queries per hour, blocked part highlighted">{"".join(g)}</svg>'
+        )
     days = (end - start).days
     every = 1 if days <= 10 else 7 if days <= 45 else 14
     day = start
