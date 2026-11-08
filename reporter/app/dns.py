@@ -56,7 +56,7 @@ class _Http:
         self.base = base.rstrip("/")
         self.headers = headers or {}
         self.ctx = None
-        if self.base.startswith("https") and not verify:
+        if not verify:  # also covers http addresses that redirect to https, as Technitium does
             self.ctx = ssl.create_default_context()
             self.ctx.check_hostname = False
             self.ctx.verify_mode = ssl.CERT_NONE
@@ -206,34 +206,66 @@ class Technitium:
             raise RuntimeError(r.get("errorMessage") or f"status {r.get('status')}")
         return r.get("response", r)
 
+    # Technitium answers a custom range in hourly buckets up to about 6½ days and in UTC-day buckets
+    # beyond that, and it counts the bucket holding the end time as part of the range. Asking in chunks
+    # of at most 6 days, each ending an hour early, gets exactly the report's hours in any time zone.
+    CHUNK = dt.timedelta(days=6)
+    SUMS = {
+        "total": "totalQueries",
+        "blocked": "totalBlocked",
+        "cached": "totalCached",
+        "recursive": "totalRecursive",
+        "failed": "totalServerFailure",
+        "nxdomain": "totalNxDomain",
+    }
+
     def period(self, start, end, out, full=True):
-        r = self.get("/dashboard/stats/get", type="Custom", start=_iso(start), end=_iso(end), utc="true")
-        st = r.get("stats", {})
-        out["total"] = st.get("totalQueries")
-        out["blocked"] = st.get("totalBlocked")
-        out["cached"] = st.get("totalCached")
-        out["recursive"] = st.get("totalRecursive")
-        out["failed"] = st.get("totalServerFailure")
-        out["nxdomain"] = st.get("totalNxDomain")
-        out["clients"] = st.get("totalClients")
-        out["blocklist_domains"] = st.get("blockListZones")
+        for k in self.SUMS:
+            out[k] = 0
+        tops = {"TopDomains": {}, "TopBlockedDomains": {}, "TopClients": {}}
+        t = start
+        while t < end:
+            e = min(t + self.CHUNK, end)
+            rng = {"start": _iso(t), "end": _iso(e - dt.timedelta(hours=1))}
+            r = self.get("/dashboard/stats/get", type="Custom", utc="true", **rng)
+            st = r.get("stats", {})
+            for k, key in self.SUMS.items():
+                out[k] += st.get(key) or 0
+            out["blocklist_domains"] = st.get("blockListZones")
+            if full:
+                ch = r.get("mainChartData", {})
+                sets = {x.get("label"): x.get("data", []) for x in ch.get("datasets", [])}
+                total, blocked = sets.get("Total", []), sets.get("Blocked", [])
+                for i, label in enumerate(ch.get("labels", [])):
+                    try:
+                        hour = _parse_label(label).timestamp() - 3600  # a label marks the end of its hour
+                    except ValueError:
+                        continue
+                    out["series"].append(
+                        (hour, total[i] if i < len(total) else 0, blocked[i] if i < len(blocked) else 0)
+                    )
+                for kind, seen in tops.items():
+                    extra = {"noReverseLookup": "true"} if kind == "TopClients" else {}
+                    res = self.get("/dashboard/stats/getTop", type="custom", statsType=kind, limit=1000, **rng, **extra)
+                    for x in next(iter(res.values()), []) if isinstance(res, dict) else []:
+                        seen[x.get("name")] = seen.get(x.get("name"), 0) + (x.get("hits") or 0)
+            t = e
+        # With NXDOMAIN blocking (the default), blocked answers are counted as names that don't exist too
+        try:
+            mode = self.get("/settings/get").get("blockingType")
+        except Exception:  # noqa: BLE001 - needs Settings: View; without it the row is left out
+            mode = None
+        if mode == "NxDomain":
+            out["nxdomain"] = max(0, out["nxdomain"] - out["blocked"])
+        elif mode is None:
+            out["nxdomain"] = None
         if not full:
             return out
-        ch = r.get("mainChartData", {})
-        sets = {x.get("label"): x.get("data", []) for x in ch.get("datasets", [])}
-        total, blocked = sets.get("Total", []), sets.get("Blocked", [])
-        for i, label in enumerate(ch.get("labels", [])):
-            try:
-                t = _parse_label(label).timestamp()
-            except ValueError:
-                continue
-            out["series"].append((t, total[i] if i < len(total) else 0, blocked[i] if i < len(blocked) else 0))
-        out["top_domains"] = _rows(r.get("topDomains", []), "name", "hits")
-        out["top_blocked"] = _rows(r.get("topBlockedDomains", []), "name", "hits")
-        out["top_clients"] = [
-            {"name": c.get("domain") or c.get("name"), "ip": c.get("name"), "n": float(c.get("hits") or 0)}
-            for c in r.get("topClients", [])[:TOP]
-        ]
+        best = lambda d: sorted(d.items(), key=lambda kv: -kv[1])[:TOP]  # noqa: E731
+        out["top_domains"] = [{"name": k, "n": float(v)} for k, v in best(tops["TopDomains"])]
+        out["top_blocked"] = [{"name": k, "n": float(v)} for k, v in best(tops["TopBlockedDomains"])]
+        out["top_clients"] = [{"name": k, "ip": k, "n": float(v)} for k, v in best(tops["TopClients"])]
+        out["clients"] = len(tops["TopClients"])  # different addresses over the whole period
         try:
             info = self.http.call("/api/user/session/get").get("info", {})
             if info.get("version"):
@@ -255,9 +287,11 @@ def read(srv, start, end, prev_start):
             try:
                 c.period(prev_start, start, prev, full=False)
             except Exception as e:  # noqa: BLE001 - only the comparison is lost
+                prev = _blank(srv)
                 prev["error"] = _err(e)
     except Exception as e:  # noqa: BLE001 - one server must not stop the report
         log.warning("DNS server %s (%s) failed: %s", cur["name"], srv.get("url"), e)
+        cur, prev = _blank(srv), _blank(srv)  # no half-read figures: blanks show as –
         cur["error"] = prev["error"] = _err(e)
     return cur, prev
 
@@ -277,7 +311,10 @@ def name_clients(rows, names):
     """Swap IP addresses for the device names UniFi knows. `names`: ip -> label."""
     for r in rows:
         ip = r.get("ip") or ""
-        if ip in names and (not r["name"] or r["name"] == ip or re.fullmatch(r"[\d.:a-f]+", r["name"] or "")):
+        if ip in ("127.0.0.1", "::1"):
+            r["name"], r["detail"] = "The DNS server itself", ip
+            continue
+        if ip in names:  # UniFi's name beats the DNS server's own guess (often a reverse-lookup name)
             r["name"], r["detail"] = names[ip], ip
         elif ip and r["name"] != ip:
             r["detail"] = ip

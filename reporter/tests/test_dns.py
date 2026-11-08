@@ -61,32 +61,45 @@ def test_a_server_that_fails_does_not_break_the_report(monkeypatch):
     assert cur["error"] == "it didn't answer in time" and cur["total"] is None
 
 
-def test_technitium_figures(monkeypatch):
-    seen = {}
+def test_technitium_reads_exact_hours_in_chunks(monkeypatch):
+    asked, auth = [], set()
 
     def call(self, path, params=None, method="GET", body=None):
-        seen.setdefault("auth", self.headers.get("Authorization"))
+        auth.add(self.headers.get("Authorization"))
+        p = params or {}
         if path == "/api/user/session/get":
-            return {"status": "ok", "info": {"version": "13.6"}}
-        seen.setdefault("params", params)
+            return {"status": "ok", "info": {"version": "15.6.2"}}
+        if path == "/api/settings/get":
+            return {"status": "ok", "response": {"blockingType": "NxDomain"}}
+        start = dns._parse_label(p["start"])
+        if path == "/api/dashboard/stats/getTop":
+            key = {"TopClients": "topClients", "TopDomains": "topDomains", "TopBlockedDomains": "topBlockedDomains"}
+            item = {"TopClients": "10.0.0.7", "TopDomains": "example.com", "TopBlockedDomains": "ads.example"}
+            extra = [{"name": "10.0.0.8", "hits": 1}] if p["statsType"] == "TopClients" and start.day == 2 else []
+            return {"status": "ok", "response": {key[p["statsType"]]: [{"name": item[p["statsType"]], "hits": 10}] + extra}}
+        asked.append((p["start"], p["end"]))
+        hours = round((dns._parse_label(p["end"]) - start).total_seconds() / 3600) + 1
+        labels = [(start + dt.timedelta(hours=h + 1)).strftime("%Y-%m-%dT%H:%M:%S.0000000Z") for h in range(hours)]
         return {"status": "ok", "response": {
-            "stats": {"totalQueries": 2000, "totalBlocked": 100, "totalCached": 900, "totalRecursive": 800,
-                      "totalServerFailure": 60, "totalNxDomain": 40, "totalClients": 9, "blockListZones": 5000},
-            "mainChartData": {"labels": ["2026-11-02T00:00:00.0000000Z", "2026-11-03T00:00:00Z"],
-                              "datasets": [{"label": "Total", "data": [1500, 500]},
-                                           {"label": "Blocked", "data": [80, 20]}]},
-            "topClients": [{"name": "10.0.0.7", "domain": "", "hits": 1200}],
-            "topDomains": [{"name": "example.com", "hits": 300}],
-            "topBlockedDomains": [{"name": "ads.example", "hits": 70}],
-        }}
+            "stats": {"totalQueries": 100 * hours, "totalBlocked": 10 * hours, "totalCached": 50 * hours,
+                      "totalRecursive": 40 * hours, "totalServerFailure": hours, "totalNxDomain": 12 * hours,
+                      "blockListZones": 5000},
+            "mainChartData": {"labels": labels, "datasets": [{"label": "Total", "data": [100] * hours},
+                                                             {"label": "Blocked", "data": [10] * hours}]}}}
 
     monkeypatch.setattr(dns._Http, "call", call)
-    cur, _ = dns.read({"kind": "technitium", "url": "http://t:5380", "secret": "tok"}, START, END, START - (END - START))
-    assert seen["auth"] == "Bearer tok"
-    assert seen["params"]["type"] == "Custom" and seen["params"]["start"] == "2026-11-02T00:00:00.000Z"
-    assert cur["failed"] == 60 and cur["version"] == "Technitium 13.6"
+    cur, prev = dns.read({"kind": "technitium", "url": "http://t:5380", "secret": "tok"}, START, END, START - (END - START))
+    assert auth == {"Bearer tok"}
+    # a week is a 6-day and a 1-day request, each ending an hour early because Technitium includes the end hour
+    assert asked[:2] == [("2026-11-02T00:00:00.000Z", "2026-11-07T23:00:00.000Z"),
+                         ("2026-11-08T00:00:00.000Z", "2026-11-08T23:00:00.000Z")]
+    assert cur["total"] == 16800 and cur["blocked"] == 1680 and cur["failed"] == 168 and prev["total"] == 16800
+    assert cur["nxdomain"] == 336  # blocked answers taken out of the NXDOMAIN count
+    assert cur["series"][0][0] == START.timestamp()  # labels mark the end of each hour
+    assert cur["top_clients"][0] == {"name": "10.0.0.7", "ip": "10.0.0.7", "n": 20.0} and cur["clients"] == 2
+    assert cur["version"] == "Technitium 15.6.2"
     rows, step = dns.buckets(cur["series"], START, END)
-    assert step == 86400 and rows[0][1:] == (1500, 80) and rows[1][1:] == (500, 20) and rows[2][1] is None
+    assert step == 86400 and [r[1] for r in rows] == [2400] * 7
 
 
 def test_devices_get_unifi_names():
@@ -94,6 +107,8 @@ def test_devices_get_unifi_names():
                             {"10.0.0.7": "Kitchen iPad"})
     assert rows[0]["name"] == "Kitchen iPad" and rows[0]["detail"] == "10.0.0.7"
     assert rows[1]["name"] == "nas.lan" and rows[1]["detail"] == "10.0.0.9"
+    (own,) = dns.name_clients([{"name": "127.0.0.1", "ip": "127.0.0.1", "n": 9}], {})
+    assert own["name"] == "The DNS server itself"
 
 
 def server(**kw):
@@ -142,3 +157,8 @@ def test_settings_keep_the_saved_token(tmp_path, monkeypatch):
     form.update(dns_remove_0="on")
     c.post("/settings", data=form)
     assert config.load_settings()["dns"]["servers"] == []
+
+
+def test_certificate_option_applies_after_a_redirect_to_https():
+    assert dns._Http("http://10.0.0.5:5380", verify=False).ctx.verify_mode.name == "CERT_NONE"
+    assert dns._Http("http://10.0.0.5:5380", verify=True).ctx is None
