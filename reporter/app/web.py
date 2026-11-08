@@ -500,6 +500,37 @@ def delete(name):
 # ---------------------------------------------------------------- settings
 
 
+def dns_servers_from(form, saved):
+    """The DNS server rows on the Settings form. A blank password keeps the saved one; a row with no
+    address is dropped. Returns (servers, problem)."""
+    out = []
+    for i in range(int(form.get("dns_rows") or 0)):
+
+        def g(k, i=i):
+            return form.get(f"dns_{k}_{i}", "").strip()
+
+        url = g("url").rstrip("/")
+        if not url or form.get(f"dns_remove_{i}"):
+            continue
+        if not re.match(r"^https?://[^\s/]+", url):
+            return (
+                None,
+                f"The DNS server address {url!r} must start with http:// or https://, for example http://10.0.0.53",
+            )
+        kind = g("kind") if g("kind") in R.dns.KINDS else "pihole"
+        old = saved[i] if i < len(saved) else {}
+        out.append(
+            {
+                "kind": kind,
+                "name": g("name")[:40] or R.dns.KINDS[kind],
+                "url": url,
+                "secret": form.get(f"dns_secret_{i}") or (old.get("secret", "") if old.get("url") == url else ""),
+                "verify": not form.get(f"dns_noverify_{i}"),
+            }
+        )
+    return out, None
+
+
 @app.route("/settings", methods=["GET", "POST"])
 @login_required(admin=True)
 def settings():
@@ -516,6 +547,13 @@ def settings():
             return redirect(url_for("settings"))
         sections = {k: bool(f.get(f"sec_{k}")) for k, *_ in R.SECTIONS}
         sections_summary = {k: bool(f.get(f"sum_{k}")) for k, *_ in R.SECTIONS}
+        if not f.get("dns_shown"):  # the DNS tick is hidden until a server is added: keep what was saved
+            sections["dns"] = s["sections"].get("dns", True)
+            sections_summary["dns"] = s["sections_summary"].get("dns", False)
+        servers, problem = dns_servers_from(f, s["dns"].get("servers", []))
+        if problem:
+            flash(problem)
+            return redirect(url_for("settings"))
         if not any(sections.values()) or not any(sections_summary.values()):
             flash("Pick at least one thing to include in both the full report and the summary")
             return redirect(url_for("settings"))
@@ -533,6 +571,7 @@ def settings():
         s["general"]["timezone"] = tz
         s["sections"] = sections
         s["sections_summary"] = sections_summary
+        s["dns"]["servers"] = servers
         s["smtp"].update(
             host=f.get("host", "").strip(),
             port=port,
@@ -556,6 +595,12 @@ def settings():
         log.info("settings changed by %s", session["user"])
         R.notify(f"Settings were changed by {session['user']}", by=session["user"], admins_only=True)
         flash("Settings saved")
+        if f.get("action") == "test_dns":
+            for srv in servers:
+                why = R.dns.test(srv)
+                flash(f"{srv['name']} answered" if not why else f"{srv['name']} ({srv['url']}): {why}")
+            if not servers:
+                flash("Add a DNS server address first")
         if f.get("action") == "test":
             to = f.get("test_to", "").strip()
             try:
@@ -573,6 +618,9 @@ def settings():
         "settings.html",
         s=s,
         has_password=bool(s["smtp"].get("password")),
+        dns_rows=s["dns"].get("servers", []) + [{"kind": "pihole", "verify": True}],
+        dns_kinds=R.dns.KINDS,
+        has_dns=bool(R.dns.servers(s)),
         sections=R.SECTIONS,
         grafana_guess=grafana_guess,
         timezones=R.timezones(),

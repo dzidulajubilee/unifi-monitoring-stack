@@ -118,3 +118,63 @@ def svg_chart(down, up, kind, start, end, w=658, h=236):
         f'<svg viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" '
         f'aria-label="Internet throughput, download and upload">{"".join(g)}</svg>'
     )
+
+
+def svg_dns(rows, step, start, end, w=658, h=150):
+    """DNS queries per hour or day: the bar is all queries (neutral), the blocked part sits in the accent."""
+    if not any(t is not None for _, t, _ in rows):
+        return '<p class="muted">No query history for this period</p>'
+    L, R, T, B = 44, 12, 18, 22
+    pw, ph = w - L - R, h - T - B
+    vmax = max(t or 0 for _, t, _ in rows) or 1
+    stepv = 10 ** math.floor(math.log10(vmax / 3)) if vmax >= 3 else 1
+    for m in (1, 2, 2.5, 5, 10):
+        if vmax / (stepv * m) <= 3:
+            stepv *= m
+            break
+    top = stepv * math.ceil(vmax / stepv)
+    fmt = lambda v: f"{v / 1e6:g}M" if v >= 1e6 else f"{v / 1e3:g}k" if v >= 1e3 else f"{v:g}"
+    y = lambda v: T + ph - v / top * ph
+    n = len(rows)
+    slot = pw / n
+    gap = min(2.0, slot * 0.25)
+    g = []
+    v = 0.0
+    while v <= top + 1e-9:
+        yy = y(v)
+        g.append(
+            f'<line x1="{L}" x2="{w - R}" y1="{yy:.1f}" y2="{yy:.1f}" stroke="#1b1b1a" stroke-opacity="0.08" stroke-width="1"/>'
+        )
+        g.append(
+            f'<text x="{L - 8}" y="{yy + 3:.1f}" font-family="PlexMono" font-size="7pt" fill="#8a8984" text-anchor="end">{fmt(v)}</text>'
+        )
+        v += stepv
+    for i, (_t, tot, blk) in enumerate(rows):
+        x = L + i * slot + gap / 2
+        bw = max(0.6, slot - gap)
+        if tot:
+            g.append(
+                f'<rect x="{x:.1f}" y="{y(tot):.1f}" width="{bw:.1f}" height="{T + ph - y(tot):.1f}" fill="#c9c8c2"/>'
+            )
+        if blk:
+            g.append(
+                f'<rect x="{x:.1f}" y="{y(blk):.1f}" width="{bw:.1f}" height="{T + ph - y(blk):.1f}" fill="#2a78d6"/>'
+            )
+    # x labels: every day for short periods, then every week or fortnight
+    days = (end - start).days
+    every = 1 if days <= 10 else 7 if days <= 45 else 14
+    day = start
+    while day < end:
+        xx = L + (day.timestamp() - start.timestamp()) / (end.timestamp() - start.timestamp()) * pw
+        label = f"{day:%a %-d}" if every == 1 else f"{day:%-d %b}"
+        anchor = "middle" if every == 1 else "start"
+        off = pw / max(1, days) / 2 if every == 1 else 0
+        g.append(
+            f'<text x="{xx + off:.1f}" y="{h - 6}" font-family="PlexMono" font-size="7pt" fill="#8a8984" text-anchor="{anchor}">{label}</text>'
+        )
+        day += dt.timedelta(days=every)
+    unit = "hour" if step == 3600 else "day"
+    return (
+        f'<svg viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" '
+        f'aria-label="DNS queries per {unit}, blocked part highlighted">{"".join(g)}</svg>'
+    )

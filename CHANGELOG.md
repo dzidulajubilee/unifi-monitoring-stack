@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **DNS filtering** (optional): reports read Pi-hole v6 and Technitium DNS Server for queries per day, the share
+  blocked, top domains, blocked domains and devices (named from UniFi), with needs-attention lines for failures,
+  block-rate jumps and stale blocklists. Set up under Settings → DNS servers.
 - Notifications: **Clear all** in the bell panel (per person, asks on the button before clearing).
 - The reporter image is built by GitHub Actions and published to GHCR; servers can pull it instead of building.
 

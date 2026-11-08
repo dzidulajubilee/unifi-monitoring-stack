@@ -424,6 +424,61 @@ a.plain { color: inherit; text-decoration: none; }
 </section>
 {% endif %}
 
+{% if 'dns' in on and d.dns %}
+{% macro dns_ranked(rows, empty) %}
+  {% if rows %}{% set top = rows[0].n or 1 %}
+  <table class="rank">
+    {% for r in rows %}
+    <tr><td class="name"><span>{{ r.name }}</span>{% if r.detail %}<span class="detail">{{ r.detail }}</span>{% endif %}<div class="bar" style="width:{{ (r.n / top * 100)|round(1) }}%"></div></td><td class="n mono">{{ r.n|num }}</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="empty">{{ empty }}</p>{% endif %}
+{% endmacro %}
+{% for c, before in dns_pairs(d, p) %}
+{% set cmp = dns_comparable(before) %}
+<section>
+  <div class="chart-head">
+    {{ head("DNS filtering, " ~ c.name if d.dns|length > 1 else "DNS filtering") }}
+    {% if not c.error %}<div class="legend">
+      <span><i style="background:#c9c8c2;height:6px"></i>All queries</span>
+      <span><i style="background:#2a78d6;height:6px"></i>Blocked</span>
+    </div>{% endif %}
+  </div>
+  {% if c.error %}
+  <p class="empty">{{ c.name }} couldn't be read: {{ c.error }}</p>
+  {% else %}
+  {{ c.chart|safe }}
+  <div class="cols" style="margin-top:14pt">
+    <div>
+    <table class="kv">
+      <tr><td>Queries</td><td class="n">{{ c.total|num }}{% if cmp %}<span class="sub">{{ dns_change(c.total, before.total, "", word, true) }}</span>{% endif %}</td></tr>
+      <tr><td>Blocked</td><td class="n">{{ c.blocked|num }}<span class="sub">{{ share(c.blocked, c.total)|pct(1) }}{% if cmp %} · {{ points_change(share(c.blocked, c.total), share(before.blocked, before.total), word) }}{% endif %}</span></td></tr>
+      <tr><td>Answered from cache</td><td class="n">{{ share(c.cached, c.total)|pct }}</td></tr>
+      {% if c.kind == 'pihole' %}
+      <tr><td>Sent to upstream servers</td><td class="n">{{ share(c.forwarded, c.total)|pct }}</td></tr>
+      {% else %}
+      <tr><td>Resolved by the server</td><td class="n">{{ share(c.recursive, c.total)|pct }}</td></tr>
+      <tr><td>Failed lookups</td><td class="n">{% if share(c.failed, c.total) and share(c.failed, c.total) > 0.02 %}<span class="warn">{{ share(c.failed, c.total)|pct(1) }}</span>{% else %}{{ share(c.failed, c.total)|pct(1) }}{% endif %}</td></tr>
+      <tr><td>Names that don't exist</td><td class="n">{{ share(c.nxdomain, c.total)|pct }}</td></tr>
+      {% endif %}
+      <tr><td>Devices asking</td><td class="n">{{ c.clients|num }}</td></tr>
+      <tr><td>Domains on blocklists</td><td class="n">{{ c.blocklist_domains|num }}</td></tr>
+      {% if c.blocklist_updated %}<tr><td>Blocklists updated</td><td class="n">{{ c.blocklist_updated.astimezone(tz).strftime('%-d %b %Y') }}</td></tr>{% endif %}
+    </table>
+    {% if c.upstreams %}<h3 style="margin-top:14pt">Upstream servers</h3>{{ dns_ranked(c.upstreams, "") }}{% endif %}
+    </div>
+    <div class="keep"><h3>Devices asking most</h3>{{ dns_ranked(c.top_clients, "No queries recorded") }}</div>
+  </div>
+  <div class="cols" style="margin-top:16pt">
+    <div class="keep"><h3>Most blocked domains</h3>{{ dns_ranked(c.top_blocked, "Nothing was blocked") }}</div>
+    <div class="keep"><h3>Most asked-for domains</h3>{{ dns_ranked(c.top_domains, "No queries recorded") }}</div>
+  </div>
+  <p class="note">{{ c.version or c.name }}, queries per {{ 'hour' if c.step == 3600 else 'day' }}. Devices are named from UniFi where their address matches.{% if c.coverage is not none and c.coverage < 0.95 %} {{ c.name }} only holds history for about {{ (c.coverage * 100)|round|int }}% of this {{ word }}, so totals are low; raise its database retention for longer reports.{% endif %}</p>
+  {% endif %}
+</section>
+{% endfor %}
+{% endif %}
+
 {% if 'maintenance' in on and d.maint %}
 {% set m = d.maint %}
 <section class="keep">

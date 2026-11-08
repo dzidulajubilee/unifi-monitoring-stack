@@ -73,6 +73,11 @@ SECTIONS = [
     ),
     ("threats", "Threats blocked", "Each threat intrusion prevention detected, with device, target and severity"),
     (
+        "dns",
+        "DNS filtering",
+        "Queries, the share blocked, top domains, blocked domains and devices, from the servers under DNS servers",
+    ),
+    (
         "maintenance",
         "Maintenance",
         "Access point and switch firmware updates, console storage, address pools filling up, fibre module signal",
@@ -114,6 +119,7 @@ def default_settings():
         },
         "recipients": {k: to for k in ("weekly", "monthly", "quarterly")},  # full report
         "recipients_summary": {k: "" for k in ("weekly", "monthly", "quarterly")},  # summary only
+        "dns": {"servers": []},  # [{kind, name, url, secret, verify}], see dns.py
         "schedule": {
             "enabled": True,
             "hour": int(env("SEND_HOUR", 7)),
@@ -161,7 +167,7 @@ def save_settings(s):
     OUT.mkdir(parents=True, exist_ok=True)
     tmp = SETTINGS.with_suffix(".tmp")
     tmp.write_text(json.dumps(s, indent=2))
-    os.chmod(tmp, 0o600)  # holds the SMTP password
+    os.chmod(tmp, 0o600)  # holds the SMTP password and DNS server passwords
     tmp.replace(SETTINGS)
 
 

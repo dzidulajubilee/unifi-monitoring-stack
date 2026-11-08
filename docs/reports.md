@@ -28,11 +28,34 @@ on: the device, access point, internet line or address.
 | Wi-Fi experience and stability | Satisfaction, weak-signal devices, band split, disconnections, roaming, channel changes |
 | Firewall and security | Blocks, top rules and sources, threats, admin logins |
 | Threats blocked | Each intrusion-prevention event |
+| DNS filtering | Per Pi-hole or Technitium server: queries per day, share blocked, cache use, failed lookups, top domains, blocked domains and devices (optional, see below) |
 | Maintenance | Access point and switch firmware, console storage, address pools, fibre modules |
 | Changes and events | Firewall changes by admins |
 
 When a Grafana address is set (Settings → What to include → *Link to Grafana*), section headings, devices and
 access points in the PDF link to the matching dashboard, set to the report's dates.
+
+## DNS filtering (optional)
+
+Add a Pi-hole (version 6) or Technitium DNS Server under Settings → **DNS servers** and the reports get a *DNS
+filtering* section for each server, which you can then tick for either version under What to include. The figures
+are read from the server when a report is made, from the history it keeps itself, so nothing else needs to run.
+
+| Server | Address | Password |
+|---|---|---|
+| Pi-hole v6 | Its web interface, e.g. `http://10.0.0.53` | An app password: Settings → Web interface / API (expert mode) → Configure app password. Pi-hole shows it once |
+| Technitium | With its port, e.g. `http://10.0.0.53:5380` | An API token: Administration → Sessions → Create Token. A user that can only view the dashboard is enough |
+
+**Save and test DNS servers** checks each one. Tick *Don't check the HTTPS certificate* for a server with a
+self-signed certificate. Passwords and tokens are kept in `settings.json` and never shown again.
+
+- **Device names.** Both servers only know addresses, so the report names devices from UniFi where the address
+  matches. If one device asks for everything, that's usually the gateway forwarding DNS for the network; point DHCP
+  at the DNS server instead to see each device.
+- **History.** Pi-hole keeps 91 days by default (`database.maxDBdays`), enough for weekly and monthly reports. For
+  quarterly reports raise it to at least 92; the report notes when a server holds less than the whole period.
+- **Needs attention** warns when a server can't be read, when the share blocked rises by more than 10 points on the
+  previous period, when more than 2% of lookups fail (Technitium) and when Pi-hole's blocklists are over 14 days old.
 
 ## When reports are made
 

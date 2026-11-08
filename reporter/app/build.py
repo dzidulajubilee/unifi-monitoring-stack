@@ -4,9 +4,10 @@ import datetime as dt
 
 from jinja2 import Environment, FileSystemLoader
 
-from . import config
-from .charts import svg_chart, svg_minibars
+from . import config, dns
+from .charts import svg_chart, svg_dns, svg_minibars
 from .collect import (
+    client_names,
     collect,
     collect_apps,
     collect_isp,
@@ -21,7 +22,21 @@ from .config import OUT, STYLES, load_settings, log
 from .links import SECTION_DASHBOARD, grafana_linker
 from .periods import KINDS, period_end, period_label, period_start, report_path
 from .sources import Source
-from .text import attention, change, fbits, fbytes, fduration, fnum, fpct, summary, trend_change
+from .text import (
+    attention,
+    change,
+    dns_comparable,
+    dns_pairs,
+    fbits,
+    fbytes,
+    fduration,
+    fnum,
+    fpct,
+    points_change,
+    share,
+    summary,
+    trend_change,
+)
 
 
 def build(kind, end=None, start=None):
@@ -56,6 +71,19 @@ def build(kind, end=None, start=None):
     d["maint"] = collect_maint(cur) if "maintenance" in on else None
     d["trends"] = collect_trends(kind, start) if "trends" in on else None
     d["_word"] = word
+    d["dns"] = p["dns"] = None
+    if "dns" in on and dns.servers(st):
+        d["dns"], p["dns"] = [], []
+        names = client_names(cur)
+        for srv in dns.servers(st):
+            c, before = dns.read(srv, start, end, prev_start)
+            dns.name_clients(c["top_clients"], names)
+            rows, c["step"] = dns.buckets(c["series"], start, end)
+            c["chart"] = svg_dns(rows, c["step"], start, end)
+            c["series"] = []  # only the chart needs it
+            d["dns"].append(c)
+            p["dns"].append(before)
+        d["_dns_prev"] = p["dns"]  # attention() only sees d
     cov = prev.coverage()
     gap = 1 - cur.coverage()["prom"]
     covered = {k: v >= 0.95 for k, v in cov.items()}
@@ -120,6 +148,12 @@ def build(kind, end=None, start=None):
             chart=chart if style == "full" else chart_short,
             fonts=(config.ROOT / "fonts").as_uri(),
             trend_change=trend_change,
+            dns_pairs=dns_pairs,
+            dns_comparable=dns_comparable,
+            dns_change=change,
+            share=share,
+            points_change=points_change,
+            tz=config.TZ,
             minibars=svg_minibars,
             gf=grafana_linker(st, start, end),
             section_dashboard=SECTION_DASHBOARD,

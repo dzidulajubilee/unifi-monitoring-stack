@@ -1,5 +1,6 @@
 """The functions the portal (web.py) uses, in one place. Read the time zone from config.TZ, not here."""
 
+from . import dns
 from .build import build
 from .config import OUT, SECTIONS, display_name, load_settings, save_settings, split_addresses, timezones
 from .mail import deliver, describe_sends, mail_error, recipients, send_mail
@@ -8,6 +9,7 @@ from .periods import _next_period, period_end, period_label, period_start, repor
 from .schedule import due_reports
 
 __all__ = [
+    "dns",
     "build",
     "OUT",
     "SECTIONS",
@@ -21,7 +23,8 @@ __all__ = [
     "mail_error",
     "recipients",
     "send_mail",
-    "mark_read", "clear",
+    "mark_read",
+    "clear",
     "notes_for",
     "notify",
     "_next_period",
