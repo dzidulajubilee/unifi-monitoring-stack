@@ -23,6 +23,9 @@
 .flip button + button { border-left: 1px solid var(--rule); }
 .flip button[aria-selected="true"] { background: var(--rule); color: var(--ink); font-weight: 500; }
 .flip button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.dns-row + .dns-row { border-top: 1px solid var(--rule); padding-top: 16px; }
+.dns-checks { display: flex; flex-direction: column; justify-content: end; gap: 4px; }
+.dns-checks .check { margin: 0; }
 @media (max-width: 640px) { .incl { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
 </style>
@@ -65,12 +68,43 @@
     </div>
     {% for version, prefix, chosen in [('full', 'sec', s.sections), ('summary', 'sum', s.sections_summary)] %}
     <div class="incl" id="incl-{{ version }}" role="tabpanel" aria-labelledby="tab-{{ version }}" {{ 'hidden' if version == 'summary' }}>
-      {% for key, label, desc in sections %}
+      {% for key, label, desc in sections if key != 'dns' or has_dns %}
       <label class="check incl-row"><input type="checkbox" name="{{ prefix }}_{{ key }}" {{ 'checked' if chosen.get(key, version == 'full') }}>
         <span><span class="incl-label">{{ label }}</span><span class="hint" style="display:block;margin:0">{{ desc }}</span></span></label>
       {% endfor %}
     </div>
     {% endfor %}
+    {% if has_dns %}<input type="hidden" name="dns_shown" value="1">{% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>DNS servers</h2>
+    <p class="intro">Optional. Add a Pi-hole (version 6) or Technitium server and the reports get a DNS filtering section: queries, the share blocked, top domains and the devices asking most. Figures are read from the server when a report is made</p>
+    <input type="hidden" name="dns_rows" value="{{ dns_rows|length }}">
+    {% for x in dns_rows %}{% set i = loop.index0 %}{% set new = not x.url %}
+    <div class="dns-row">
+      <div class="grid3">
+        <div class="field"><label for="dns_url_{{ i }}">{{ 'Add a server: address' if new and i else 'Address' }}</label>
+          <input type="text" id="dns_url_{{ i }}" name="dns_url_{{ i }}" value="{{ x.url or '' }}" placeholder="http://10.0.0.53"></div>
+        <div class="field"><label for="dns_kind_{{ i }}">Type</label>
+          <select id="dns_kind_{{ i }}" name="dns_kind_{{ i }}">
+            {% for k, l in dns_kinds.items() %}<option value="{{ k }}" {{ 'selected' if x.kind == k }}>{{ l }}</option>{% endfor %}
+          </select></div>
+        <div class="field"><label for="dns_name_{{ i }}">Name in reports</label>
+          <input type="text" id="dns_name_{{ i }}" name="dns_name_{{ i }}" maxlength="40" value="{{ x.name or '' }}" placeholder="Pi-hole"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label for="dns_secret_{{ i }}">App password or API token</label>
+          <input type="password" id="dns_secret_{{ i }}" name="dns_secret_{{ i }}" autocomplete="new-password" placeholder="{{ 'Saved, leave blank to keep' if x.secret else '' }}"></div>
+        <div class="field dns-checks">
+          <label class="check"><input type="checkbox" name="dns_noverify_{{ i }}" {{ 'checked' if x.verify is false }}> Don't check the HTTPS certificate</label>
+          {% if not new %}<label class="check"><input type="checkbox" name="dns_remove_{{ i }}"> Remove this server</label>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    <div class="hint" style="margin-bottom:12px">Pi-hole: the address of its web interface, and an app password from Settings → Web interface / API (expert mode) → Configure app password. Technitium: the address with its port, usually :5380, and a token from Administration → Sessions → Create Token; a user that can only view the dashboard is enough. The certificate option is for servers with a self-signed HTTPS certificate</div>
+    <button class="btn quiet" name="action" value="test_dns">Save and test DNS servers</button>
   </section>
 
   <section class="panel">

@@ -1,5 +1,6 @@
 """Number formatting and the plain-language summary and needs-attention lines."""
 
+import datetime as dt
 import re
 
 from .collect import SFP_DROP_DB, SFP_WEAK_DBM, WEAK_DBM
@@ -90,6 +91,34 @@ def change(cur, prev, unit_word, period_word, covered):
     return f"{'+' if pct > 0 else '−'}{abs(pct):.0f}% {vs}"
 
 
+def share(x, total):
+    return x / total if x is not None and total else None
+
+
+def dns_comparable(before):
+    """The previous period can be compared when its server answered and held the whole period."""
+    return bool(
+        before
+        and not before["error"]
+        and before["total"]
+        and (before["coverage"] is None or before["coverage"] >= 0.95)
+    )
+
+
+def dns_pairs(d, p):
+    """[(this period, previous period)] for each DNS server in the report."""
+    prev = p.get("dns") or []
+    return [(c, prev[i] if i < len(prev) else None) for i, c in enumerate(d.get("dns") or [])]
+
+
+def points_change(cur, before, word):
+    """'+3 points vs last week' for shares, or '' when there is nothing to compare."""
+    if cur is None or before is None:
+        return ""
+    diff = (cur - before) * 100
+    return f"same as last {word}" if abs(diff) < 0.5 else f"{diff:+.0f} points vs last {word}"
+
+
 def summary(d, p, word, covered, on=None):
     """Plain-language lines for page 1, written from the numbers.
     Only covers the sections that are switched on."""
@@ -157,6 +186,23 @@ def summary(d, p, word, covered, on=None):
             )
             + "."
         )
+    if "dns" in on:
+        for c, before in dns_pairs(d, p):
+            if c["error"] or not c["total"]:
+                continue
+            blocked = share(c["blocked"], c["total"])
+            ch = (
+                points_change(blocked, share(before["blocked"], before["total"]), word)
+                if dns_comparable(before)
+                else ""
+            )
+            lines.append(
+                f"{c['name']} answered {fnum(c['total'])} DNS queries"
+                + (f" from {fnum(c['clients'])} devices" if c["clients"] else "")
+                + f" and blocked {fpct(blocked)} of them"
+                + (f" ({ch})" if ch else "")
+                + "."
+            )
     return lines
 
 
@@ -314,4 +360,29 @@ def attention(d, on=None):
                 )
             if (f["temp"] or 0) >= 70:
                 a.append(f"The fibre module on {f['port']} reached {f['temp']:.0f} °C")
+    if "dns" in on:
+        word = d.get("_word", "period")
+        for c, before in dns_pairs(d, {"dns": d.get("_dns_prev")}):
+            if c["error"]:
+                a.append(f"{c['name']} couldn't be read: {c['error']}. Its DNS figures are missing")
+                continue
+            blocked = share(c["blocked"], c["total"])
+            was = share(before["blocked"], before["total"]) if dns_comparable(before) else None
+            if blocked is not None and was is not None and blocked - was > 0.10:
+                top = c["top_clients"][0]["name"] if c["top_clients"] else None
+                a.append(
+                    f"{c['name']} blocked {fpct(blocked)} of queries, up from {fpct(was)} last {word}"
+                    + (f"; {top} asked the most" if top else "")
+                    + ". Check the top blocked domains for a device that keeps calling a blocked service"
+                )
+            failed = share(c["failed"], c["total"])
+            if failed is not None and failed > 0.02:
+                a.append(
+                    f"{fpct(failed, 1)} of lookups on {c['name']} failed (server failure); check its upstream "
+                    "or forwarder servers"
+                )
+            if c["blocklist_updated"]:
+                age = (dt.datetime.now(dt.timezone.utc) - c["blocklist_updated"]).days
+                if age > 14:
+                    a.append(f"{c['name']} blocklists were last updated {age} days ago; run a gravity update")
     return a

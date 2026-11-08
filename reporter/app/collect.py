@@ -255,6 +255,19 @@ def collect_apps(s: Source):
     return d
 
 
+def client_names(s: Source):
+    """ip -> the device name UniFi knows, for naming DNS clients (which only know addresses)."""
+    out = {}
+    for x in s.prom("last_over_time(unpoller_client_uptime_seconds[$R])") or []:
+        m = x["metric"]
+        name = m.get("name") or ""
+        if not name or re.fullmatch(r"([0-9a-f]{2}:){5}[0-9a-f]{2}", name):
+            name = f"{m['oui']} device" if m.get("oui") else "Unnamed device"
+        if m.get("ip"):
+            out[m["ip"]] = name
+    return out
+
+
 def device_label(name, mac):
     """'moto-g06 (…5a:bd)': a name people recognise plus enough MAC to find it in UniFi."""
     if not name or re.fullmatch(r"([0-9a-f]{2}:){5}[0-9a-f]{2}", name):
