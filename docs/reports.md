@@ -51,13 +51,15 @@ keeps the changes. The switch next to the heading turns the whole section off wi
 Tick *Don't check the HTTPS certificate* for a server with a self-signed certificate. Passwords and tokens are
 kept in `settings.json` and never shown again.
 
-- **Device names.** Both servers only know addresses, so the report names devices from UniFi where the address
-  matches. If one device asks for everything, that's usually the gateway forwarding DNS for the network; point DHCP
-  at the DNS server instead to see each device.
-- **Technitium's own queries.** Queries the server makes itself (from 127.0.0.1, e.g. a health check) are counted
-  like any other and show as *The DNS server itself*.
-- **History.** Pi-hole keeps 91 days by default (`database.maxDBdays`), enough for weekly and monthly reports. For
-  quarterly reports raise it to at least 92; the report notes when a server holds less than the whole period.
+- **Device names.** Both servers only know addresses, and leases move addresses between devices, so a device is
+  named from UniFi only when it alone used that address during the period; otherwise the list says *More than one
+  device*. With UniFi data for less than 95% of the period, the list shows addresses only. If one device asks for
+  everything, that's usually the gateway forwarding DNS for the network; point DHCP at the DNS server instead.
+- **The servers' own queries** (from 127.0.0.1, e.g. a health check) are left out of every figure; the section
+  note says how many.
+- **History.** Pi-hole keeps 91 days by default (`database.maxDBdays`), enough for weekly and monthly reports.
+  Quarterly reports need 185 days to compare with the whole previous quarter; the report notes when a server holds
+  less than the period.
 - **Needs attention** warns when a server can't be read, when the share blocked rises by more than 10 points on the
   previous period, when more than 2% of lookups fail (Technitium) and when Pi-hole's blocklists are over 14 days old.
 
@@ -82,6 +84,8 @@ docker compose exec reporter python report.py run custom --start 2026-11-01 --en
 
 `reporter/out/` holds the reports and the portal's state: `settings.json` (including the SMTP password, readable
 by the container only), notifications, and the portal's session key. Back it up with the rest of the stack.
+
+For how each figure, comparison and warning is worked out, see [how the reporter works](how-reports-work.md).
 
 ## Things UniFi doesn't tell UnPoller
 

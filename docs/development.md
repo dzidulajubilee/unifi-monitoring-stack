@@ -2,7 +2,8 @@
 
 ```
 reporter/
-  app/            the report and portal code (see app/__init__.py for what each module does)
+  app/            the report and portal code (see app/__init__.py for what each module does;
+                  dns.py reads Pi-hole and Technitium)
   templates/      report.html (the PDF) and portal/ (the web pages)
   fonts/          IBM Plex, bundled so PDFs look the same everywhere
   tests/          pytest, no Prometheus or Loki needed
@@ -12,6 +13,8 @@ grafana/
   build/          Python generators for the dashboards, plus check.py
   provisioning/   what Grafana loads: dashboards (generated) and data sources
 ```
+
+How a report is built, and the rules behind each figure, are in [how the reporter works](how-reports-work.md).
 
 ## Checks
 
