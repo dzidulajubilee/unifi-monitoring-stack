@@ -106,6 +106,7 @@ a.plain { color: inherit; text-decoration: none; }
 .trend .label { font-size: 8.5pt; color: var(--ink-2); }
 .trend .value { font-size: 14pt; font-weight: 500; line-height: 1.3; }
 .trend .change { font: 7.5pt PlexMono; color: var(--ink-3); margin-bottom: 4pt; }
+.sw { display: inline-block; width: 8pt; height: 8pt; border-radius: 2px; margin-right: 6pt; vertical-align: -1pt; }
 </style>
 </head>
 <body>
@@ -291,14 +292,15 @@ a.plain { color: inherit; text-decoration: none; }
   {% set before = {} %}{% for x in p.networks or [] %}{% set _ = before.update({x.key: x.peak}) %}{% endfor %}
   <div class="keep" style="margin-top:16pt">
     <h3>Devices by network</h3>
-    <table>
+    {{ net_chart|safe }}
+    <table style="margin-top:8pt">
       <thead><tr><th>Network</th><th class="n">Peak online</th><th class="n">Average online</th><th class="n">Different devices</th><th class="n">Peak vs last {{ word }}</th></tr></thead>
       {% for n in d.networks %}
-      <tr><td>{{ n.name }}</td><td class="n">{{ n.peak|num }}</td><td class="n">{% if n.avg is not none %}{{ '%.1f'|format(n.avg) if n.avg < 10 else n.avg|num }}{% else %}–{% endif %}</td><td class="n">{{ n.unique|num }}</td>
+      <tr><td><i class="sw" style="background:{{ net_color(n.slot) }}"></i>{{ n.name }}</td><td class="n">{{ n.peak|num }}</td><td class="n">{% if n.avg is not none %}{{ '%.1f'|format(n.avg) if n.avg < 10 else n.avg|num }}{% else %}–{% endif %}</td><td class="n">{{ n.unique|num }}</td>
         <td class="n mono muted">{{ ch_value(n.peak, before.get(n.key)) }}</td></tr>
       {% endfor %}
     </table>
-    <p class="note">Peak is the most devices connected to the network at once; average is over the whole {{ word }}; different devices counts each device once, however often it connected. A device that moved between networks is counted on each.</p>
+    <p class="note">The chart shows devices online on each network, averaged per {{ {3600: 'hour', 21600: '6 hours'}.get(d.net_step, 'day') }}, in the same colours as Grafana's Clients dashboard. Peak is the most devices connected to the network at once; average is over the whole {{ word }}; different devices counts each device once, however often it connected. A device that moved between networks is counted on each.</p>
   </div>
   {% endif %}
 </section>

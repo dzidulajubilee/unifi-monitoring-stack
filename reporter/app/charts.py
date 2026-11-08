@@ -191,3 +191,72 @@ def svg_dns(rows, step, start, end, w=658, h=150):
         f'<svg viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" '
         f'aria-label="DNS queries per {unit}, blocked part highlighted">{"".join(g)}</svg>'
     )
+
+
+# Grafana's classic palette, in its order (read from the stack's Grafana), so a network has the same colour as on
+# the Clients dashboard's "Devices by network" panel
+GRAFANA_CLASSIC = [
+    "#7EB26D", "#EAB839", "#6ED0E0", "#EF843C", "#E24D42", "#1F78C1", "#BA43A9", "#705DA0", "#508642", "#CCA300",
+    "#447EBC", "#C15C17", "#890F02", "#0A437C", "#6D1F62", "#584477", "#B7DBAB", "#F4D598", "#70DBED", "#F9BA8F",
+]  # fmt: skip
+
+
+def net_color(slot):
+    return GRAFANA_CLASSIC[slot % len(GRAFANA_CLASSIC)]
+
+
+def svg_networks(rows, series, step, start, end, w=658, h=170):
+    """Devices per network over the period, stacked like the Grafana panel: each network in its Grafana colour at
+    40% fill with a solid top edge, in Grafana's stacking order (first network at the bottom)."""
+    layers = sorted(rows, key=lambda r: r["slot"])
+    times = sorted({t for r in layers for t, _ in series.get(r["key"], [])})
+    if not times:
+        return '<p class="muted">No device data for this period</p>'
+    L, R, T, B = 44, 12, 12, 22
+    pw, ph = w - L - R, h - T - B
+    t0, t1 = start.timestamp(), end.timestamp()
+    vals = {r["key"]: dict(series.get(r["key"], [])) for r in layers}
+    totals = [sum(vals[r["key"]].get(t, 0) for r in layers) for t in times]
+    top_v = max(totals) or 1
+    stepv = 10 ** math.floor(math.log10(top_v / 3)) if top_v >= 3 else 1
+    for m in (1, 2, 2.5, 5, 10):
+        if top_v / (stepv * m) <= 3:
+            stepv *= m
+            break
+    top = stepv * math.ceil(top_v / stepv)
+    x = lambda t: L + ((t - step / 2) - t0) / (t1 - t0) * pw  # a point averages the step before it
+    y = lambda v: T + ph - v / top * ph
+    g = []
+    v = 0.0
+    while v <= top + 1e-9:
+        g.append(
+            f'<line x1="{L}" x2="{w - R}" y1="{y(v):.1f}" y2="{y(v):.1f}" stroke="#1b1b1a" stroke-opacity="0.08" stroke-width="1"/>'
+        )
+        g.append(
+            f'<text x="{L - 8}" y="{y(v) + 3:.1f}" font-family="PlexMono" font-size="7pt" fill="#8a8984" text-anchor="end">{v:g}</text>'
+        )
+        v += stepv
+    below = [0.0] * len(times)
+    for r in layers:
+        col = net_color(r["slot"])
+        above = [b + vals[r["key"]].get(t, 0) for b, t in zip(below, times, strict=True)]
+        upper = " L".join(f"{x(t):.1f},{y(a):.1f}" for t, a in zip(times, above, strict=True))
+        lower = " L".join(f"{x(t):.1f},{y(b):.1f}" for t, b in reversed(list(zip(times, below, strict=True))))
+        g.append(f'<path d="M{upper} L{lower} Z" fill="{col}" fill-opacity="0.4" stroke="none"/>')
+        g.append(f'<path d="M{upper}" fill="none" stroke="{col}" stroke-width="1.2" stroke-linejoin="round"/>')
+        below = above
+    days = (end - start).days
+    every = 1 if days <= 10 else 7 if days <= 45 else 14
+    day = start
+    while day < end:
+        xx = L + (day.timestamp() - t0) / (t1 - t0) * pw
+        label, anchor = (f"{day:%a %-d}", "middle") if every == 1 else (f"{day:%-d %b}", "start")
+        off = pw / max(1, days) / 2 if every == 1 else 0
+        g.append(
+            f'<text x="{xx + off:.1f}" y="{h - 6}" font-family="PlexMono" font-size="7pt" fill="#8a8984" text-anchor="{anchor}">{label}</text>'
+        )
+        day += dt.timedelta(days=every)
+    return (
+        f'<svg viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" '
+        f'aria-label="Devices online by network over the period">{"".join(g)}</svg>'
+    )

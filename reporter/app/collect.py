@@ -86,13 +86,23 @@ def collect(s: Source):
     peak = s.by(f"max_over_time({per_net}[$R:5m])", "network")
     avg = s.by(f"avg_over_time({per_net}[$R:5m])", "network")
     seen = s.by(f"count by (network) (count by (network, mac) (last_over_time({clients}[$R])))", "network")
+    # Grafana colours each network by its place in Prometheus's answer, which is sorted by network name; keeping
+    # that place ("slot") gives every network the same colour as on the dashboard. Devices without a network
+    # (Wi-Fi devices caught before they got an address) are left out of the table and chart but keep their slot.
+    order = sorted(set(peak) | set(seen))
     d["networks"] = sorted(
         (
-            {"name": n or "No address yet", "peak": peak.get(n), "avg": avg.get(n), "unique": seen.get(n), "key": n}
-            for n in set(peak) | set(seen)
+            {"name": n, "peak": peak.get(n), "avg": avg.get(n), "unique": seen.get(n), "key": n, "slot": order.index(n)}
+            for n in order
+            if n
         ),
         key=lambda x: (-(x["peak"] or 0), x["name"]),
     )
+    # the chart: devices per network, averaged per hour (a week), 6 hours (a month) or day (longer)
+    step = 3600 if s.secs <= 10 * 86400 else 21600 if s.secs <= 45 * 86400 else 86400
+    rows = s.prom_range(f"avg_over_time({per_net}[{step}s:5m])", step) or []
+    d["net_series"] = {x["metric"].get("network", ""): [(float(t), float(v)) for t, v in x["values"]] for x in rows}
+    d["net_step"] = step
 
     # access points
     aps = s.by("max_over_time(sum by (name) (unpoller_device_radio_stations)[$R:5m])", "name")
