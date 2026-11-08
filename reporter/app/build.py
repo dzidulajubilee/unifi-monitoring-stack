@@ -75,6 +75,10 @@ def build(kind, end=None, start=None):
     hidden = {n.strip().lower() for n in st["general"].get("hidden_networks", "").split(",") if n.strip()}
     for x in (d, p):  # e.g. a network that only holds infrastructure
         x["networks"] = [n for n in x.get("networks") or [] if (n["key"] or "").lower() not in hidden]
+    # each network keeps its colour by name, whatever its rank this period
+    names = sorted(n["key"] for n in d["networks"])
+    for n in d["networks"]:
+        n["slot"] = names.index(n["key"])
     net_chart = (
         svg_networks(d["networks"], d.get("net_series") or {}, d.get("net_step", 3600), start, end)
         if "devices" in on and d["networks"]

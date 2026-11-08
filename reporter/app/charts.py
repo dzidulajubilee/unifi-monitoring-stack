@@ -193,31 +193,24 @@ def svg_dns(rows, step, start, end, w=658, h=150):
     )
 
 
-# Grafana's classic palette, in its order (read from the stack's Grafana), so a network has the same colour as on
-# the Clients dashboard's "Devices by network" panel
-GRAFANA_CLASSIC = [
-    "#7EB26D", "#EAB839", "#6ED0E0", "#EF843C", "#E24D42", "#1F78C1", "#BA43A9", "#705DA0", "#508642", "#CCA300",
-    "#447EBC", "#C15C17", "#890F02", "#0A437C", "#6D1F62", "#584477", "#B7DBAB", "#F4D598", "#70DBED", "#F9BA8F",
-]  # fmt: skip
+# Categorical palette for networks: eight hues checked for colour-blind and normal-vision separation on white
+# (slot 1 is the report's blue). Three are light against white, so the table beside the chart names each one.
+NET_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
 
 
 def net_color(slot):
-    return GRAFANA_CLASSIC[slot % len(GRAFANA_CLASSIC)]
+    return NET_COLORS[slot % len(NET_COLORS)]
 
 
-def svg_networks(rows, series, step, start, end, w=658, h=170):
-    """Devices per network over the period, stacked like the Grafana panel: each network in its Grafana colour at
-    40% fill with a solid top edge, in Grafana's stacking order (first network at the bottom)."""
-    layers = sorted(rows, key=lambda r: r["slot"])
-    times = sorted({t for r in layers for t, _ in series.get(r["key"], [])})
+def svg_networks(rows, series, step, start, end, w=658, h=190):
+    """Devices online per network over the period: one thin line per network on the report's usual grid."""
+    times = sorted({t for r in rows for t, _ in series.get(r["key"], [])})
     if not times:
         return '<p class="muted">No device data for this period</p>'
     L, R, T, B = 44, 12, 12, 22
     pw, ph = w - L - R, h - T - B
     t0, t1 = start.timestamp(), end.timestamp()
-    vals = {r["key"]: dict(series.get(r["key"], [])) for r in layers}
-    totals = [sum(vals[r["key"]].get(t, 0) for r in layers) for t in times]
-    top_v = max(totals) or 1
+    top_v = max((v for r in rows for _, v in series.get(r["key"], [])), default=0) or 1
     stepv = 10 ** math.floor(math.log10(top_v / 3)) if top_v >= 3 else 1
     for m in (1, 2, 2.5, 5, 10):
         if top_v / (stepv * m) <= 3:
@@ -236,20 +229,27 @@ def svg_networks(rows, series, step, start, end, w=658, h=170):
             f'<text x="{L - 8}" y="{y(v) + 3:.1f}" font-family="PlexMono" font-size="7pt" fill="#8a8984" text-anchor="end">{v:g}</text>'
         )
         v += stepv
-    below = [0.0] * len(times)
-    for r in layers:
-        col = net_color(r["slot"])
-        above = [b + vals[r["key"]].get(t, 0) for b, t in zip(below, times, strict=True)]
-        upper = " L".join(f"{x(t):.1f},{y(a):.1f}" for t, a in zip(times, above, strict=True))
-        lower = " L".join(f"{x(t):.1f},{y(b):.1f}" for t, b in reversed(list(zip(times, below, strict=True))))
-        g.append(f'<path d="M{upper} L{lower} Z" fill="{col}" fill-opacity="0.4" stroke="none"/>')
-        g.append(f'<path d="M{upper}" fill="none" stroke="{col}" stroke-width="1.2" stroke-linejoin="round"/>')
-        below = above
+    for r in sorted(rows, key=lambda r: r["slot"]):
+        pts = series.get(r["key"], [])
+        # break the line where there's no data rather than drawing across the gap
+        path, last = [], None
+        for t, val in pts:
+            path.append(("M" if last is None or t - last > step * 1.5 else "L") + f"{x(t):.1f},{y(val):.1f}")
+            last = t
+        if path:
+            g.append(
+                f'<path d="{" ".join(path)}" fill="none" stroke="{net_color(r["slot"])}" stroke-width="1.4" '
+                'stroke-linejoin="round" stroke-linecap="round"/>'
+            )
     days = (end - start).days
     every = 1 if days <= 10 else 7 if days <= 45 else 14
     day = start
     while day < end:
         xx = L + (day.timestamp() - t0) / (t1 - t0) * pw
+        if every == 1:
+            g.append(
+                f'<line x1="{xx:.1f}" x2="{xx:.1f}" y1="{T}" y2="{T + ph}" stroke="#1b1b1a" stroke-opacity="0.08" stroke-width="1"/>'
+            )
         label, anchor = (f"{day:%a %-d}", "middle") if every == 1 else (f"{day:%-d %b}", "start")
         off = pw / max(1, days) / 2 if every == 1 else 0
         g.append(
