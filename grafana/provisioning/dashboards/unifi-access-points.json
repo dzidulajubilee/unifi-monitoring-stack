@@ -1497,7 +1497,7 @@
           "unit": "percentunit",
           "decimals": 0,
           "min": 0,
-          "max": null,
+          "max": 1,
           "mappings": [],
           "custom": {
             "drawStyle": "line",

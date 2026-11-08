@@ -115,7 +115,7 @@ d.timeseries("Retries", "Share of Wi-Fi packets each access point had to send ag
              by_ap(f"sum by (name) (rate(unpoller_device_vap_transmit_retries_total{{{A}}}[$__rate_interval])) / "
                    f"(sum by (name) (rate(unpoller_device_vap_transmit_packets_total{{{A}}}[$__rate_interval])) + "
                    f"sum by (name) (rate(unpoller_device_vap_transmit_retries_total{{{A}}}[$__rate_interval])))"),
-             unit="percentunit", decimals=0, legend="list", thresholds=steps("transparent", 0.15, "orange"))
+             unit="percentunit", decimals=0, max=1, legend="list", thresholds=steps("transparent", 0.15, "orange"))
 d.timeseries("Clients by band", "How many devices use each band across the selected access points. More on 5 GHz "
              "is better.",
              [target(f'sum by (band) (unpoller_device_radio_stations{{{A}}})', "{{band}} GHz")],
