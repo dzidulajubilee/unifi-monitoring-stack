@@ -173,7 +173,7 @@ def test_settings_keep_the_saved_token(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "SETTINGS", tmp_path / "settings.json")
     c = web.app.test_client()
     with c.session_transaction() as s:
-        s.update(user="Juby", login="juby", admin=True, csrf="t")
+        s.update(user="Admin", login="admin", admin=True, csrf="t")
     page = c.get("/settings").get_data(as_text=True)
     assert "DNS servers" in page and 'name="sec_dns"' not in page  # no tick until a server is added
     form = {"csrf": "t", "hour": "7", "port": "587", "timezone": "UTC", "sec_summary": "on", "sum_summary": "on",
@@ -209,7 +209,7 @@ def test_dns_test_button_checks_without_saving(tmp_path, monkeypatch):
     monkeypatch.setattr(dns, "test", lambda srv: seen.append(srv) or (None if srv["secret"] == "tok" else "the API token was refused"))
     c = web.app.test_client()
     with c.session_transaction() as sess:
-        sess.update(user="Juby", login="juby", admin=True, csrf="t")
+        sess.update(user="Admin", login="admin", admin=True, csrf="t")
     form = {"csrf": "t", "i": "0", "url": "https://10.0.0.5:53443", "kind": "technitium", "secret": "", "noverify": "1"}
     assert c.post("/settings/dns-test", data=form).get_json() == {"ok": True, "message": "Technitium answered"}
     assert seen[-1] == {"kind": "technitium", "url": "https://10.0.0.5:53443", "secret": "tok", "verify": False}
