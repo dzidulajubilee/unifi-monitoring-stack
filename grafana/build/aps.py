@@ -33,7 +33,8 @@ d.stat("Busiest channel", "The highest channel use on any selected access point 
 d.stat("Retries", "Share of Wi-Fi packets that had to be sent again, across selected access points (last 5 min). "
        "Above 15% points to interference or weak signal.",
        f"sum(rate(unpoller_device_vap_transmit_retries_total{{{A}}}[5m])) / "
-       f"sum(rate(unpoller_device_vap_transmit_packets_total{{{A}}}[5m]))",
+       f"(sum(rate(unpoller_device_vap_transmit_packets_total{{{A}}}[5m])) + "
+       f"sum(rate(unpoller_device_vap_transmit_retries_total{{{A}}}[5m])))",
        unit="percentunit", decimals=0, thresholds=steps("text", 0.15, "orange", 0.3, "red"))
 
 # ---- comparison table
@@ -51,10 +52,11 @@ d.table(
      q(f"avg by (name) (unpoller_device_vap_satisfaction_ratio{{{A}}} >= 0)", "E"),
      q(f"avg by (name) (unpoller_device_vap_average_client_signal{{{A}}} < 0)", "F"),
      q(f"sum by (name) (rate(unpoller_device_vap_transmit_retries_total{{{A}}}[5m])) / "
-       f"sum by (name) (rate(unpoller_device_vap_transmit_packets_total{{{A}}}[5m]))", "G"),
+       f"(sum by (name) (rate(unpoller_device_vap_transmit_packets_total{{{A}}}[5m])) + "
+       f"sum by (name) (rate(unpoller_device_vap_transmit_retries_total{{{A}}}[5m])))", "G"),
      q(f"sum by (name) (rate(unpoller_device_bytes_total{{{A}, type=\"uap\"}}[5m])) * 8", "H"),
      q(f"unpoller_device_uptime_seconds{{{A}}}", "I")],
-    w=24, h=9,
+    w=24, h=11,
     transformations=[
         {"id": "merge", "options": {}},
         {"id": "organize", "options": {
@@ -72,6 +74,7 @@ d.table(
             {"id": "custom.cellOptions", "value": {"type": "color-text"}},
             {"id": "thresholds", "value": steps("text", 0.6, "orange", 0.8, "red")}]},
         {"matcher": {"id": "byName", "options": "Retries"}, "properties": [
+            {"id": "mappings", "value": [{"type": "special", "options": {"match": "nan", "result": {"text": "–"}}}]},
             {"id": "custom.cellOptions", "value": {"type": "color-text"}},
             {"id": "thresholds", "value": steps("text", 0.15, "orange", 0.3, "red")}]},
         {"matcher": {"id": "byName", "options": "Experience"}, "properties": [
@@ -110,7 +113,8 @@ d.timeseries("Average client signal", "Average signal of the devices on each acc
              unit="dBm", min=None, decimals=0, legend="list", thresholds=steps("transparent", -75, "transparent"))
 d.timeseries("Retries", "Share of Wi-Fi packets each access point had to send again. Dashed line at 15%.",
              by_ap(f"sum by (name) (rate(unpoller_device_vap_transmit_retries_total{{{A}}}[$__rate_interval])) / "
-                   f"sum by (name) (rate(unpoller_device_vap_transmit_packets_total{{{A}}}[$__rate_interval]))"),
+                   f"(sum by (name) (rate(unpoller_device_vap_transmit_packets_total{{{A}}}[$__rate_interval])) + "
+                   f"sum by (name) (rate(unpoller_device_vap_transmit_retries_total{{{A}}}[$__rate_interval])))"),
              unit="percentunit", decimals=0, legend="list", thresholds=steps("transparent", 0.15, "orange"))
 d.timeseries("Clients by band", "How many devices use each band across the selected access points. More on 5 GHz "
              "is better.",
@@ -140,7 +144,7 @@ d.table("Channels and power", "Current channel and transmit power of each radio.
         [target(f"max by (name, band) (unpoller_device_radio_channel{{{A}}})", ref="A", instant=True, fmt="table"),
          target(f"max by (name, band) (unpoller_device_radio_transmit_power{{{A}}})", ref="B", instant=True, fmt="table"),
          target(f"max by (name, band) (unpoller_device_radio_stations{{{A}}})", ref="C", instant=True, fmt="table")],
-        w=12, h=9,
+        w=12, h=18,
         transformations=[{"id": "merge", "options": {}},
                          {"id": "organize", "options": {"excludeByName": {"Time": True},
                                                         "indexByName": {"name": 0, "band": 1, "Value #A": 2, "Value #B": 3, "Value #C": 4},
@@ -151,7 +155,7 @@ d.table("Channels and power", "Current channel and transmit power of each radio.
 d.timeseries("Channel", "Channel each radio used over time. Frequent changes mean the access point keeps finding "
              "interference.",
              [target(f"max by (name, band) (unpoller_device_radio_channel{{{A}}})", "{{name}} {{band}} GHz")],
-             w=12, h=9, decimals=0, min=None, legend="list", interp="stepAfter")
+             w=12, h=18, decimals=0, min=None, legend="list", interp="stepAfter")
 
 # ---- health
 d.row("Device health", collapsed=True)

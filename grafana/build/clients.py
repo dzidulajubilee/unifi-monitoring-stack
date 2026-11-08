@@ -83,12 +83,13 @@ d.table(
 # ---- traffic
 d.timeseries("Top downloaders", "The 10 devices downloading the most at each moment.",
              [target(f"topk(10, sum by (name) (rate({DL}[$__rate_interval]))) * 8", "{{name}}")],
-             unit="bps", legend="list")
+             unit="bps", legend="hidden")
 d.timeseries("Top uploaders", "The 10 devices uploading the most at each moment.",
              [target(f"topk(10, sum by (name) (rate({UL}[$__rate_interval]))) * 8", "{{name}}")],
-             unit="bps", legend="list")
+             unit="bps", legend="hidden")
 d.timeseries("Devices by network", "Connected devices on each network over time.",
-             [target(f"count by (network) (unpoller_client_uptime_seconds{{{C}}})", "{{network}}")],
+             [target(f'label_replace(count by (network) (count by (network, mac) (unpoller_client_uptime_seconds{{{C}}})), '
+                     f'"network", "No address yet", "network", "")', "{{network}}")],
              decimals=0, legend="list", stack=True, fill=40)
 d.timeseries("Wi-Fi and wired", "Connected devices by connection type over time.",
              [target(f'count(unpoller_client_uptime_seconds{{{C}, wired="false"}})', "Wi-Fi"),
@@ -100,19 +101,19 @@ d.row("Wi-Fi quality")
 d.timeseries("Weakest signal", "The 10 Wi-Fi devices with the weakest signal at each moment, in dBm. Dashed line "
              "at −75 dBm; below it a device is slow and drops.",
              [target(f"bottomk(10, max by (name) (unpoller_client_radio_signal_db{{{W}}}))", "{{name}}")],
-             unit="dBm", min=None, decimals=0, legend="list", thresholds=steps("transparent", -75, "transparent"))
+             unit="dBm", min=None, decimals=0, legend="hidden", thresholds=steps("transparent", -75, "transparent"))
 d.timeseries("Lowest experience", "The 10 Wi-Fi devices with the lowest UniFi satisfaction score at each moment. "
              "Dashed line at 80%.",
              [target(f"bottomk(10, max by (name) (unpoller_client_satisfaction_ratio{{{W}}} >= 0))", "{{name}}")],
-             unit="percentunit", min=None, max=1, decimals=0, legend="list", thresholds=steps("transparent", 0.8, "orange"))
+             unit="percentunit", min=None, max=1, decimals=0, legend="hidden", thresholds=steps("transparent", 0.8, "orange"))
 d.timeseries("Link speed", "Wi-Fi link speed towards each device, as negotiated with its access point. With all "
              "devices selected this shows the 10 slowest; pick devices with the Device selector to follow them.",
              [target(f"bottomk(10, max by (name) (unpoller_client_radio_transmit_rate_bps{{{W}}}))", "{{name}}")],
-             unit="bps", legend="list")
+             unit="bps", legend="hidden")
 d.timeseries("Moves between access points", "How often devices moved from one access point to another, per hour, "
              "for the 10 that moved most. Constant moving usually means the device sits between two access points "
              "with weak signal from both.",
              [target(f"topk(10, sum by (name) (increase(unpoller_client_roam_count_total{{{W}}}[1h])))", "{{name}}",
                      interval="1h")],
-             decimals=0, legend="list", draw="bars", fill=70)
+             decimals=0, legend="hidden", draw="bars", fill=70)
 d.save()

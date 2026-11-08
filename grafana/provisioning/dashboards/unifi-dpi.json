@@ -527,7 +527,7 @@
     {
       "type": "bargauge",
       "title": "By category, last 24 h",
-      "description": "Traffic grouped by UniFi's application categories. Each category keeps the same colour in every panel.",
+      "description": "The 15 categories with the most traffic, grouped by UniFi's application categories. Each category keeps the same colour in every panel.",
       "gridPos": {
         "h": 13,
         "w": 11,
@@ -541,7 +541,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sort_desc(sum by (category) (label_replace(unpoller_client_dpi_receive_bytes{source=~\"$Controller\", site_name=~\"$Site\", mac!=\"TOTAL\", name=~\"$Device\"}, \"category\", \"$1\", \"category\", \"(.+)_[0-9]+\")) + sum by (category) (label_replace(unpoller_client_dpi_transmit_bytes{source=~\"$Controller\", site_name=~\"$Site\", mac!=\"TOTAL\", name=~\"$Device\"}, \"category\", \"$1\", \"category\", \"(.+)_[0-9]+\")))",
+          "expr": "sort_desc(topk(15, sum by (category) (label_replace(unpoller_client_dpi_receive_bytes{source=~\"$Controller\", site_name=~\"$Site\", mac!=\"TOTAL\", name=~\"$Device\"}, \"category\", \"$1\", \"category\", \"(.+)_[0-9]+\")) + sum by (category) (label_replace(unpoller_client_dpi_transmit_bytes{source=~\"$Controller\", site_name=~\"$Site\", mac!=\"TOTAL\", name=~\"$Device\"}, \"category\", \"$1\", \"category\", \"(.+)_[0-9]+\"))))",
           "legendFormat": "{{category}}",
           "refId": "A",
           "range": false,

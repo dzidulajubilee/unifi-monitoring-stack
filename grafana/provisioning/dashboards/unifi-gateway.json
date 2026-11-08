@@ -550,7 +550,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "max by (wan) (label_replace(unpoller_speedtest_timestamp_seconds{source=~\"$Controller\", site_name=~\"$Site\"}, \"wan\", \"$1\", \"wan_group\", \"(.*)\")) * 10",
+          "expr": "max by (wan) (label_replace(unpoller_speedtest_timestamp_seconds{source=~\"$Controller\", site_name=~\"$Site\"}, \"wan\", \"$1\", \"wan_group\", \"(.*)\"))",
           "legendFormat": "",
           "refId": "F",
           "range": false,
