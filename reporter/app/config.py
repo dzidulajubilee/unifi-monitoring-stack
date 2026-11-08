@@ -54,7 +54,7 @@ SECTIONS = [
         "Internet lines and quality",
         "Per line: active or backup, availability, outages and their length, ISP latency and packet-loss events, speed tests, data carried",
     ),
-    ("devices", "Devices", "Devices online and the ten that used the most data"),
+    ("devices", "Devices", "Devices online, the ten that used the most data, and devices by network"),
     ("aps", "Access points", "Traffic, clients, Wi-Fi experience and channel use per access point"),
     (
         "apps",

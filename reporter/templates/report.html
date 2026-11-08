@@ -287,6 +287,20 @@ a.plain { color: inherit; text-decoration: none; }
       {% else %}<p class="empty">No client traffic recorded</p>{% endif %}
     </div>
   </div>
+  {% if d.networks %}
+  {% set before = {} %}{% for x in p.networks or [] %}{% set _ = before.update({x.key: x.peak}) %}{% endfor %}
+  <div class="keep" style="margin-top:16pt">
+    <h3>Devices by network</h3>
+    <table>
+      <thead><tr><th>Network</th><th class="n">Peak online</th><th class="n">Average online</th><th class="n">Different devices</th><th class="n">Peak vs last {{ word }}</th></tr></thead>
+      {% for n in d.networks %}
+      <tr><td>{{ n.name }}</td><td class="n">{{ n.peak|num }}</td><td class="n">{% if n.avg is not none %}{{ '%.1f'|format(n.avg) if n.avg < 10 else n.avg|num }}{% else %}–{% endif %}</td><td class="n">{{ n.unique|num }}</td>
+        <td class="n mono muted">{{ ch_value(n.peak, before.get(n.key)) }}</td></tr>
+      {% endfor %}
+    </table>
+    <p class="note">Peak is the most devices connected to the network at once; average is over the whole {{ word }}; different devices counts each device once, however often it connected. A device that moved between networks is counted on each.</p>
+  </div>
+  {% endif %}
 </section>
 {% endif %}
 

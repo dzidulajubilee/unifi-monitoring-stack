@@ -25,6 +25,7 @@ from .sources import Source
 from .text import (
     attention,
     change,
+    delta,
     dns_comparable,
     dns_pairs,
     fbits,
@@ -153,6 +154,7 @@ def build(kind, end=None, start=None):
             dns_pairs=dns_pairs,
             dns_comparable=dns_comparable,
             dns_change=change,
+            ch_value=lambda cur, prev: delta(cur, prev, covered["prom"]),
             share=share,
             points_change=points_change,
             tz=config.TZ,

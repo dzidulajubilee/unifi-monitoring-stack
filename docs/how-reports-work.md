@@ -102,6 +102,7 @@ match, all of them are shown, except data downloaded when it's unticked.
 | Data downloaded / uploaded | Prometheus | UniFi's site-wide internet rate, averaged per minute over the period and multiplied by its length. The gateway's byte counters can't be used (see [data notes](data-notes.md)) |
 | Peak devices online | Prometheus | The highest number of connected devices in any 5-minute window |
 | Different devices / first seen | Prometheus | Devices seen in the period; "first seen" means not seen in the period before |
+| Devices by network | Prometheus | Per network, as in Grafana's Clients dashboard: the most devices connected at once (5-minute steps), the average over the period, and how many different devices used it. A device that moved between networks counts on each; "No network" is devices UnPoller reports without one, such as VPN clients |
 | Latency, CPU, memory, temperature | Prometheus | Averages and peaks of the gateway's own readings |
 | Internet line availability | Prometheus | UniFi's uptime figure per line; a line that never carried traffic shows as standby |
 | Outages, failovers, ISP latency and packet loss | Loki | UniFi's internet line events |

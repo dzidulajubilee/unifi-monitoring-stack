@@ -119,6 +119,20 @@ def points_change(cur, before, word):
     return f"same as last {word}" if abs(diff) < 0.5 else f"{diff:+.0f} points vs last {word}"
 
 
+def delta(cur, prev, covered=True):
+    """A change for a table cell whose heading already says what it compares with: '+12%', '+3', 'same'
+    or '–' when there's nothing to compare."""
+    if not covered or cur is None or prev is None:
+        return "–"
+    if prev == 0:
+        return "new" if cur else "same"
+    diff = cur - prev
+    if abs(prev) < 20:  # small counts read better as numbers
+        return "same" if round(diff) == 0 else f"{'+' if diff > 0 else '−'}{abs(diff):.0f}"
+    pct = diff / prev * 100
+    return "same" if abs(pct) < 0.5 else f"{'+' if pct > 0 else '−'}{abs(pct):.0f}%"
+
+
 def summary(d, p, word, covered, on=None):
     """Plain-language lines for page 1, written from the numbers.
     Only covers the sections that are switched on."""
