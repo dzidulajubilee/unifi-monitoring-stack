@@ -12,7 +12,11 @@ Things learned about UnPoller's data that the reports and dashboards rely on. Ch
   the dashboard shows the last 24 hours. `mac="TOTAL"` series are site totals by category.
 - **Console settings** (`unpoller_controller_*`): always 0 on UniFi OS consoles reached with an API key,
   uptime included. Not used.
-- **Speed test time** (`unpoller_speedtest_timestamp_seconds`) is in hundredths of a second.
+- **Speed test time** (`unpoller_speedtest_timestamp_seconds`) is in milliseconds despite its name (UnPoller
+  2.x with UniFi Network 10); older versions sent hundredths of a second.
+- **Wi-Fi retries** (`unpoller_device_vap_transmit_retries_total`) count every resend attempt. Show them as a share
+  of everything sent, `retries / (packets + retries)`; dividing by packets alone passes 100% on a quiet access
+  point.
 - **Logs** come from the UniFi System Log through UnPoller into Loki (`application="unifi_system_log"`), with
   categories such as SECURITY, AUDIT, INTERNET_AND_WAN, CLIENT_DEVICES and UNIFI_DEVICES. The JSON parameters
   (e.g. `parameters.WAN_NAME`, `parameters.DURATION.id` in seconds) carry the details.

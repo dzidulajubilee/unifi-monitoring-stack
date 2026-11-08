@@ -405,7 +405,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(rate(unpoller_device_vap_transmit_retries_total{source=~\"$Controller\", site_name=~\"$Site\", name=~\"$AP\"}[5m])) / sum(rate(unpoller_device_vap_transmit_packets_total{source=~\"$Controller\", site_name=~\"$Site\", name=~\"$AP\"}[5m]))",
+          "expr": "sum(rate(unpoller_device_vap_transmit_retries_total{source=~\"$Controller\", site_name=~\"$Site\", name=~\"$AP\"}[5m])) / (sum(rate(unpoller_device_vap_transmit_packets_total{source=~\"$Controller\", site_name=~\"$Site\", name=~\"$AP\"}[5m])) + sum(rate(unpoller_device_vap_transmit_retries_total{source=~\"$Controller\", site_name=~\"$Site\", name=~\"$AP\"}[5m])))",
           "legendFormat": "",
           "refId": "A",
           "range": false,
@@ -559,7 +559,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "max by (name) (sum by (name) (rate(unpoller_device_vap_transmit_retries_total{source=~\"$Controller\", site_name=~\"$Site\", name=~\"$AP\"}[5m])) / sum by (name) (rate(unpoller_device_vap_transmit_packets_total{source=~\"$Controller\", site_name=~\"$Site\", name=~\"$AP\"}[5m])))",
+          "expr": "max by (name) (sum by (name) (rate(unpoller_device_vap_transmit_retries_total{source=~\"$Controller\", site_name=~\"$Site\", name=~\"$AP\"}[5m])) / (sum by (name) (rate(unpoller_device_vap_transmit_packets_total{source=~\"$Controller\", site_name=~\"$Site\", name=~\"$AP\"}[5m])) + sum by (name) (rate(unpoller_device_vap_transmit_retries_total{source=~\"$Controller\", site_name=~\"$Site\", name=~\"$AP\"}[5m]))))",
           "legendFormat": "",
           "refId": "G",
           "range": false,
@@ -790,6 +790,20 @@
             },
             "properties": [
               {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "special",
+                    "options": {
+                      "match": "nan",
+                      "result": {
+                        "text": "\u2013"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
                 "id": "custom.cellOptions",
                 "value": {
                   "type": "color-text"
@@ -931,7 +945,7 @@
         "x": 0,
         "y": 4,
         "w": 24,
-        "h": 9
+        "h": 11
       },
       "id": 7,
       "datasource": {
@@ -1011,7 +1025,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 13,
+        "y": 15,
         "w": 12,
         "h": 8
       },
@@ -1093,7 +1107,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 13,
+        "y": 15,
         "w": 12,
         "h": 8
       },
@@ -1179,7 +1193,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 21,
+        "y": 23,
         "w": 12,
         "h": 8
       },
@@ -1265,7 +1279,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 21,
+        "y": 23,
         "w": 12,
         "h": 8
       },
@@ -1351,7 +1365,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 29,
+        "y": 31,
         "w": 12,
         "h": 8
       },
@@ -1437,7 +1451,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 29,
+        "y": 31,
         "w": 12,
         "h": 8
       },
@@ -1458,7 +1472,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (name) (rate(unpoller_device_vap_transmit_retries_total{source=~\"$Controller\", site_name=~\"$Site\", name=~\"$AP\"}[$__rate_interval])) / sum by (name) (rate(unpoller_device_vap_transmit_packets_total{source=~\"$Controller\", site_name=~\"$Site\", name=~\"$AP\"}[$__rate_interval]))",
+          "expr": "sum by (name) (rate(unpoller_device_vap_transmit_retries_total{source=~\"$Controller\", site_name=~\"$Site\", name=~\"$AP\"}[$__rate_interval])) / (sum by (name) (rate(unpoller_device_vap_transmit_packets_total{source=~\"$Controller\", site_name=~\"$Site\", name=~\"$AP\"}[$__rate_interval])) + sum by (name) (rate(unpoller_device_vap_transmit_retries_total{source=~\"$Controller\", site_name=~\"$Site\", name=~\"$AP\"}[$__rate_interval])))",
           "legendFormat": "{{name}}",
           "refId": "A",
           "range": true,
@@ -1523,7 +1537,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 37,
+        "y": 39,
         "w": 12,
         "h": 8
       },
@@ -1651,7 +1665,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 37,
+        "y": 39,
         "w": 12,
         "h": 8
       },
@@ -1735,7 +1749,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 46,
+            "y": 48,
             "w": 12,
             "h": 8
           },
@@ -1874,7 +1888,7 @@
           },
           "gridPos": {
             "x": 12,
-            "y": 46,
+            "y": 48,
             "w": 12,
             "h": 8
           },
@@ -1887,7 +1901,7 @@
       ],
       "gridPos": {
         "x": 0,
-        "y": 45,
+        "y": 47,
         "w": 24,
         "h": 1
       },
@@ -2036,9 +2050,9 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 55,
+            "y": 57,
             "w": 12,
-            "h": 9
+            "h": 18
           },
           "id": 20,
           "datasource": {
@@ -2118,9 +2132,9 @@
           },
           "gridPos": {
             "x": 12,
-            "y": 55,
+            "y": 57,
             "w": 12,
-            "h": 9
+            "h": 18
           },
           "id": 21,
           "datasource": {
@@ -2131,7 +2145,7 @@
       ],
       "gridPos": {
         "x": 0,
-        "y": 54,
+        "y": 56,
         "w": 24,
         "h": 1
       },
@@ -2214,7 +2228,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 65,
+            "y": 76,
             "w": 8,
             "h": 8
           },
@@ -2296,7 +2310,7 @@
           },
           "gridPos": {
             "x": 8,
-            "y": 65,
+            "y": 76,
             "w": 8,
             "h": 8
           },
@@ -2378,7 +2392,7 @@
           },
           "gridPos": {
             "x": 16,
-            "y": 65,
+            "y": 76,
             "w": 8,
             "h": 8
           },
@@ -2460,7 +2474,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 73,
+            "y": 84,
             "w": 24,
             "h": 8
           },
@@ -2473,7 +2487,7 @@
       ],
       "gridPos": {
         "x": 0,
-        "y": 64,
+        "y": 75,
         "w": 24,
         "h": 1
       },

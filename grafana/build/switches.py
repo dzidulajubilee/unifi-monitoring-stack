@@ -42,7 +42,7 @@ d.table("Ports", "Every port with its link speed, current traffic, errors and Po
          pq(f"rate(unpoller_device_port_transmit_bytes_total{{{P}}}[5m]) * 8", "C"),
          pq(f"rate(unpoller_device_port_receive_errors_total{{{P}}}[1h]) + rate(unpoller_device_port_transmit_errors_total{{{P}}}[1h])", "D"),
          pq(f"unpoller_device_port_poe_watts{{{P}}}", "E")],
-        w=24, h=10,
+        w=24, h=12,
         transformations=[{"id": "merge", "options": {}},
                          {"id": "convertFieldType", "options": {"conversions": [{"targetField": "port_num", "destinationType": "number"}]}},
                          {"id": "organize", "options": {"excludeByName": {"Time": True},

@@ -145,8 +145,9 @@ bars("Top applications, last 24 h",
      f"sort_desc(topk(15, sum by (application) ({clean_app(RX)}) + sum by (application) ({clean_app(TX)})))",
      "{{application}}", 0, 13, 13, 4, fixed=ACCENT)
 bars("By category, last 24 h",
-     "Traffic grouped by UniFi's application categories. Each category keeps the same colour in every panel.",
-     f"sort_desc({BOTH_CAT})", "{{category}}", 13, 11, 13, 4, by_category=True)
+     "The 15 categories with the most traffic, grouped by UniFi's application categories. Each category keeps "
+     "the same colour in every panel.",
+     f"sort_desc(topk(15, {BOTH_CAT}))", "{{category}}", 13, 11, 13, 4, by_category=True)
 
 # ---- row 3: per day
 add({

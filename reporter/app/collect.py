@@ -110,8 +110,11 @@ def collect(s: Source):
     for x in util:
         u.setdefault(x["metric"]["name"], {})[x["metric"].get("band")] = float(x["value"][1])
     retries = s.by(
+        # resends as a share of everything sent (0-100%); UniFi counts every resend attempt, so dividing by
+        # delivered packets alone can pass 100% on a quiet access point
         "sum by (name) (increase(unpoller_device_vap_transmit_retries_total[$R])) / "
-        "sum by (name) (increase(unpoller_device_vap_transmit_packets_total[$R]))",
+        "(sum by (name) (increase(unpoller_device_vap_transmit_packets_total[$R])) + "
+        "sum by (name) (increase(unpoller_device_vap_transmit_retries_total[$R])))",
         "name",
     )
     signal = s.by("avg_over_time(avg by (name) (unpoller_device_vap_average_client_signal < 0)[$R:5m])", "name")

@@ -811,9 +811,9 @@
       ],
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
+          "displayMode": "hidden",
+          "placement": "right",
+          "showLegend": false,
           "calcs": []
         },
         "tooltip": {
@@ -893,9 +893,9 @@
       ],
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
+          "displayMode": "hidden",
+          "placement": "right",
+          "showLegend": false,
           "calcs": []
         },
         "tooltip": {
@@ -965,7 +965,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "count by (network) (unpoller_client_uptime_seconds{source=~\"$Controller\", site_name=~\"$Site\", network=~\"$Network\", wired=~\"$Connection\", name=~\"$Client\"})",
+          "expr": "label_replace(count by (network) (count by (network, mac) (unpoller_client_uptime_seconds{source=~\"$Controller\", site_name=~\"$Site\", network=~\"$Network\", wired=~\"$Connection\", name=~\"$Client\"})), \"network\", \"No address yet\", \"network\", \"\")",
           "legendFormat": "{{network}}",
           "refId": "A",
           "range": true,
@@ -1196,9 +1196,9 @@
       ],
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
+          "displayMode": "hidden",
+          "placement": "right",
+          "showLegend": false,
           "calcs": []
         },
         "tooltip": {
@@ -1282,9 +1282,9 @@
       ],
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
+          "displayMode": "hidden",
+          "placement": "right",
+          "showLegend": false,
           "calcs": []
         },
         "tooltip": {
@@ -1368,9 +1368,9 @@
       ],
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
+          "displayMode": "hidden",
+          "placement": "right",
+          "showLegend": false,
           "calcs": []
         },
         "tooltip": {
@@ -1451,9 +1451,9 @@
       ],
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
+          "displayMode": "hidden",
+          "placement": "right",
+          "showLegend": false,
           "calcs": []
         },
         "tooltip": {

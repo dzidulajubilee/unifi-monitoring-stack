@@ -52,7 +52,7 @@ d.table(
      target(f'max by (wan) ({wan(f"unpoller_speedtest_latency_ms{{{S}}}", "wan_group")})',
             ref="E", instant=True, fmt="table"),
      # UnPoller reports this in hundredths of a second; * 10 gives milliseconds for Grafana
-     target(f'max by (wan) ({wan(f"unpoller_speedtest_timestamp_seconds{{{S}}}", "wan_group")}) * 10',
+     target(f'max by (wan) ({wan(f"unpoller_speedtest_timestamp_seconds{{{S}}}", "wan_group")})',
             ref="F", instant=True, fmt="table")],
     w=24, h=6,
     transformations=[
