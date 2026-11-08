@@ -3849,7 +3849,7 @@
       "type": "logs",
       "description": "Every firewall policy, firewall group and NAT change, newest first: who made it, what changed and the IP it came from. Click a line for the setting that changed.",
       "gridPos": {
-        "h": 11,
+        "h": 12,
         "w": 15,
         "x": 0,
         "y": 115
@@ -3889,7 +3889,7 @@
       "type": "table",
       "description": "Who logged in to UniFi Network and from which IP. Addresses outside your LAN are shown in orange.",
       "gridPos": {
-        "h": 11,
+        "h": 12,
         "w": 9,
         "x": 15,
         "y": 115
@@ -4033,7 +4033,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 126
+        "y": 127
       },
       "id": 37,
       "panels": [
@@ -4050,7 +4050,7 @@
             "h": 10,
             "w": 24,
             "x": 0,
-            "y": 127
+            "y": 128
           },
           "fieldConfig": {
             "defaults": {
@@ -4121,7 +4121,7 @@
               },
               "editorMode": "code",
               "expr": "max by (rule_name, action, protocol, source_zone, dest_zone) (unpoller_firewall_rule_enabled{source=~\"$Controller\",site_name=~\"$Site\",action=~\"$Action\",rule_name=~\"$Rule\"})\n  and on (rule_name, action, protocol, source_zone, dest_zone)\n(min by (rule_name, action, protocol, source_zone, dest_zone) (min_over_time(unpoller_firewall_rule_enabled{source=~\"$Controller\",site_name=~\"$Site\",action=~\"$Action\",rule_name=~\"$Rule\"}[$__range] @ end())) == 0)",
-              "legendFormat": "{{rule_name}} ({{action}})",
+              "legendFormat": "\u2002\u2002{{rule_name}} ({{action}})",
               "range": true,
               "instant": false,
               "refId": "A"
@@ -4138,7 +4138,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 127
+        "y": 128
       },
       "id": 40,
       "panels": [
@@ -4155,7 +4155,7 @@
             "h": 9,
             "w": 14,
             "x": 0,
-            "y": 128
+            "y": 129
           },
           "fieldConfig": {
             "defaults": {
@@ -4227,7 +4227,7 @@
             "h": 9,
             "w": 10,
             "x": 14,
-            "y": 128
+            "y": 129
           },
           "options": {
             "mode": "markdown",
