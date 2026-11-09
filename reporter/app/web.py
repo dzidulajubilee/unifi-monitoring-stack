@@ -29,6 +29,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_file,
     send_from_directory,
     session,
     url_for,
@@ -577,8 +578,14 @@ def settings():
         if not any(sections.values()) or not any(sections_summary.values()):
             flash("Pick at least one thing to include in both the full report and the summary")
             return redirect(url_for("settings"))
+        logo, problem = logo_from(request.files.get("logo"))
+        if problem:
+            flash(problem)
+            return redirect(url_for("settings"))
         s["general"]["name"] = f.get("name", "").strip()[:60]
         s["general"]["grafana_links"] = bool(f.get("grafana_links"))
+        if f.get("theme") in config.THEMES:
+            s["general"]["theme"] = f["theme"]
         s["general"]["hidden_networks"] = ", ".join(
             n.strip() for n in f.get("hidden_networks", "").split(",") if n.strip()
         )[:300]
@@ -616,6 +623,8 @@ def settings():
             kinds=[k for k in ("weekly", "monthly", "quarterly") if f.get(f"auto_{k}")],
         )
         R.save_settings(s)
+        if logo or f.get("remove_logo"):
+            save_logo(logo)
         log.info("settings changed by %s", session["user"])
         R.notify(f"Settings were changed by {session['user']}", by=session["user"], admins_only=True)
         flash("Settings saved")
@@ -643,7 +652,47 @@ def settings():
         sections=R.SECTIONS,
         grafana_guess=grafana_guess,
         timezones=R.timezones(),
+        themes=config.THEMES,
+        theme=s["general"].get("theme") if s["general"].get("theme") in config.THEMES else "blue",
+        logo_version=int(lp.stat().st_mtime) if (lp := config.logo_path()) else None,
     )
+
+
+def logo_from(upload):
+    """(bytes, extension) of an uploaded logo, or (None, None) when none was chosen; second item a problem."""
+    if not upload or not upload.filename:
+        return None, None
+    data = upload.read(config.LOGO_MAX_BYTES + 1)
+    if len(data) > config.LOGO_MAX_BYTES:
+        return None, "The logo is larger than 1 MB. Use a smaller PNG, JPEG or SVG"
+    ext = config.logo_type(data)
+    if not ext:
+        return None, "The logo must be a PNG, JPEG or SVG file"
+    return (data, ext), None
+
+
+def save_logo(logo):
+    """Replace the logo with (bytes, extension), or remove it when logo is None."""
+    for old in config.LOGO_TYPES:
+        (config.OUT / f"logo.{old}").unlink(missing_ok=True)
+    if logo:
+        data, ext = logo
+        tmp = config.OUT / f"logo.{ext}.part"
+        tmp.write_bytes(data)
+        tmp.replace(config.OUT / f"logo.{ext}")
+
+
+@app.get("/settings/logo")
+@login_required(admin=True)
+def logo_preview():
+    p = config.logo_path()
+    if not p:
+        abort(404)
+    r = send_file(p, mimetype=config.LOGO_TYPES[p.suffix[1:]], max_age=0)
+    # an SVG is only ever shown as an image, but keep it inert if opened directly
+    r.headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; img-src data:"
+    r.headers["X-Content-Type-Options"] = "nosniff"
+    return r
 
 
 # ---------------------------------------------------------------- main

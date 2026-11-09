@@ -1,5 +1,6 @@
 """Inline SVG charts for the PDF."""
 
+import colorsys
 import datetime as dt
 import html
 import math
@@ -7,9 +8,11 @@ import math
 from . import config
 from .text import fbits
 
+ACCENT = config.THEMES["blue"]["accent"]
 
-def svg_minibars(m, w=196, h=78):
-    """Small bar chart for one trend: earlier periods grey, this period blue, gaps dashed."""
+
+def svg_minibars(m, w=196, h=78, accent=ACCENT):
+    """Small bar chart for one trend: earlier periods grey, this period in the accent, gaps dashed."""
     vals, labels = m["values"], m["labels"]
     n = len(vals)
     top = max([v for v in vals if v is not None] or [0]) or 1
@@ -34,7 +37,7 @@ def svg_minibars(m, w=196, h=78):
             bh = max(1.0, v / top * ph)
             g.append(
                 f'<rect x="{x:.1f}" y="{T + ph - bh:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="1.5" '
-                f'fill="{"#2a78d6" if last else "#c9c8c2"}"/>'
+                f'fill="{accent if last else "#c9c8c2"}"/>'
             )
         if n <= 8 or i in (0, n - 1):
             g.append(
@@ -48,7 +51,7 @@ def svg_minibars(m, w=196, h=78):
     )
 
 
-def svg_chart(down, up, kind, start, end, w=658, h=236):
+def svg_chart(down, up, kind, start, end, w=658, h=236, accent=ACCENT):
     """WAN throughput line chart as inline SVG (two series, one shared axis)."""
     if not down:
         return '<p class="muted">No throughput data for this period</p>'
@@ -102,14 +105,14 @@ def svg_chart(down, up, kind, start, end, w=658, h=236):
             day += dt.timedelta(days=stride)
     # series: download leads in the accent, upload sits in a quiet neutral
     g.append(f'<path d="{path(up)}" fill="none" stroke="#a9a8a2" stroke-width="1.4" stroke-linejoin="round"/>')
-    g.append(f'<path d="{path(down)}" fill="none" stroke="#2a78d6" stroke-width="1.6" stroke-linejoin="round"/>')
+    g.append(f'<path d="{path(down)}" fill="none" stroke="{accent}" stroke-width="1.6" stroke-linejoin="round"/>')
     # direct label at the peak of download
     pt, pv = max(down, key=lambda p: p[1])
     px, py = x(pt), y(pv)
     when = dt.datetime.fromtimestamp(pt, config.TZ)
     anchor = "end" if px > L + pw * 0.75 else "start"
     dx = -8 if anchor == "end" else 8
-    g.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="4" fill="#2a78d6" stroke="#ffffff" stroke-width="2"/>')
+    g.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="4" fill="{accent}" stroke="#ffffff" stroke-width="2"/>')
     g.append(
         f'<text x="{px + dx:.1f}" y="{py + 4:.1f}" font-family="Plex" font-weight="500" font-size="7.5pt" fill="#1b1b1a" text-anchor="{anchor}">'
         f"Peak {fbits(pv)}, {when:%a %H:%M}</text>"
@@ -120,7 +123,7 @@ def svg_chart(down, up, kind, start, end, w=658, h=236):
     )
 
 
-def svg_dns(rows, step, start, end, w=658, h=150):
+def svg_dns(rows, step, start, end, w=658, h=150, accent=ACCENT):
     """DNS queries per hour or day: the bar is all queries (neutral), the blocked part sits in the accent."""
     if not any(t is not None for _, t, _ in rows):
         return '<p class="muted">No query history for this period</p>'
@@ -158,7 +161,7 @@ def svg_dns(rows, step, start, end, w=658, h=150):
             )
         if blk:
             g.append(
-                f'<rect x="{x:.1f}" y="{y(blk):.1f}" width="{bw:.1f}" height="{T + ph - y(blk):.1f}" fill="#2a78d6"/>'
+                f'<rect x="{x:.1f}" y="{y(blk):.1f}" width="{bw:.1f}" height="{T + ph - y(blk):.1f}" fill="{accent}"/>'
             )
     # x labels: every 6 hours for hourly bars, every day for short periods, then every week or fortnight
     if step == 3600:
@@ -194,15 +197,30 @@ def svg_dns(rows, step, start, end, w=658, h=150):
 
 
 # Categorical palette for networks: eight hues checked for colour-blind and normal-vision separation on white
-# (slot 1 is the report's blue). Three are light against white, so the table beside the chart names each one.
+# (slot 1 is the report's blue; net_palette puts the chosen accent there). Three are light against white, so the table beside the chart names each one.
 NET_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
 
 
-def net_color(slot):
-    return NET_COLORS[slot % len(NET_COLORS)]
+def _hue(c):
+    h, _, s = colorsys.rgb_to_hls(*(int(c[i : i + 2], 16) / 255 for i in (1, 3, 5)))
+    return h * 360, s
 
 
-def svg_networks(rows, series, step, start, end, w=658, h=190):
+def net_palette(accent=ACCENT):
+    """NET_COLORS led by the report's accent. Hues within 30 degrees of a coloured accent are left out, so no
+    other network looks like the first one; a grey accent (Graphite) keeps them all."""
+    ah, sat = _hue(accent)
+    rest = [c for c in NET_COLORS if c != accent]
+    if sat > 0.2:
+        rest = [c for c in rest if min(abs(_hue(c)[0] - ah), 360 - abs(_hue(c)[0] - ah)) > 30]
+    return [accent] + rest
+
+
+def net_color(slot, palette=NET_COLORS):
+    return palette[slot % len(palette)]
+
+
+def svg_networks(rows, series, step, start, end, w=658, h=190, palette=NET_COLORS):
     """Devices online per network over the period: one thin line per network on the report's usual grid."""
     times = sorted({t for r in rows for t, _ in series.get(r["key"], [])})
     if not times:
@@ -238,7 +256,7 @@ def svg_networks(rows, series, step, start, end, w=658, h=190):
             last = t
         if path:
             g.append(
-                f'<path d="{" ".join(path)}" fill="none" stroke="{net_color(r["slot"])}" stroke-width="1.4" '
+                f'<path d="{" ".join(path)}" fill="none" stroke="{net_color(r["slot"], palette)}" stroke-width="1.4" '
                 'stroke-linejoin="round" stroke-linecap="round"/>'
             )
     days = (end - start).days

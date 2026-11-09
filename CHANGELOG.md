@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Report look**: Settings → Report look picks the colour of charts and links in the PDFs (Blue, the default,
+  Teal, Green, Indigo, Amber or Graphite) and takes an optional logo for the top right of the first page.
 - **Security**: Prometheus (no login) now listens only on the server itself, and UnPoller's metrics port is no
   longer published. Grafana and the reporter are unaffected. Use an SSH tunnel for the Prometheus UI; see
   docs/deployment.md.

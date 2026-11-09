@@ -35,6 +35,11 @@ on: the device, access point, internet line or address.
 When a Grafana address is set (Settings → What to include → *Link to Grafana*), section headings, devices and
 access points in the PDF link to the matching dashboard, set to the report's dates.
 
+**Report look** (Settings) sets the colour of charts and links: Blue (the default), Teal, Green, Indigo, Amber
+or Graphite. Paper, text and greys stay the same in all of them. An optional logo (PNG, JPEG or SVG up to 1 MB)
+goes at the top right of the first page, scaled to fit 45 × 14 mm; a wide logo on a transparent background works
+best. A new colour or logo applies to reports made after the change.
+
 ## DNS filtering (optional)
 
 Add a Pi-hole (version 6) or Technitium DNS Server under Settings → **DNS servers** and the reports get a *DNS
@@ -83,7 +88,8 @@ docker compose exec reporter python report.py run custom --start 2026-11-01 --en
 ## Where things are kept
 
 `reporter/out/` holds the reports and the portal's state: `settings.json` (including the SMTP password, readable
-by the container only), notifications, and the portal's session key. Back it up with the rest of the stack.
+by the container only), the logo if one is uploaded (`logo.png`, `logo.jpg` or `logo.svg`), notifications, and
+the portal's session key. Back it up with the rest of the stack.
 
 For how each figure, comparison and warning is worked out, see [how the reporter works](how-reports-work.md).
 

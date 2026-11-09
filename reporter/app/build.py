@@ -1,11 +1,12 @@
 """Builds a report: collects the data once, renders the full and summary PDFs."""
 
 import datetime as dt
+from functools import partial
 
 from jinja2 import Environment, FileSystemLoader
 
 from . import config, dns
-from .charts import net_color, svg_chart, svg_dns, svg_minibars, svg_networks
+from .charts import net_color, net_palette, svg_chart, svg_dns, svg_minibars, svg_networks
 from .collect import (
     client_names,
     collect,
@@ -18,7 +19,7 @@ from .collect import (
     threat_list,
     wan_series,
 )
-from .config import OUT, STYLES, load_settings, log
+from .config import OUT, STYLES, load_settings, log, logo_path, theme
 from .links import SECTION_DASHBOARD, grafana_linker
 from .periods import KINDS, period_end, period_label, period_start, report_path
 from .sources import Source
@@ -48,6 +49,10 @@ def build(kind, end=None, start=None):
     word = KINDS[kind]
     title, dates = period_label(kind, start, end)
     name = st["general"]["name"].strip()
+    colors = theme(st)
+    accent = colors["accent"]
+    palette = net_palette(accent)
+    logo = logo_path()
     # what each version shows; data is collected for anything ticked in either
     show = {
         "full": {k for k, v in st["sections"].items() if v},
@@ -75,14 +80,14 @@ def build(kind, end=None, start=None):
     hidden = {n.strip().lower() for n in st["general"].get("hidden_networks", "").split(",") if n.strip()}
     for x in (d, p):  # e.g. a network that only holds infrastructure
         x["networks"] = [n for n in x.get("networks") or [] if (n["key"] or "").lower() not in hidden]
-    # the network with the most devices on average gets the report's blue; the others keep a colour by name
+    # the network with the most devices on average gets the report's accent; the others keep a colour by name
     if d["networks"]:
         lead = max(d["networks"], key=lambda n: (n["avg"] or 0, n["key"]))
         names = sorted(n["key"] for n in d["networks"] if n is not lead)
         for n in d["networks"]:
             n["slot"] = 0 if n is lead else 1 + names.index(n["key"])
     net_chart = (
-        svg_networks(d["networks"], d.get("net_series") or {}, d.get("net_step", 3600), start, end)
+        svg_networks(d["networks"], d.get("net_series") or {}, d.get("net_step", 3600), start, end, palette=palette)
         if "devices" in on and d["networks"]
         else ""
     )
@@ -97,7 +102,7 @@ def build(kind, end=None, start=None):
             c, before = dns.read(srv, start, end, prev_start)
             c["top_clients"] = dns.name_clients(c["top_clients"], names)
             rows, c["step"] = dns.buckets(c["series"], start, end)
-            c["chart"] = svg_dns(rows, c["step"], start, end)
+            c["chart"] = svg_dns(rows, c["step"], start, end, accent=accent)
             c["series"] = []  # only the chart needs it
             d["dns"].append(c)
             p["dns"].append(before)
@@ -133,9 +138,9 @@ def build(kind, end=None, start=None):
     lines = {style: sentences(style) for style in STYLES}
     evts = events(cur, wan="isp" not in on) if "events" in on else []
     thr = threat_list(cur) if "threats" in on else ([], 0)
-    chart = svg_chart(down, up, kind, start, end) if "throughput" in on else ""
+    chart = svg_chart(down, up, kind, start, end, accent=accent) if "throughput" in on else ""
     chart_short = (
-        svg_chart(down, up, kind, start, end, h=140) if "throughput" in on else ""
+        svg_chart(down, up, kind, start, end, h=140, accent=accent) if "throughput" in on else ""
     )  # keeps the summary on one page
     from weasyprint import HTML  # imported late: slow to load, not needed until a report is due
 
@@ -167,14 +172,18 @@ def build(kind, end=None, start=None):
             trend_change=trend_change,
             dns_pairs=dns_pairs,
             net_chart=net_chart,
-            net_color=net_color,
+            net_color=partial(net_color, palette=palette),
+            accent=accent,
+            accent_ink=colors["accent_ink"],
+            accent_word=colors["word"],
+            logo=logo.as_uri() if logo else None,
             dns_comparable=dns_comparable,
             dns_change=change,
             ch_value=lambda cur, prev: delta(cur, prev, covered["prom"]),
             share=share,
             points_change=points_change,
             tz=config.TZ,
-            minibars=svg_minibars,
+            minibars=partial(svg_minibars, accent=accent),
             gf=grafana_linker(st, start, end),
             section_dashboard=SECTION_DASHBOARD,
             errors=cur.errors + prev.errors + (d["trends"]["errors"] if d["trends"] else []),
