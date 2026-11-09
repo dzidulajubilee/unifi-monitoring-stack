@@ -78,6 +78,10 @@ emails each version to its own recipient list. It never back-fills periods that 
 Anyone signed in can also make a report for the last or previous week, month or quarter, or for any dates, and
 email either version. Reports are kept in `reporter/out/`.
 
+There's one copy per period: making a report for a period that already has one replaces it, and the list of
+saved reports shows who remade it ("remade by Ama"). A report made by hand doesn't affect the schedule: the
+scheduled email still goes out at the send hour, and deleting a report never sends it again.
+
 ## Command line
 
 ```bash
@@ -89,8 +93,9 @@ docker compose exec reporter python report.py run custom --start 2026-11-01 --en
 ## Where things are kept
 
 `reporter/out/` holds the reports and the portal's state: `settings.json` (including the SMTP password, readable
-by the container only), the logo if one is uploaded (`logo.png`, `logo.jpg` or `logo.svg`), notifications, and
-the portal's session key. Back it up with the rest of the stack.
+by the container only), the logo if one is uploaded (`logo.png`, `logo.jpg` or `logo.svg`), notifications,
+`scheduled.json` (the periods the schedule has sent), `made.json` (who made each report) and the portal's
+session key. Back it up with the rest of the stack.
 
 For how each figure, comparison and warning is worked out, see [how the reporter works](how-reports-work.md).
 

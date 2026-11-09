@@ -43,7 +43,10 @@ length: last week, last month, last quarter, or the same number of days before a
 
 - its type is ticked under Settings → Schedule
 - its period has ended and the send hour (07:00 by default) has passed
-- its PDF doesn't exist yet, so a report is made once even if the container restarts
+- the schedule hasn't sent that period yet (`out/scheduled.json`), so a report is sent once even if the
+  container restarts. Its own record, not the PDF, decides: a report made by hand before the send hour doesn't
+  stop the email, and deleting a report doesn't send it again. Running `report.py run` with Settings'
+  recipients counts as sent
 - the period ended after the scheduler first started (`out/.scheduler-since`), so a new install doesn't make
   reports for old periods it has little data for
 

@@ -8,18 +8,24 @@ import sys
 from . import config
 from .build import build
 from .config import load_settings
+from .history import mark_sent, record_made
 from .mail import deliver, describe_sends, recipients
 from .notify import notify
-from .periods import KINDS, period_end, report_title
+from .periods import KINDS, period_end, period_start, report_path, report_title
 
 
 def run(kind, end=None, send=True, start=None, to=None):
     """Build a report in both styles; email the full one to `to`, or each style to its
     recipients from Settings when send=True."""
+    end = end or period_end(kind, dt.datetime.now(config.TZ))  # custom runs always pass an end
+    remade = report_path(kind, start or period_start(kind, end), end).exists()
     pdfs, subject, lines, errors = build(kind, end, start)
+    record_made(pdfs["full"].name, "cli", remade)
     what = report_title(kind, pdfs["full"])
     sends = [("full", to)] if to else (recipients(kind) if send else [])
     results = deliver(pdfs, subject, lines, sends)
+    if send and not to and kind != "custom" and end == period_end(kind, dt.datetime.now(config.TZ)):
+        mark_sent(kind, end)  # it emailed the scheduled recipients, so the schedule needn't send it again
     failed = [(style, t, err) for style, t, err in results if err]
     sent = describe_sends(results)
     notify(f"{what} was made from the command line" + (f" and {sent}" if sent else ""), file=pdfs["full"].name)
