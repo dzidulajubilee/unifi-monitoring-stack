@@ -66,11 +66,17 @@ is too: a server pulling it signs in once with `docker login ghcr.io` using a Gi
 |---|---|
 | 3000 | Grafana |
 | 8088 | Reports portal |
-| 9090 | Prometheus |
-| 9130 | UnPoller metrics |
 | 8080 | Dozzle |
+| 9090 | Prometheus, on `127.0.0.1` only |
 
-Loki has no published port. Everything is plain HTTP; keep it on the LAN or put a reverse proxy with HTTPS in front before exposing it.
+Prometheus and UnPoller have no login, so neither is open to the network. Prometheus listens only on the server
+itself; to use its UI from another machine, tunnel to it with `ssh -L 9090:localhost:9090 you@server` and open
+<http://localhost:9090>. Grafana's Explore view runs the same queries behind a Grafana login. UnPoller and Loki
+have no published port: Prometheus, Grafana and the reporter reach them over the Docker network.
+To make Prometheus or Loki reachable from the network, put a proxy with a password and HTTPS in front; see
+[Exposing Prometheus or Loki](../README.md#exposing-prometheus-or-loki-on-the-network) in the README.
+
+Everything is plain HTTP; keep it on the LAN or put a reverse proxy with HTTPS in front before exposing it.
 
 ## Backups
 

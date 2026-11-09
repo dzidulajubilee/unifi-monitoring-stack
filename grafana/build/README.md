@@ -17,8 +17,11 @@ To change a dashboard, edit its generator and run it (Python 3, no packages need
 
 ```bash
 python3 grafana/build/gateway.py
-python3 grafana/build/check.py http://<prometheus>:9090 unifi-gateway.json   # runs every query
+python3 grafana/build/check.py http://localhost:9090 unifi-gateway.json   # runs every query
 ```
+
+Prometheus listens only on the server, so from another machine open a tunnel first:
+`ssh -N -L 9090:localhost:9090 you@server`.
 
 `check.py` prints `ok`, `NONE` (no data, fine for hardware you don't have) or `ERR` (a broken query).
 Changes made in the Grafana UI are overwritten the next time a generator runs, so copy them into the

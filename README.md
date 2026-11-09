@@ -8,8 +8,8 @@ Based on [Techno Tim's unpoller-unifi](https://github.com/timothystewart6/unpoll
 
 | Service | What it does | Address |
 | ------- | ------------ | ------- |
-| UnPoller | Polls the UniFi controller for metrics and the System Log | <http://localhost:9130> |
-| Prometheus | Stores metrics, kept for 400 days | <http://localhost:9090> |
+| UnPoller | Polls the UniFi controller for metrics and the System Log | internal only |
+| Prometheus | Stores metrics, kept for 400 days | <http://localhost:9090>, on the server only |
 | Loki | Stores UniFi security, firewall and audit logs, kept for 400 days | internal only |
 | Grafana | Dashboards for gateway, switches, access points, clients, DPI, sites, PDU and firewall | <http://localhost:3000> |
 | Reporter | PDF reports and the reports portal | <http://localhost:8088> |
@@ -101,6 +101,85 @@ docker compose up -d --build
 
 Your `.env` files and `reporter/out/` (reports and portal settings) aren't touched by a pull. More in
 [docs/deployment.md](docs/deployment.md).
+
+## Exposing Prometheus or Loki on the network
+
+Out of the box neither is reachable from other machines, and that's deliberate: **neither has a login**.
+Prometheus listens only on the server (`127.0.0.1:9090`), and Loki and UnPoller aren't published at all. Anyone
+who can reach them can read everything they hold: client names, MAC and IP addresses, traffic per device, firewall
+and security logs. Loki also accepts writes, so an open Loki lets anyone add fake entries to your security
+dashboards and reports.
+
+So **don't just publish the port** (for example by changing `127.0.0.1:9090:9090` back to `9090:9090`, or adding
+`3100:3100` to Loki). If you need them from another machine:
+
+- **Only you, now and then:** use an SSH tunnel and change nothing:
+  `ssh -L 9090:localhost:9090 you@server`, then open <http://localhost:9090>. For queries, Grafana's Explore
+  view already sits behind a Grafana login.
+- **Another tool or person on the network** (a second Grafana, a remote Prometheus, a log shipper): put a reverse
+  proxy in front that asks for a **password** and serves **HTTPS**, so the password isn't sent in plain text.
+  Grafana and the reporter keep talking to Prometheus and Loki directly over the Docker network, so nothing
+  inside the stack changes.
+
+Example with [Caddy](https://caddyserver.com/). First make a password hash:
+
+```bash
+docker run --rm caddy:2.10.2 caddy hash-password --plaintext 'choose-a-strong-password'
+```
+
+Then create `caddy/Caddyfile`, replacing the address with your server's and pasting the hash. Keep only the
+blocks you need:
+
+```caddyfile
+# Prometheus: https://192.168.1.10:9443
+https://192.168.1.10:9443 {
+	tls internal
+	basic_auth {
+		admin <paste-the-hash-here>
+	}
+	reverse_proxy prometheus:9090
+}
+
+# Loki: https://192.168.1.10:3443
+https://192.168.1.10:3443 {
+	tls internal
+	basic_auth {
+		admin <paste-the-hash-here>
+	}
+	reverse_proxy loki:3100
+}
+```
+
+Then add the proxy to `compose.yaml` and run `docker compose up -d`:
+
+```yaml
+  caddy:
+    image: caddy:2.10.2
+    restart: unless-stopped
+    container_name: caddy
+    ports:
+      - '9443:9443'   # Prometheus
+      - '3443:3443'   # Loki
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/data:/data
+```
+
+`tls internal` makes Caddy sign its own certificate. Browsers warn about it until you trust Caddy's root
+certificate (`caddy/data/caddy/pki/authorities/local/root.crt`). Other tools need that certificate too, or
+their "skip TLS verification" option. With a real domain name, drop `tls internal` and Caddy gets a trusted
+certificate by itself. Back up `caddy/Caddyfile` and never commit it with a real hash.
+
+Two things that look like a password option but aren't enough:
+
+- **Prometheus's own basic auth** (`--web.config.file`): it works for outside visitors, but then everything inside
+  the stack has to send the password as well. The reporter can't do that yet, so reports would stop working.
+  Use the proxy instead.
+- **Loki's `auth_enabled: true`**: this turns on multi-tenancy (an `X-Scope-OrgID` header), not a login. Anyone
+  can still send that header.
+
+Docker publishes ports past host firewalls such as `ufw`, so don't rely on a firewall rule to protect a published
+port.
 
 ## Troubleshooting
 

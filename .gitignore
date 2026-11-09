@@ -17,6 +17,9 @@ dozzle/data/*
 # UID/GID for compose.yaml, written by install.sh
 /.env
 
+# Optional Caddy proxy for exposing Prometheus or Loki (README): holds password hashes and its certificates
+caddy/
+
 # Backups of config files, e.g. unpoller/.env.bak, can hold credentials
 *.bak
 
