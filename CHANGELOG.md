@@ -1,6 +1,10 @@
 # Changelog
 
+Releases are tagged `vX.Y.Z` on GitHub. Changes on `main` that aren't in a release yet go under *Unreleased*.
+
 ## Unreleased
+
+## v1.1.0 (2026-11-09)
 
 - **Fixed**: a report made by hand before the send hour stopped that period's scheduled email, and deleting the
   latest report made the schedule make and email it again. The schedule now keeps its own record of what it
@@ -23,7 +27,7 @@
 - Notifications: **Clear all** in the bell panel (per person, asks on the button before clearing).
 - The reporter image is built by GitHub Actions and published to GHCR; servers can pull it instead of building.
 
-## 2026-11-07
+## v1.0.0 (2026-11-07)
 
 First release as **unifi-monitoring-stack**, built on Techno Tim's unpoller-unifi.
 
