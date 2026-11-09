@@ -4121,7 +4121,7 @@
               },
               "editorMode": "code",
               "expr": "max by (rule_name, action, protocol, source_zone, dest_zone) (unpoller_firewall_rule_enabled{source=~\"$Controller\",site_name=~\"$Site\",action=~\"$Action\",rule_name=~\"$Rule\"})\n  and on (rule_name, action, protocol, source_zone, dest_zone)\n(min by (rule_name, action, protocol, source_zone, dest_zone) (min_over_time(unpoller_firewall_rule_enabled{source=~\"$Controller\",site_name=~\"$Site\",action=~\"$Action\",rule_name=~\"$Rule\"}[$__range] @ end())) == 0)",
-              "legendFormat": "\u2002\u2002{{rule_name}} ({{action}})",
+              "legendFormat": "\u2002\u2002{{rule_name}} ({{action}}, {{source_zone}} \u2192 {{dest_zone}}, {{protocol}})",
               "range": true,
               "instant": false,
               "refId": "A"
