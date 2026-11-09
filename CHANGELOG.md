@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Security**: Prometheus (no login) now listens only on the server itself, and UnPoller's metrics port is no
+  longer published. Grafana and the reporter are unaffected. Use an SSH tunnel for the Prometheus UI; see
+  docs/deployment.md.
 - **Installer**: `./install.sh` asks for the settings once, writes every `.env` file and the Dozzle login, and
   starts the stack. Run it again to change settings; Enter keeps the current values. It also writes a root `.env`
   so the containers run as your user instead of always 1000:1000.

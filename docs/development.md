@@ -29,11 +29,13 @@ reporter image.
 
 ## Dashboards
 
-Edit the generator in `grafana/build/`, run it, then check its queries against a real Prometheus:
+Edit the generator in `grafana/build/`, run it, then check its queries against a real Prometheus. Prometheus
+listens only on the server itself, so tunnel to it first:
 
 ```bash
+ssh -N -L 9090:localhost:9090 you@server &
 python3 grafana/build/gateway.py
-python3 grafana/build/check.py http://<server>:9090 unifi-gateway.json
+python3 grafana/build/check.py http://localhost:9090 unifi-gateway.json
 ```
 
 Edits made in the Grafana UI are overwritten by the next generator run. The firewall dashboard is the exception:
@@ -41,10 +43,10 @@ it's edited as JSON. See [grafana/build/README.md](../grafana/build/README.md).
 
 ## Trying a report against live data
 
-Run the reporter locally against the server's Prometheus (and Loki through an SSH tunnel), writing to a scratch
-folder:
+Run the reporter locally against the server's Prometheus and Loki through SSH tunnels (Prometheus as above),
+writing to a scratch folder:
 
 ```bash
-PROM_URL=http://<server>:9090 LOKI_URL=http://localhost:3100 OUT_DIR=/tmp/reports TZ=Africa/Accra \
+PROM_URL=http://localhost:9090 LOKI_URL=http://localhost:3100 OUT_DIR=/tmp/reports TZ=Africa/Accra \
   python reporter/report.py run weekly --no-email
 ```

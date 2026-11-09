@@ -13,8 +13,10 @@ services:
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=400d
       - --storage.tsdb.retention.size=20GB
+    # reachable only from the server itself: Prometheus has no login, and grafana and the reporter use the
+    # Docker network. From another machine: ssh -L 9090:localhost:9090 you@server, then http://localhost:9090
     ports:
-      - '9090:9090'
+      - '127.0.0.1:9090:9090'
     volumes:
       - ./prometheus/config:/etc/prometheus
       - ./prometheus/data:/prometheus
@@ -40,8 +42,7 @@ services:
     container_name: unpoller
     env_file:
       - ./unpoller/.env
-    ports:
-      - '9130:9130'
+    # no ports published: its metrics have no login, and prometheus scrapes it over the Docker network
 
   # log store for UniFi security events pushed by unpoller (config: loki/config/loki.yml)
   # no ports are published: Loki has no authentication and only grafana and unpoller need it

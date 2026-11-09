@@ -442,8 +442,9 @@ cat << EOF
   Grafana          http://$HOST_IP:3000
   Reports portal   http://$HOST_IP:8088   (sign in with a Grafana account)
   Dozzle           http://$HOST_IP:8080
-  Prometheus       http://$HOST_IP:9090
 EOF
+note "Prometheus has no login, so it only listens on this server: http://localhost:9090 here, or"
+note "ssh -L 9090:localhost:9090 ${SUDO_USER:-$(id -un)}@$HOST_IP from another machine. UnPoller isn't published at all."
 
 case "$GENERATED" in
   *" GRAFANA_PASS "* | *" DOZZLE_PASS "*)
