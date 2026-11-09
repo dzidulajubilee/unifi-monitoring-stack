@@ -11,8 +11,9 @@ Every report is made in two versions from the same data:
 - **Summary**: the sections ticked for the summary (by default the first page: summary, needs attention,
   headline numbers, throughput chart).
 
-*Needs attention* and the summary sentences cover everything ticked for either version, and name what to act
-on: the device, access point, internet line or address.
+*Needs attention* in each version warns only about the sections ticked for that version, and names what to
+act on: the device, access point, internet line or address. The summary sentences cover everything ticked for
+either version.
 
 | Section | What it shows |
 |---|---|
