@@ -33,8 +33,8 @@ def test_labels():
 def test_report_files_and_titles():
     p = report_path("custom", d(2026, 11, 1), d(2026, 11, 8), "summary")
     assert p.name == "custom-2026-11-01-to-2026-11-07-summary.pdf"
-    assert report_title("weekly", report_path("weekly", d(2026, 10, 26))) == "Weekly report, Week 44 (26 Oct – 1 Nov 2026)"
-    assert report_title("custom", p) == "Report for 1 Nov – 7 Nov 2026"
+    assert report_title("weekly", report_path("weekly", d(2026, 10, 26))) == "Weekly Network Report, Week 44 (26 Oct – 1 Nov 2026)"
+    assert report_title("custom", p) == "Network Report for 1 Nov – 7 Nov 2026"
 
 
 def test_trend_periods_end_with_the_report_period():
