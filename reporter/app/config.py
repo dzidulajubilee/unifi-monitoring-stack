@@ -95,6 +95,52 @@ SUMMARY_SECTIONS = {"summary", "figures", "throughput", "downloaded", "gap_note"
 
 SETTINGS = OUT / "settings.json"
 
+# Report colour presets: the accent marks what matters in charts (download line, blocked queries, the current
+# period) and a darker shade of it is used for text and links; "word" is how the report names it in a sentence. Paper, text and greys never change. Every accent
+# is at least 3:1 against white and every text shade at least 4.5:1. Red is left out: it means a warning.
+THEMES = {
+    "blue": {"label": "Blue", "word": "blue", "accent": "#2a78d6", "accent_ink": "#1f5fae"},
+    "teal": {"label": "Teal", "word": "teal", "accent": "#0e8585", "accent_ink": "#0a6666"},
+    "green": {"label": "Green", "word": "green", "accent": "#2f8a4e", "accent_ink": "#226b3b"},
+    "indigo": {"label": "Indigo", "word": "indigo", "accent": "#5a52d5", "accent_ink": "#4339b0"},
+    "amber": {"label": "Amber", "word": "amber", "accent": "#c27400", "accent_ink": "#8a5300"},
+    "graphite": {"label": "Graphite", "word": "dark grey", "accent": "#3f3f3c", "accent_ink": "#2b2b29"},
+}
+
+# An optional logo for the first page, uploaded in Settings: OUT/logo.png, logo.jpg or logo.svg
+LOGO_TYPES = {"png": "image/png", "jpg": "image/jpeg", "svg": "image/svg+xml"}
+LOGO_MAX_BYTES = 1024 * 1024
+
+
+def theme(s):
+    """The colour preset a settings dict picked, Blue if it names none or an unknown one."""
+    return THEMES.get(s["general"].get("theme"), THEMES["blue"])
+
+
+def logo_path():
+    """The uploaded logo, or None."""
+    for ext in LOGO_TYPES:
+        p = OUT / f"logo.{ext}"
+        if p.is_file():
+            return p
+    return None
+
+
+def logo_type(data):
+    """'png', 'jpg' or 'svg' from a file's first bytes, or None for anything else."""
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+    head = data[:1024].lstrip(b"\xef\xbb\xbf").lstrip().lower()
+    if (
+        head.startswith(b"<svg")
+        or (head.startswith(b"<?xml") and b"<svg" in head)
+        or (head.startswith(b"<!--") and b"<svg" in head)
+    ):
+        return "svg"
+    return None
+
 
 def default_settings():
     """First-run values come from the environment; after that settings.json wins."""
@@ -107,6 +153,7 @@ def default_settings():
             "grafana_url": env("GRAFANA_PUBLIC_URL", ""),
             "grafana_links": True,
             "hidden_networks": "",  # networks left out of Devices by network, comma-separated
+            "theme": "blue",  # colour preset, see THEMES
         },
         "sections": {k: True for k, *_ in SECTIONS},  # full report
         "sections_summary": {k: k in SUMMARY_SECTIONS for k, *_ in SECTIONS},  # summary

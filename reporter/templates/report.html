@@ -18,8 +18,8 @@
   --rule: rgba(27, 27, 26, 0.10);
   --rule-strong: rgba(27, 27, 26, 0.22);
   --bar: #c9c8c2;
-  --accent: #2a78d6;
-  --accent-ink: #1f5fae;
+  --accent: {{ accent }};
+  --accent-ink: {{ accent_ink }};
 }
 @page {
   size: A4;
@@ -33,10 +33,11 @@ body { margin: 0; font: 9.5pt/1.5 Plex, sans-serif; color: var(--ink); font-vari
 .mono { font-family: PlexMono, monospace; }
 .muted { color: var(--ink-3); }
 
-/* header */
+/* header; the optional logo sits top right, its top level with the name, scaled into 45 x 14mm */
+.logo { float: right; width: 45mm; height: 14mm; object-fit: contain; object-position: right top; margin: 0 0 4pt 12pt; }
 .eyebrow { font-size: 9pt; color: var(--ink-2); margin: 0 0 4pt; }
 h1 { font-size: 22pt; line-height: 1.15; font-weight: 500; margin: 0; letter-spacing: -0.01em; }
-.stamp { font: 8.5pt PlexMono; color: var(--ink-2); margin: 6pt 0 0; padding-bottom: 12pt; border-bottom: 1px solid var(--rule-strong); }
+.stamp { font: 8.5pt PlexMono; color: var(--ink-2); margin: 6pt 0 0; padding-bottom: 12pt; border-bottom: 1px solid var(--rule-strong); clear: both; }
 
 h2 { font-size: 12pt; font-weight: 500; margin: 0 0 8pt; }
 h3 { font-size: 9.5pt; font-weight: 500; margin: 0 0 6pt; }
@@ -130,6 +131,7 @@ a.plain { color: inherit; text-decoration: none; }
   {% else %}<p class="empty">{{ empty }}</p>{% endif %}
 {% endmacro %}
 
+{% if logo %}<img class="logo" src="{{ logo }}" alt="">{% endif %}
 {% if name %}<p class="eyebrow">{{ name }}</p>{% endif %}
 <h1>{% if kind == 'custom' %}Report, {{ title }}{% else %}{{ kind|capitalize }} report, {{ title }}{% endif %}</h1>
 <p class="stamp">{% if style == 'summary' %}Summary · {% endif %}{{ dates }} · {{ tzname }} · generated {{ generated.strftime('%-d %b %Y %H:%M') }}</p>
@@ -169,7 +171,7 @@ a.plain { color: inherit; text-decoration: none; }
   <div class="chart-head">
     {{ head("Internet throughput") }}
     <div class="legend">
-      <span><i style="background:#2a78d6"></i>Download</span>
+      <span><i style="background:var(--accent)"></i>Download</span>
       <span><i style="background:#a9a8a2"></i>Upload</span>
     </div>
   </div>
@@ -182,7 +184,7 @@ a.plain { color: inherit; text-decoration: none; }
 {% set tr = d.trends %}
 <section>
   {{ head("Trends") }}
-  <p class="note" style="margin:-4pt 0 10pt">This {{ word }} in blue, the {{ tr.metrics[0]['labels']|length - 1 }} {{ tr.word }} before it in grey. A dashed outline means there isn't enough data for that {{ word }}.</p>
+  <p class="note" style="margin:-4pt 0 10pt">This {{ word }} in {{ accent_word }}, the {{ tr.metrics[0]['labels']|length - 1 }} {{ tr.word }} before it in {{ 'light grey' if accent_word == 'dark grey' else 'grey' }}. A dashed outline means there isn't enough data for that {{ word }}.</p>
   <div class="trends">
     {% for m in tr.metrics if m.key != 'down' or 'downloaded' in on %}
     <div class="trend keep">
@@ -457,7 +459,7 @@ a.plain { color: inherit; text-decoration: none; }
     {{ head("DNS filtering, " ~ c.name if d.dns|length > 1 else "DNS filtering") }}
     {% if not c.error %}<div class="legend">
       <span><i style="background:#c9c8c2;height:6px"></i>All queries</span>
-      <span><i style="background:#2a78d6;height:6px"></i>Blocked</span>
+      <span><i style="background:var(--accent);height:6px"></i>Blocked</span>
     </div>{% endif %}
   </div>
   {% if c.error %}
