@@ -187,7 +187,7 @@ def build(kind, end=None, start=None):
         tmp.replace(pdf)  # appears in the portal only once complete
         pdfs[style] = pdf
     log.info("wrote %s and its summary (%d query errors)", pdfs["full"], len(cur.errors + prev.errors))
-    what = f"{kind.capitalize()} report, {title}" if kind != "custom" else f"Report for {title}"
+    what = f"{kind.capitalize()} Network Report, {title}" if kind != "custom" else f"Network Report for {title}"
     subject = f"{name}: {what} ({dates})" if name else f"{what} ({dates})"
     # the email body uses the full version's sentences
     return pdfs, subject, lines["full"], len(cur.errors + prev.errors)

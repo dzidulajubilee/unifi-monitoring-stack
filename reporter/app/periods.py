@@ -69,7 +69,7 @@ def trend_periods(kind, start):
 
 
 def report_title(kind, pdf_or_start, end=None):
-    """'Weekly report, Week 44 (26 Oct – 1 Nov 2026)' from a report file, or from a period start/end."""
+    """'Weekly Network Report, Week 44 (26 Oct – 1 Nov 2026)' from a report file, or from a period start/end."""
     if isinstance(pdf_or_start, Path):
         m = re.match(r"\w+-(\d{4}-\d{2}-\d{2})(?:-to-(\d{4}-\d{2}-\d{2}))?(?:-summary)?\.pdf$", pdf_or_start.name)
         day = lambda x: dt.datetime.combine(dt.date.fromisoformat(x), dt.time(), config.TZ)
@@ -79,8 +79,8 @@ def report_title(kind, pdf_or_start, end=None):
         start = pdf_or_start
     title, dates = period_label(kind, start, end)
     if kind == "custom":
-        return f"Report for {title}"
-    return f"{kind.capitalize()} report, {title} ({dates})"
+        return f"Network Report for {title}"
+    return f"{kind.capitalize()} Network Report, {title} ({dates})"
 
 
 def _next_period(kind, start):
