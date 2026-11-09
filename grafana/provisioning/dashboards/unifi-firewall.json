@@ -3887,7 +3887,7 @@
       "id": 51,
       "title": "Admin logins by source",
       "type": "table",
-      "description": "Who logged in to UniFi Network and from which IP. Addresses outside your LAN are shown in orange.",
+      "description": "Who logged in to UniFi Network and from which IP. Addresses outside your LAN are shown in orange. Busiest first; the footer counts every admin-and-IP row, so scroll the table when it shows more than fit.",
       "gridPos": {
         "h": 12,
         "w": 9,
@@ -3977,11 +3977,13 @@
         "showHeader": true,
         "cellHeight": "sm",
         "footer": {
-          "show": false,
+          "show": true,
           "reducer": [
-            "sum"
+            "count"
           ],
-          "fields": ""
+          "fields": [
+            "Source IP"
+          ]
         },
         "sortBy": [
           {
