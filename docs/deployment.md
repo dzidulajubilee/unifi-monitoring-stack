@@ -5,25 +5,36 @@
 ```bash
 git clone https://github.com/dzidulajubilee/unifi-monitoring-stack.git
 cd unifi-monitoring-stack
-for f in */.env.example; do cp -n "$f" "${f%.example}"; done   # then edit each .env
-docker run --rm amir20/dozzle:v11.4.1 generate admin --password 'choose-a-strong-password' > dozzle/data/users.yml
-docker compose up -d
+./install.sh
 ```
 
-The real settings live in the `.env` files, which git ignores. At minimum set the UniFi controller and account
+The installer checks Docker, asks for the time zone, the UniFi controller and account (or API key), the Grafana
+admin login, the Dozzle login and the Grafana address report PDFs link to (optionally the email server too),
+writes every `.env` file, creates `dozzle/data/users.yml` and runs `docker compose up -d --build`. Run it again
+to change any of those settings: it offers the current values, and settings it doesn't ask about are left as they
+are. `--no-start` saves the settings without starting anything.
+
+It also writes a `.env` next to `compose.yaml` with your `UID` and `GID`. Compose reads only that file for the
+`user:` lines in `compose.yaml`; the `UID`/`GID` lines in the service `.env` files don't reach it. Without it the
+containers run as 1000:1000.
+
+The admin login in `grafana/.env` only takes effect the first time Grafana starts. After that, the installer
+can reset the admin password for you (it runs `grafana cli admin reset-admin-password`).
+
+To set up by hand instead, copy each `*/.env.example` to `.env` and edit it, write the root `.env` with
+`printf 'UID=%s\nGID=%s\n' "$(id -u)" "$(id -g)" > .env`, create the Dozzle login (see
+[Dozzle login](#dozzle-login)) and run `docker compose up -d`. At minimum set the UniFi controller and account
 (or API key) in `unpoller/.env`, a strong Grafana admin password in `grafana/.env`, and `TZ` everywhere.
-`reporter/.env` can set `GRAFANA_PUBLIC_URL` so report PDFs link into Grafana. The Dozzle line creates its
-login (see [Dozzle login](#dozzle-login)).
 
 The data folders (`grafana/data`, `prometheus/data`, `loki/data`, `reporter/out`) must be writable by the UID/GID
-the containers run as (1000 by default).
+the containers run as.
 
 ## Dozzle login
 
 Dozzle asks for a username and password (`DOZZLE_AUTH_PROVIDER=simple` in `dozzle/.env`). The accounts live in
 `dozzle/data/users.yml`, which git ignores; it holds a one-way hash of each password, never the password itself.
 
-Create it, or change the username or password, by generating the file again and restarting Dozzle:
+`./install.sh` creates it and can replace it on a later run. To do it by hand, generate the file again and restart Dozzle:
 
 ```bash
 docker run --rm amir20/dozzle:v11.4.1 generate admin --password 'choose-a-strong-password' > dozzle/data/users.yml
@@ -59,10 +70,9 @@ is too: a server pulling it signs in once with `docker login ghcr.io` using a Gi
 | 9130 | UnPoller metrics |
 | 8080 | Dozzle |
 
-Loki has no published port. Everything is plain HTTP; keep it on the LAN or put a reverse proxy with HTTPS in
-front before exposing it.
+Loki has no published port. Everything is plain HTTP; keep it on the LAN or put a reverse proxy with HTTPS in front before exposing it.
 
 ## Backups
 
-Back up the `.env` files, the four data folders and `dozzle/data/users.yml`. `reporter/out/settings.json` holds the email settings,
+Back up the `.env` files (including the one next to `compose.yaml`), the four data folders and `dozzle/data/users.yml`. `reporter/out/settings.json` holds the email settings,
 including the SMTP password.

@@ -16,6 +16,8 @@ jobs:
         run: pip install -r reporter/requirements.txt pytest==8.3.3 ruff==0.6.9
       - name: Lint
         run: ruff check reporter grafana/build
+      - name: Installer
+        run: shellcheck install.sh
       - name: Reporter tests
         run: pytest -q
       - name: Dashboards match their generators

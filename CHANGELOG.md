@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Installer**: `./install.sh` asks for the settings once, writes every `.env` file and the Dozzle login, and
+  starts the stack. Run it again to change settings; Enter keeps the current values. It also writes a root `.env`
+  so the containers run as your user instead of always 1000:1000.
 - **DNS filtering** (optional): reports read Pi-hole v6 and Technitium DNS Server for queries per day, the share
   blocked, top domains, blocked domains and devices (named from UniFi), with needs-attention lines for failures,
   block-rate jumps and stale blocklists. Set up under Settings → DNS servers.

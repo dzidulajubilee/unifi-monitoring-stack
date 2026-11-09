@@ -13,24 +13,37 @@ Based on [Techno Tim's unpoller-unifi](https://github.com/timothystewart6/unpoll
 | Loki | Stores UniFi security, firewall and audit logs, kept for 400 days | internal only |
 | Grafana | Dashboards for gateway, switches, access points, clients, DPI, sites, PDU and firewall | <http://localhost:3000> |
 | Reporter | PDF reports and the reports portal | <http://localhost:8088> |
-| Dozzle | Container log viewer (sign in with the login from step 5) | <http://localhost:8080> |
+| Dozzle | Container log viewer (sign in with the login you chose during setup) | <http://localhost:8080> |
 
 ## Quick start
 
-1. **Clone**
+You need Docker with the Compose plugin.
 
-   ```bash
-   git clone https://github.com/dzidulajubilee/unifi-monitoring-stack.git
-   cd unifi-monitoring-stack
-   ```
+```bash
+git clone https://github.com/dzidulajubilee/unifi-monitoring-stack.git
+cd unifi-monitoring-stack
+./install.sh
+```
 
-2. **Create your settings files.** Each service has a `.env.example`; copy them to `.env` (git ignores `.env`, so your credentials never get committed):
+The installer asks for your time zone, UniFi controller and account (or API key), the Grafana and Dozzle
+logins and the Grafana address for report links. It writes every `.env` file (git ignores them), creates the
+Dozzle login and starts the stack. Press Enter to take a suggested value; blank passwords are generated and
+shown once at the end. Email for reports can be set up there too, or later in the portal.
+
+Run `./install.sh` again any time to change these settings: it offers your current values, so Enter keeps them.
+`./install.sh --no-start` writes the settings without starting anything.
+
+<details>
+<summary>Manual setup, without the installer</summary>
+
+1. **Create your settings files.** Each service has a `.env.example`; copy them to `.env`:
 
    ```bash
    for f in */.env.example; do cp -n "$f" "${f%.example}"; done
+   printf 'UID=%s\nGID=%s\n' "$(id -u)" "$(id -g)" > .env   # the user the containers run as
    ```
 
-3. **Edit `unpoller/.env`** with your controller. A dedicated local UniFi account with read-only access is recommended:
+2. **Edit `unpoller/.env`** with your controller. A dedicated local UniFi account with read-only access is recommended:
 
    ```env
    UP_UNIFI_CONTROLLER_0_URL=https://192.168.1.1
@@ -41,22 +54,24 @@ Based on [Techno Tim's unpoller-unifi](https://github.com/timothystewart6/unpoll
 
    For the firewall zone panels, also set `UP_UNIFI_CONTROLLER_0_API_KEY` (UniFi Network → Settings → Control Plane → Integrations).
 
-4. **Edit `grafana/.env`**: set `GF_SECURITY_ADMIN_USER` and a strong `GF_SECURITY_ADMIN_PASSWORD`.
+3. **Edit `grafana/.env`**: set `GF_SECURITY_ADMIN_USER` and a strong `GF_SECURITY_ADMIN_PASSWORD`.
 
-5. **Create the Dozzle login.** Dozzle shows every container's logs, so it asks for a username and password.
+4. **Create the Dozzle login.** Dozzle shows every container's logs, so it asks for a username and password.
    Pick your own and create its users file (git ignores it):
 
    ```bash
    docker run --rm amir20/dozzle:v11.4.1 generate admin --password 'choose-a-strong-password' > dozzle/data/users.yml
    ```
 
-6. **Set your time zone** (`TZ=`) in each `.env`, e.g. `TZ=Europe/London`.
+5. **Set your time zone** (`TZ=`) in each `.env`, e.g. `TZ=Europe/London`.
 
-7. **Start the stack**
+6. **Start the stack**
 
    ```bash
    docker compose up -d --build
    ```
+
+</details>
 
 ## Reports
 
@@ -69,7 +84,8 @@ contains, recipients, schedule and email server under **Settings**. See [docs/re
 | Path | What's there |
 |---|---|
 | `compose.yaml` | The stack |
-| `*/.env.example` | Settings for each service; copy to `.env` |
+| `install.sh` | Asks for your settings, writes the `.env` files and starts the stack |
+| `*/.env.example` | Settings for each service; the installer copies them to `.env` |
 | `reporter/` | Report generator and portal ([docs/reports.md](docs/reports.md), [docs/development.md](docs/development.md)) |
 | `grafana/build/` | Dashboard generators ([README](grafana/build/README.md)) |
 | `grafana/provisioning/` | Dashboards and data sources Grafana loads |
