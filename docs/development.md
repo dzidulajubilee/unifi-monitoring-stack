@@ -50,3 +50,13 @@ writing to a scratch folder:
 PROM_URL=http://localhost:9090 LOKI_URL=http://localhost:3100 OUT_DIR=/tmp/reports TZ=Africa/Accra \
   python reporter/report.py run weekly --no-email
 ```
+
+## Releasing
+
+1. In `CHANGELOG.md`, rename `## Unreleased` to the new version and date, e.g. `## v1.2.0 (2026-12-01)`, and
+   add an empty `## Unreleased` above it. Bump the minor version for new features, the patch version for fixes
+   only, and the major version when an update needs manual steps on the server.
+2. Commit, then tag and push: `git tag -a v1.2.0 -m v1.2.0 && git push origin main v1.2.0`. CI publishes the
+   reporter image as `1.2.0`.
+3. Make the GitHub release from that version's changelog section:
+   `gh release create v1.2.0 --title v1.2.0 --notes-file notes.md`.

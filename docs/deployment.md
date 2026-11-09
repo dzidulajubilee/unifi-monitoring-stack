@@ -60,6 +60,10 @@ The reporter image is published to `ghcr.io/dzidulajubilee/unifi-monitoring-stac
 `main` (tags: `latest`, the short commit, and the version for `v*` tags). The repository is private, so the image
 is too: a server pulling it signs in once with `docker login ghcr.io` using a GitHub token that can read packages.
 
+To stay on a release instead of following `main`, check out its tag (`git checkout v1.1.0`) and set the reporter
+image to that version in `compose.yaml` (`.../reporter:1.1.0`). [CHANGELOG.md](../CHANGELOG.md) lists what
+each release changed.
+
 ## Ports
 
 | Port | Service |
