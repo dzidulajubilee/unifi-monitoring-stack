@@ -126,9 +126,9 @@ def build(kind, end=None, start=None):
 
     env = Environment(loader=FileSystemLoader(config.ROOT / "templates"), autoescape=True)
     env.filters.update(bytes=fbytes, bits=fbits, num=fnum, pct=fpct, duration=fduration)
-    # The summary sentences and attention list cover every section ticked in either version, so
-    # the summary still warns about, say, an access point problem when it leaves out the Wi-Fi pages.
-    att = attention(d, on)
+    # Each version warns only about its own sections: a section ticked for the full report alone
+    # raises nothing in the summary's Needs attention.
+    att = {style: attention(d, show[style]) for style in STYLES}
 
     def sentences(style):
         """Summary sentences for one version: everything ticked anywhere, except that the download
@@ -164,7 +164,7 @@ def build(kind, end=None, start=None):
             ch=ch,
             covered=covered,
             summary=lines[style],
-            attention=att,
+            attention=att[style],
             events=evts,
             threats=thr,
             chart=chart if style == "full" else chart_short,

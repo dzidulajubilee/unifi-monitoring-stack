@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- *Needs attention* in each version warns only about the sections ticked for that version. A section ticked
+  for the full report alone no longer raises anything in the summary.
 - **Report look**: Settings → Report look picks the colour of charts and links in the PDFs (Blue, the default,
   Teal, Green, Indigo, Amber or Graphite) and takes an optional logo for the top right of the first page.
 - The portal has a favicon.
