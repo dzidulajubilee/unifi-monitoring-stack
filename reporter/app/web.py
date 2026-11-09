@@ -109,6 +109,8 @@ def worker():
         kind, by, login = job["kind"], job["by"], job.get("login")
         what = R.report_title(kind, job["start"], job["end"])
         who = "automatically" if by == "schedule" else f"by {by}"
+        old = R.report_path(kind, job["start"], job["end"])
+        replaces = dt.datetime.fromtimestamp(old.stat().st_mtime, config.TZ) if old.exists() else None
         try:
             pdfs, subject, lines, errors = R.build(kind, job["end"], job["start"] if kind == "custom" else None)
         except Exception as e:  # noqa: BLE001 - reported, worker keeps going
@@ -118,9 +120,16 @@ def worker():
             continue
         full = pdfs["full"].name
         job.update(status="done", file=full)
+        if by == "schedule":
+            R.mark_sent(kind, job["end"])
+        R.record_made(full, by, replaces is not None)
+        if replaces:  # one copy per period: the new one takes the old one's place
+            done = f"{what} was remade {who}, replacing the copy from {replaces:%-d %b %H:%M}"
+        else:
+            done = f"{what} was made {who}"
         if errors:  # Prometheus or Loki didn't answer some queries: those figures show as –
             R.notify(
-                f"{what} was made {who}, but {errors} figure{'s' * (errors != 1)} couldn't be fetched "
+                f"{done}, but {errors} figure{'s' * (errors != 1)} couldn't be fetched "
                 "from Prometheus or Loki and show as –. Check those services and make it again",
                 "error",
                 by=by,
@@ -128,7 +137,7 @@ def worker():
             )
         results = R.deliver(pdfs, subject, lines, job["sends"]) if R.load_settings()["smtp"].get("host") else []
         sent = R.describe_sends(results)
-        R.notify(f"{what} was made {who}" + (f" and {sent}" if sent else ""), by=by, file=full)
+        R.notify(done + (f" and {sent}" if sent else ""), by=by, file=full)
         for style, to, err in results:
             if err:
                 job["error"] = f"Email failed: {err}"
@@ -261,8 +270,21 @@ def describe(kind, start, last):
     return kind.capitalize(), f"{title} · {dates}"
 
 
+def remade_note(entry):
+    """'remade by Ama' when a report replaced an earlier copy of the same period."""
+    if not entry or not entry.get("remade"):
+        return None
+    by = entry.get("by")
+    if by == "schedule":
+        return "remade automatically"
+    if by == "cli":
+        return "remade from the command line"
+    return f"remade by {by}" if by else "remade"
+
+
 def archive():
     out = []
+    made = R.made()
     for f in R.OUT.glob("*.pdf"):
         m = NAME.match(f.name)
         if not m or m[4]:  # summaries are listed with their full report
@@ -284,6 +306,7 @@ def archive():
                 "period": period,
                 "start": start,
                 "made": dt.datetime.fromtimestamp(st.st_mtime, config.TZ),
+                "note": remade_note(made.get(f.name)),
                 "size": st.st_size,
             }
         )
@@ -493,6 +516,7 @@ def delete(name):
         twin = (R.OUT / name).with_name(name[:-4] + "-summary.pdf")
         if twin.exists():
             twin.unlink()
+        R.forget(name)
         flash(f"Deleted {name}")
         R.notify(f"{session['user']} deleted {name}", by=session["user"], admins_only=True)
     return redirect(url_for("index"))
