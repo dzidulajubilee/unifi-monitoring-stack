@@ -186,6 +186,14 @@ class Dashboard:
             "query": {"query": query, "refId": "PrometheusVariableQueryEditor-VariableQuery"},
             "refresh": 2, "regex": "", "skipUrlSync": False, "sort": 1, "type": "query"})
 
+    def choice(self, name, options, selected, label=None):
+        """A fixed list to pick from: options is [(text, value)], selected the values ticked by default."""
+        opts = [{"selected": v in selected, "text": t, "value": v} for t, v in options]
+        self.vars.append({
+            "current": {"selected": True, "text": [t for t, v in options if v in selected], "value": list(selected)},
+            "hide": 0, "includeAll": False, "multi": True, "label": label or name, "name": name, "options": opts,
+            "query": ",".join(f"{t} : {v}" for t, v in options), "skipUrlSync": False, "type": "custom"})
+
     # ---------------------------------------------------------- output
     def save(self):
         d = {

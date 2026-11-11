@@ -12,7 +12,9 @@ d = Dashboard(
 
 d.var("Controller", "label_values(unpoller_device_port_port_speed_bps, source)")
 d.var("Site", 'label_values(unpoller_device_port_port_speed_bps{source=~"$Controller"}, site_name)')
-d.var("Switch", 'label_values(unpoller_device_port_port_speed_bps{source=~"$Controller", site_name=~"$Site"}, name)',
+# UniFi's device type: access points with a wired port also report ports, so they're left out unless picked.
+d.choice("Type", [("Switches", "usw"), ("Gateway", "udm|ugw|uxg"), ("Access points", "uap")], ["usw", "udm|ugw|uxg"])
+d.var("Switch", 'label_values(unpoller_device_info{source=~"$Controller", site_name=~"$Site", type=~"${Type:pipe}"}, name)',
       label="Device", all_value=None)
 d.var("Port", 'label_values(unpoller_device_port_port_speed_bps{source=~"$Controller", site_name=~"$Site", name=~"$Switch"}, port_name)')
 

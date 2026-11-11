@@ -10,6 +10,8 @@ Releases are tagged `vX.Y.Z` on GitHub. Changes on `main` that aren't in a relea
   you add a zone.
   It reloads Prometheus from inside the container. Reloading with `docker compose kill -s HUP` made Docker
   treat Prometheus as stopped by hand, so it didn't start again after the server rebooted.
+- **UniFi Switches dashboard**: a *Type* filter (Switches, Gateway, Access points) picks which devices it shows.
+  It starts on switches and the gateway, so access points with a wired port no longer appear unless you pick them.
 
 ## v1.1.0 (2026-11-09)
 

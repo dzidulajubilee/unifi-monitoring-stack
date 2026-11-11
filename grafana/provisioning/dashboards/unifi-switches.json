@@ -1598,6 +1598,44 @@
         "type": "query"
       },
       {
+        "current": {
+          "selected": true,
+          "text": [
+            "Switches",
+            "Gateway"
+          ],
+          "value": [
+            "usw",
+            "udm|ugw|uxg"
+          ]
+        },
+        "hide": 0,
+        "includeAll": false,
+        "multi": true,
+        "label": "Type",
+        "name": "Type",
+        "options": [
+          {
+            "selected": true,
+            "text": "Switches",
+            "value": "usw"
+          },
+          {
+            "selected": true,
+            "text": "Gateway",
+            "value": "udm|ugw|uxg"
+          },
+          {
+            "selected": false,
+            "text": "Access points",
+            "value": "uap"
+          }
+        ],
+        "query": "Switches : usw,Gateway : udm|ugw|uxg,Access points : uap",
+        "skipUrlSync": false,
+        "type": "custom"
+      },
+      {
         "allValue": null,
         "current": {
           "selected": true,
@@ -1612,7 +1650,7 @@
           "type": "prometheus",
           "uid": "Prometheus"
         },
-        "definition": "label_values(unpoller_device_port_port_speed_bps{source=~\"$Controller\", site_name=~\"$Site\"}, name)",
+        "definition": "label_values(unpoller_device_info{source=~\"$Controller\", site_name=~\"$Site\", type=~\"${Type:pipe}\"}, name)",
         "hide": 0,
         "includeAll": true,
         "multi": true,
@@ -1620,7 +1658,7 @@
         "name": "Switch",
         "options": [],
         "query": {
-          "query": "label_values(unpoller_device_port_port_speed_bps{source=~\"$Controller\", site_name=~\"$Site\"}, name)",
+          "query": "label_values(unpoller_device_info{source=~\"$Controller\", site_name=~\"$Site\", type=~\"${Type:pipe}\"}, name)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
