@@ -31,7 +31,8 @@ Dozzle login and starts the stack. Press Enter to take a suggested value; blank 
 shown once at the end. Email for reports can be set up there too, or later in the portal.
 
 Run `./install.sh` again any time to change these settings: it offers your current values, so Enter keeps them.
-`./install.sh --no-start` writes the settings without starting anything.
+`./install.sh --no-start` writes the settings without starting anything, and `./install.sh --zones` only
+refreshes the firewall zone names from UniFi.
 
 <details>
 <summary>Manual setup, without the installer</summary>
@@ -185,6 +186,8 @@ port.
 
 - Logs: `docker compose logs <service>`, or Dozzle at <http://localhost:8080>.
 - Check the UniFi controller is reachable from the Docker host, and that the UnPoller account has read access.
+- The Firewall dashboard shows zone IDs instead of names, usually after a UniFi upgrade or a new zone: run
+  `./install.sh --zones`. It reads the zones from UniFi again and reloads Prometheus.
 - HTTP 429 errors from UniFi: raise `scrape_interval` for `unpoller` in `prometheus/config/prometheus.yml`.
 - A report says metrics are missing for part of the period: UnPoller or Prometheus wasn't running then. Totals are estimated from the data that exists.
 

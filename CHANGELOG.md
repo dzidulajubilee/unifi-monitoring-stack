@@ -4,6 +4,11 @@ Releases are tagged `vX.Y.Z` on GitHub. Changes on `main` that aren't in a relea
 
 ## Unreleased
 
+- **Installer**: firewall zone names are now read from UniFi and written to
+  `prometheus/config/rules/zone-names.yml`, instead of being typed in by hand. `./install.sh --zones` refreshes
+  them and reloads Prometheus: run it after a UniFi upgrade that renumbers the zones (Network 11 does) or when
+  you add a zone.
+
 ## v1.1.0 (2026-11-09)
 
 - **Fixed**: a report made by hand before the send hour stopped that period's scheduled email, and deleting the

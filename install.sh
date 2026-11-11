@@ -4,6 +4,7 @@
 #
 #   ./install.sh             set up (or change settings) and start the stack
 #   ./install.sh --no-start  write the settings but don't start anything
+#   ./install.sh --zones     only refresh the firewall zone names from UniFi (after a UniFi upgrade or a new zone)
 #
 # Safe to run again: it reads your current .env files and offers their values as the defaults, so pressing
 # Enter keeps what you have. Settings it doesn't ask about (and any edits you made by hand) are left alone.
@@ -13,10 +14,12 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 START=1
+ZONES_ONLY=0
 for arg in "$@"; do
   case "$arg" in
     --no-start) START=0 ;;
-    -h | --help) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --zones) ZONES_ONLY=1 ;;
+    -h | --help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unknown option: $arg (try --help)" >&2; exit 2 ;;
   esac
 done
@@ -162,6 +165,84 @@ rewrite_line() {
 
 set_env()   { rewrite_line "$1" "$2" "$2=$(env_quote "$3")"; }
 unset_env() { rewrite_line "$1" "$2" "# $2="; }
+
+# ---------------------------------------------------------------- firewall zone names
+
+ZONE_FILE=prometheus/config/rules/zone-names.yml
+
+# write_zone_names URL SITE KEY USER PASS -> writes ZONE_FILE from the controller's zones; 1 if it couldn't.
+# UnPoller's policies name their zones only by ID and its zone metric has only the name, so Prometheus
+# publishes the pairs from this file. UniFi gives zones new IDs on some upgrades, hence --zones.
+write_zone_names() {
+  local url="$1" site="$2" key="$3" user="$4" pass="$5" json="" jar base login obj id name n=0 tmp
+  command -v curl > /dev/null || return 1
+  pass=${pass//\\/\\\\}
+  pass=${pass//\"/\\\"}
+  for base in "$url/proxy/network" "$url"; do # UniFi OS consoles, then self-hosted controllers
+    if [ -n "$key" ]; then
+      json=$(curl -sk --max-time 20 -H "X-API-KEY: $key" "$base/v2/api/site/$site/firewall/zone" || true)
+      case "$json" in '[{'*'"_id":"'*) break ;; esac
+    fi
+    if [ -n "$user" ]; then
+      jar=$(mktemp)
+      login="$url/api/auth/login"
+      [ "$base" = "$url" ] && login="$url/api/login"
+      # the password goes in on stdin so it never shows in the process list
+      printf '{"username":"%s","password":"%s"}' "$user" "$pass" \
+        | curl -sk --max-time 20 -o /dev/null -c "$jar" -H 'Content-Type: application/json' -d @- "$login" || true
+      json=$(curl -sk --max-time 20 -b "$jar" "$base/v2/api/site/$site/firewall/zone" || true)
+      rm -f "$jar"
+      case "$json" in '[{'*'"_id":"'*) break ;; esac
+    fi
+    json=""
+  done
+  [ -n "$json" ] || return 1
+
+  tmp=$(mktemp)
+  {
+    echo "# Firewall zone names, written by ./install.sh from the UniFi controller. Run ./install.sh --zones to"
+    echo "# refresh it after a UniFi upgrade or when you add a zone; edits made here are overwritten."
+    echo "groups:"
+    echo "  - name: unifi-zone-names"
+    echo "    rules:"
+  } > "$tmp"
+  json=${json//\},\{/$'\n'}
+  while IFS= read -r obj; do
+    id=$(printf '%s' "$obj" | sed -n 's/.*"_id":"\([^"]*\)".*/\1/p')
+    name=$(printf '%s' "$obj" | sed -n 's/.*"name":"\([^"]*\)".*/\1/p' | tr -d '\134') # no backslashes in the YAML
+    [ -n "$id" ] && [ -n "$name" ] || continue
+    printf '      - record: unifi_firewall_zone_name\n        expr: vector(1)\n        labels: {zone_id: "%s", zone_name: "%s"}\n' "$id" "$name" >> "$tmp"
+    n=$((n + 1))
+  done << EOF
+$json
+EOF
+  if [ "$n" = 0 ]; then
+    rm -f "$tmp"
+    return 1
+  fi
+  cat "$tmp" > "$ZONE_FILE"
+  rm -f "$tmp"
+  ZONE_COUNT=$n
+}
+
+if [ "$ZONES_ONLY" = 1 ]; then
+  U=unpoller/.env
+  [ -f "$U" ] || die "No settings yet. Run ./install.sh first."
+  step "Firewall zone names"
+  if write_zone_names "$(get_env "$U" UP_UNIFI_CONTROLLER_0_URL)" "$(get_env "$U" UP_UNIFI_CONTROLLER_0_SITE)" \
+    "$(get_env "$U" UP_UNIFI_CONTROLLER_0_API_KEY)" "$(get_env "$U" UP_UNIFI_CONTROLLER_0_USER)" \
+    "$(get_env "$U" UP_UNIFI_CONTROLLER_0_PASS)"; then
+    if [ "$(id -u)" = 0 ] && [ -n "${SUDO_UID:-}" ]; then chown "$SUDO_UID:${SUDO_GID:-$SUDO_UID}" "$ZONE_FILE"; fi
+    note "  wrote $ZONE_FILE ($ZONE_COUNT zones)"
+    if docker compose kill -s HUP prometheus > /dev/null 2>&1; then
+      note "Prometheus reloaded it. The Firewall dashboard shows the names within a minute."
+    else
+      note "Prometheus isn't running; it reads the file when it starts."
+    fi
+    exit 0
+  fi
+  die "Couldn't read the firewall zones from UniFi. Check the controller address and login in $U (zones need UniFi Network 9 or newer with zone-based firewall)."
+fi
 
 # ---------------------------------------------------------------- checks
 
@@ -401,6 +482,12 @@ if [ -n "$DOZZLE_USER" ]; then
   fi
 fi
 
+if write_zone_names "$UNIFI_URL" "$UNIFI_SITE" "$UNIFI_KEY" "$UNIFI_USER" "$UNIFI_PASS"; then
+  WRITTEN+=("$ZONE_FILE")
+else
+  note "Firewall zone names weren't read from UniFi (no zone-based firewall, or it couldn't be reached). Run ./install.sh --zones to try again."
+fi
+
 # run with sudo: hand the files and data folders back to the user who owns the checkout
 if [ "$(id -u)" = 0 ] && [ -n "${SUDO_UID:-}" ]; then
   chown "$RUN_UID:$RUN_GID" "${WRITTEN[@]}" grafana/data prometheus/data loki/data reporter/out dozzle/data
@@ -460,5 +547,5 @@ if [ "$START" = 0 ]; then
   note "Settings are saved. Start the stack with: docker compose up -d --build"
   [ "$RESET_GRAFANA" = 0 ] || warn "The Grafana password wasn't reset because nothing was started. Run ./install.sh again without --no-start."
 fi
-note "Firewall zone names are optional: see prometheus/config/rules/zone-names.yml.example."
+note "After a UniFi upgrade or a new firewall zone, refresh the zone names: ./install.sh --zones"
 note "To change any of these settings later, run ./install.sh again."
