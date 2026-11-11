@@ -234,7 +234,9 @@ if [ "$ZONES_ONLY" = 1 ]; then
     "$(get_env "$U" UP_UNIFI_CONTROLLER_0_PASS)"; then
     if [ "$(id -u)" = 0 ] && [ -n "${SUDO_UID:-}" ]; then chown "$SUDO_UID:${SUDO_GID:-$SUDO_UID}" "$ZONE_FILE"; fi
     note "  wrote $ZONE_FILE ($ZONE_COUNT zones)"
-    if docker compose kill -s HUP prometheus > /dev/null 2>&1; then
+    # Signal from inside the container: `docker compose kill -s HUP` makes Docker count it as stopped by hand,
+    # so it stays down after the next reboot.
+    if docker compose exec -T prometheus kill -HUP 1 > /dev/null 2>&1; then
       note "Prometheus reloaded it. The Firewall dashboard shows the names within a minute."
     else
       note "Prometheus isn't running; it reads the file when it starts."
