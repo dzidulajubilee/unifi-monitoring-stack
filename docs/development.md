@@ -21,10 +21,11 @@ How a report is built, and the rules behind each figure, are in [how the reporte
 ```bash
 pip install -r reporter/requirements.txt pytest ruff
 ruff check reporter grafana/build
+shellcheck install.sh
 pytest -q
 ```
 
-CI runs the same, rebuilds the dashboards from their generators and fails if the JSON differs, and builds the
+CI runs these checks, rebuilds the dashboards from their generators and fails if the JSON differs, and builds the
 reporter image.
 
 ## Dashboards
@@ -43,13 +44,18 @@ it's edited as JSON. See [grafana/build/README.md](../grafana/build/README.md).
 
 ## Trying a report against live data
 
-Run the reporter locally against the server's Prometheus and Loki through SSH tunnels (Prometheus as above),
-writing to a scratch folder:
+The reporter container can reach Prometheus and Loki over the Compose network. To try the current reporter against
+live data without publishing Loki or writing into `reporter/out`, build the image and run a one-off container:
 
 ```bash
-PROM_URL=http://localhost:9090 LOKI_URL=http://localhost:3100 OUT_DIR=/tmp/reports TZ=Africa/Accra \
-  python reporter/report.py run weekly --no-email
+docker compose build reporter
+docker compose run --rm -e OUT_DIR=/tmp/reports -e TZ=Africa/Accra reporter \
+  python report.py run weekly --no-email
 ```
+
+For a locally edited reporter, use `docker compose build reporter` first so the one-off container includes the
+changes. Prometheus remains available for query checks through the SSH tunnel above; Loki is intentionally internal
+only, as described in [deployment](deployment.md#ports).
 
 ## Releasing
 
@@ -59,4 +65,5 @@ PROM_URL=http://localhost:9090 LOKI_URL=http://localhost:3100 OUT_DIR=/tmp/repor
 2. Commit, then tag and push: `git tag -a v1.2.0 -m v1.2.0 && git push origin main v1.2.0`. CI publishes the
    reporter image as `1.2.0`.
 3. Make the GitHub release from that version's changelog section:
-   `gh release create v1.2.0 --title v1.2.0 --notes-file notes.md`.
+   `awk '/^## v1.2.0 /{found=1; next} found && /^## /{exit} found{print}' CHANGELOG.md > /tmp/release-notes.md`
+   followed by `gh release create v1.2.0 --title v1.2.0 --notes-file /tmp/release-notes.md`.
