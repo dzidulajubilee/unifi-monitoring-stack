@@ -210,7 +210,7 @@ write_zone_names() {
   while IFS= read -r obj; do
     id=$(printf '%s' "$obj" | sed -n 's/.*"_id":"\([^"]*\)".*/\1/p')
     name=$(printf '%s' "$obj" | sed -n 's/.*"name":"\([^"]*\)".*/\1/p' | tr -d '\134') # no backslashes in the YAML
-    [ -n "$id" ] && [ -n "$name" ] || continue
+    if [ -z "$id" ] || [ -z "$name" ]; then continue; fi
     printf '      - record: unifi_firewall_zone_name\n        expr: vector(1)\n        labels: {zone_id: "%s", zone_name: "%s"}\n' "$id" "$name" >> "$tmp"
     n=$((n + 1))
   done << EOF
