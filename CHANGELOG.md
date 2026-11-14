@@ -4,6 +4,8 @@ Releases are tagged `vX.Y.Z` on GitHub. Changes on `main` that aren't in a relea
 
 ## Unreleased
 
+## v2.0.0 (2026-11-14)
+
 Security fixes after a review of the project. **Updating: run `./install.sh` once after `git pull`**; addresses
 change from `http://` to `https://`.
 
