@@ -5,6 +5,7 @@
 #   ./install.sh             set up (or change settings) and start the stack
 #   ./install.sh --no-start  write the settings but don't start anything
 #   ./install.sh --zones     only refresh the firewall zone names from UniFi (after a UniFi upgrade or a new zone)
+#   ./install.sh --cert      only save the UniFi console's certificate again (after it makes a new one)
 #
 # Safe to run again: it reads your current .env files and offers their values as the defaults, so pressing
 # Enter keeps what you have. Settings it doesn't ask about (and any edits you made by hand) are left alone.
@@ -15,17 +16,19 @@ cd "$(dirname "$0")"
 
 START=1
 ZONES_ONLY=0
+CERT_ONLY=0
 for arg in "$@"; do
   case "$arg" in
     --no-start) START=0 ;;
     --zones) ZONES_ONLY=1 ;;
-    -h | --help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --cert) CERT_ONLY=1 ;;
+    -h | --help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unknown option: $arg (try --help)" >&2; exit 2 ;;
   esac
 done
 
 SERVICES="unpoller grafana prometheus loki reporter dozzle"
-DOZZLE_IMAGE=$(grep -o 'amir20/dozzle:[^ ]*' compose.yaml | head -n 1)
+PY_IMAGE=python:3.12-slim # only for hashing the Dozzle password (bcrypt via Python's crypt module)
 WRITTEN=()
 
 # ---------------------------------------------------------------- output
@@ -166,9 +169,77 @@ rewrite_line() {
 set_env()   { rewrite_line "$1" "$2" "$2=$(env_quote "$3")"; }
 unset_env() { rewrite_line "$1" "$2" "# $2="; }
 
+# containers keep running as the user their data belongs to; a new install uses whoever runs this (not root with sudo)
+RUN_UID=$(get_env .env UID) RUN_GID=$(get_env .env GID)
+if [ -z "$RUN_UID" ] && [ -f grafana/data/grafana.db ]; then # installs from before .env had UID
+  RUN_UID=$(stat -c %u grafana/data/grafana.db) RUN_GID=$(stat -c %g grafana/data/grafana.db)
+fi
+RUN_UID=${RUN_UID:-${SUDO_UID:-$(id -u)}}
+RUN_GID=${RUN_GID:-${SUDO_GID:-$(id -g)}}
+
 # ---------------------------------------------------------------- firewall zone names
 
 ZONE_FILE=prometheus/config/rules/zone-names.yml
+
+# ---------------------------------------------------------------- UniFi console certificate
+
+# UniFi consoles use a self-signed certificate that a normal check rejects, so UnPoller and this script
+# accept exactly the one saved here instead. Anyone posing as the console on the network is turned away.
+CTRL_CERT=unpoller/certs/controller.pem
+CTRL_CERT_IN_CONTAINER=/etc/unpoller/certs/controller.pem
+CURL_PIN=()
+
+# fetch_cert URL FILE -> the certificate the server at URL presents, saved to FILE; 1 if it couldn't
+fetch_cert() {
+  local hostport=${1#https://}
+  hostport=${hostport%%/*}
+  case "$hostport" in *:*) ;; *) hostport="$hostport:443" ;; esac
+  openssl s_client -connect "$hostport" -servername "${hostport%:*}" < /dev/null 2> /dev/null \
+    | openssl x509 -outform PEM > "$2" 2> /dev/null && [ -s "$2" ]
+}
+fingerprint() { openssl x509 -in "$1" -noout -fingerprint -sha256 | cut -d= -f2; }
+
+# use_pin: curl calls to the controller accept only the saved certificate
+use_pin() {
+  local pin
+  CURL_PIN=()
+  [ -s "$CTRL_CERT" ] || return 0
+  pin=$(openssl x509 -in "$CTRL_CERT" -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64)
+  CURL_PIN=(--pinnedpubkey "sha256//$pin")
+}
+
+# save_controller_cert URL -> 0 when the certificate is saved (or was already), 1 when it isn't
+save_controller_cert() {
+  local tmp fp
+  case "$1" in https://*) ;; *) note "The controller address isn't https://, so there's no certificate to check."; return 1 ;; esac
+  command -v openssl > /dev/null || { warn "openssl isn't installed, so the UniFi certificate isn't checked. Install it and run ./install.sh --cert"; return 1; }
+  tmp=$(mktemp)
+  if ! fetch_cert "$1" "$tmp"; then
+    rm -f "$tmp"
+    warn "Couldn't read the certificate from $1. Run ./install.sh --cert when it can be reached."
+    return 1
+  fi
+  fp=$(fingerprint "$tmp")
+  if [ -s "$CTRL_CERT" ] && [ "$(fingerprint "$CTRL_CERT")" = "$fp" ]; then
+    rm -f "$tmp"
+    note "The UniFi certificate matches the one saved before."
+    return 0
+  fi
+  if [ -s "$CTRL_CERT" ]; then warn "The UniFi console now shows a different certificate than the one saved before."; fi
+  note "The UniFi console's certificate fingerprint (SHA-256) is:"
+  echo "  $fp"
+  note "Check it matches before trusting it: open $1 in a browser and view the certificate,"
+  note "or on the console over SSH: openssl x509 -noout -fingerprint -sha256 -in /data/unifi-core/config/unifi-core.crt"
+  if yes_no "Does it match? Trust this certificate?" y; then
+    cat "$tmp" > "$CTRL_CERT"
+    rm -f "$tmp"
+    WRITTEN+=("$CTRL_CERT")
+    return 0
+  fi
+  rm -f "$tmp"
+  warn "Not saved. Run ./install.sh --cert once you've checked it."
+  return 1
+}
 
 # write_zone_names URL SITE KEY USER PASS -> writes ZONE_FILE from the controller's zones; 1 if it couldn't.
 # UnPoller's policies name their zones only by ID and its zone metric has only the name, so Prometheus
@@ -180,7 +251,7 @@ write_zone_names() {
   pass=${pass//\"/\\\"}
   for base in "$url/proxy/network" "$url"; do # UniFi OS consoles, then self-hosted controllers
     if [ -n "$key" ]; then
-      json=$(curl -sk --max-time 20 -H "X-API-KEY: $key" "$base/v2/api/site/$site/firewall/zone" || true)
+      json=$(curl -sk ${CURL_PIN[@]+"${CURL_PIN[@]}"} --max-time 20 -H "X-API-KEY: $key" "$base/v2/api/site/$site/firewall/zone" || true)
       case "$json" in '[{'*'"_id":"'*) break ;; esac
     fi
     if [ -n "$user" ]; then
@@ -189,8 +260,8 @@ write_zone_names() {
       [ "$base" = "$url" ] && login="$url/api/login"
       # the password goes in on stdin so it never shows in the process list
       printf '{"username":"%s","password":"%s"}' "$user" "$pass" \
-        | curl -sk --max-time 20 -o /dev/null -c "$jar" -H 'Content-Type: application/json' -d @- "$login" || true
-      json=$(curl -sk --max-time 20 -b "$jar" "$base/v2/api/site/$site/firewall/zone" || true)
+        | curl -sk ${CURL_PIN[@]+"${CURL_PIN[@]}"} --max-time 20 -o /dev/null -c "$jar" -H 'Content-Type: application/json' -d @- "$login" || true
+      json=$(curl -sk ${CURL_PIN[@]+"${CURL_PIN[@]}"} --max-time 20 -b "$jar" "$base/v2/api/site/$site/firewall/zone" || true)
       rm -f "$jar"
       case "$json" in '[{'*'"_id":"'*) break ;; esac
     fi
@@ -229,10 +300,11 @@ if [ "$ZONES_ONLY" = 1 ]; then
   U=unpoller/.env
   [ -f "$U" ] || die "No settings yet. Run ./install.sh first."
   step "Firewall zone names"
+  use_pin
   if write_zone_names "$(get_env "$U" UP_UNIFI_CONTROLLER_0_URL)" "$(get_env "$U" UP_UNIFI_CONTROLLER_0_SITE)" \
     "$(get_env "$U" UP_UNIFI_CONTROLLER_0_API_KEY)" "$(get_env "$U" UP_UNIFI_CONTROLLER_0_USER)" \
     "$(get_env "$U" UP_UNIFI_CONTROLLER_0_PASS)"; then
-    if [ "$(id -u)" = 0 ] && [ -n "${SUDO_UID:-}" ]; then chown "$SUDO_UID:${SUDO_GID:-$SUDO_UID}" "$ZONE_FILE"; fi
+    if [ "$(id -u)" = 0 ]; then chown "$RUN_UID:$RUN_GID" "$ZONE_FILE"; fi
     note "  wrote $ZONE_FILE ($ZONE_COUNT zones)"
     # Signal from inside the container: `docker compose kill -s HUP` makes Docker count it as stopped by hand,
     # so it stays down after the next reboot.
@@ -246,18 +318,40 @@ if [ "$ZONES_ONLY" = 1 ]; then
   die "Couldn't read the firewall zones from UniFi. Check the controller address and login in $U (zones need UniFi Network 9 or newer with zone-based firewall)."
 fi
 
+# pin_unpoller ENV_FILE: point UnPoller at the saved certificate (or drop the setting when there isn't one)
+pin_unpoller() {
+  # a list in UnPoller's settings: one numbered variable per file
+  if [ -s "$CTRL_CERT" ]; then
+    set_env "$1" UP_UNIFI_CONTROLLER_0_SSL_CERT_PATH_0 "$CTRL_CERT_IN_CONTAINER"
+  else
+    unset_env "$1" UP_UNIFI_CONTROLLER_0_SSL_CERT_PATH_0
+  fi
+}
+
+if [ "$CERT_ONLY" = 1 ]; then
+  U=unpoller/.env
+  [ -f "$U" ] || die "No settings yet. Run ./install.sh first."
+  step "UniFi console certificate"
+  save_controller_cert "$(get_env "$U" UP_UNIFI_CONTROLLER_0_URL)" || exit 1
+  pin_unpoller "$U"
+  if [ "$(id -u)" = 0 ]; then chown "$RUN_UID:$RUN_GID" "$CTRL_CERT"; fi
+  if docker compose up -d --force-recreate unpoller > /dev/null 2>&1; then
+    note "UnPoller restarted with it."
+  else
+    note "UnPoller isn't running; it uses the certificate when it starts."
+  fi
+  exit 0
+fi
+
 # ---------------------------------------------------------------- checks
 
 step "Checking this machine"
 
 command -v docker > /dev/null || die "Docker isn't installed. Install Docker Engine first: https://docs.docker.com/engine/install/"
 docker compose version > /dev/null 2>&1 || die "The Docker Compose plugin is missing ('docker compose'). Install it, then run this again."
+command -v openssl > /dev/null || die "openssl isn't installed. It makes the HTTPS certificate and checks the UniFi one: sudo apt install openssl"
 docker info > /dev/null 2>&1 || die "Docker is installed but this user can't use it. Start Docker, or add yourself to the docker group (sudo usermod -aG docker \$USER, then log out and in), or run: sudo ./install.sh"
-[ -n "$DOZZLE_IMAGE" ] || die "Couldn't find the Dozzle image in compose.yaml."
 
-# containers run as the user who owns this folder (not root when run with sudo)
-RUN_UID=${SUDO_UID:-$(id -u)}
-RUN_GID=${SUDO_GID:-$(id -g)}
 note "Docker is ready. Containers will run as user $RUN_UID, group $RUN_GID."
 
 first_run=1
@@ -345,6 +439,10 @@ if [ -n "$UNIFI_USER" ]; then
   fi
 fi
 
+note ""
+save_controller_cert "$UNIFI_URL" || true
+use_pin
+
 if [ "$(get_env "$U" UP_UNIFI_CONTROLLER_0_SAVE_EVENTS)" = true ]; then new_net=n; else new_net=y; fi
 if yes_no "Is UniFi Network version 10 or newer?" "$new_net"; then legacy=false; else legacy=true; fi
 
@@ -377,12 +475,18 @@ fi
 
 step "Dozzle (container log viewer)"
 
-DOZZLE_USER="" DOZZLE_PASS=""
-if [ -s dozzle/data/users.yml ] && yes_no "Keep the existing Dozzle login?" y; then
-  :
-else
-  ask_required DOZZLE_USER "Dozzle username" "${GRAFANA_USER:-admin}"
-  ask_secret DOZZLE_PASS "Dozzle password" generate
+DOZZLE_USER="" DOZZLE_PASS="" DOZZLE=0
+note "Dozzle shows every container's logs in the browser. It needs full access to Docker, which means"
+note "control of this server, so it's off unless you want it."
+if [ -s dozzle/data/users.yml ]; then dz=y; else dz=n; fi
+if yes_no "Run Dozzle?" "$dz"; then
+  DOZZLE=1
+  if [ -s dozzle/data/users.yml ] && yes_no "Keep the existing Dozzle login?" y; then
+    :
+  else
+    ask_required DOZZLE_USER "Dozzle username" "${GRAFANA_USER:-admin}"
+    ask_secret DOZZLE_PASS "Dozzle password" generate
+  fi
 fi
 
 # ---------------------------------------------------------------- Reporter
@@ -399,8 +503,9 @@ host_ip() {
 HOST_IP=$(host_ip)
 
 cur=$(get_env "$R_ENV" GRAFANA_PUBLIC_URL)
+case "$cur" in http://*) cur="https://${cur#http://}" ;; esac # Grafana is served over HTTPS now
 note "The Grafana address people open from their own computers. Report PDFs link to it."
-ask_required GRAFANA_URL "Grafana address" "${cur:-http://$HOST_IP:3000}"
+ask_required GRAFANA_URL "Grafana address" "${cur:-https://$HOST_IP:3000}"
 GRAFANA_URL=${GRAFANA_URL%/}
 ask REPORT_NAME "Name on the reports, e.g. your company (Enter for 'Reports')" "$(get_env "$R_ENV" REPORT_NAME)"
 
@@ -432,6 +537,7 @@ step "Saving settings"
 chmod 600 .env
 set_env .env UID "$RUN_UID"
 set_env .env GID "$RUN_GID"
+if [ "$DOZZLE" = 1 ]; then set_env .env COMPOSE_PROFILES dozzle; else unset_env .env COMPOSE_PROFILES; fi
 WRITTEN+=(.env)
 
 for s in $SERVICES; do
@@ -454,6 +560,7 @@ else
   unset_env "$U" UP_UNIFI_CONTROLLER_0_PASS
 fi
 for k in SAVE_ALARMS SAVE_EVENTS SAVE_IDS; do set_env "$U" "UP_UNIFI_CONTROLLER_0_$k" "$legacy"; done
+pin_unpoller "$U"
 
 if [ "$RESET_GRAFANA" = 0 ] && [ ! -f grafana/data/grafana.db ]; then
   set_env "$G_ENV" GF_SECURITY_ADMIN_USER "$GRAFANA_USER"
@@ -472,16 +579,26 @@ if [ "$SMTP" = 1 ]; then
 fi
 
 if [ -n "$DOZZLE_USER" ]; then
-  note "Creating the Dozzle login (downloads $DOZZLE_IMAGE the first time)..."
-  tmp=$(mktemp)
-  if docker run --rm "$DOZZLE_IMAGE" generate "$DOZZLE_USER" --password "$DOZZLE_PASS" > "$tmp"; then
-    cat "$tmp" > dozzle/data/users.yml
-    rm -f "$tmp"
+  note "Creating the Dozzle login..."
+  # the bcrypt hash is made from the password on stdin, so it never shows in the process list
+  if hash=$(printf '%s' "$DOZZLE_PASS" | docker run --rm -i "$PY_IMAGE" python -W ignore -c \
+    'import crypt, sys; print(crypt.crypt(sys.stdin.read(), crypt.mksalt(crypt.METHOD_BLOWFISH)).replace("$2b$", "$2a$", 1))') \
+    && [ -n "$hash" ]; then
+    printf 'users:\n  %s:\n    name: %s\n    password: %s\n' "$DOZZLE_USER" "$DOZZLE_USER" "$hash" > dozzle/data/users.yml
     WRITTEN+=(dozzle/data/users.yml)
   else
-    rm -f "$tmp"
     die "Couldn't create the Dozzle login. Your other settings are saved; run this again to retry."
   fi
+fi
+
+if [ ! -s nginx/certs/server.crt ] || [ ! -s nginx/certs/server.key ]; then
+  note "Making a self-signed HTTPS certificate (replace nginx/certs/server.* with your own any time)..."
+  san="DNS:$(hostname),DNS:localhost,IP:127.0.0.1"
+  [ "$HOST_IP" = localhost ] || san="IP:$HOST_IP,$san"
+  (umask 077 && openssl req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes -subj "/CN=$(hostname)" \
+    -addext "subjectAltName=$san" -keyout nginx/certs/server.key -out nginx/certs/server.crt 2> /dev/null) \
+    || die "Couldn't make the HTTPS certificate with openssl."
+  WRITTEN+=(nginx/certs/server.crt nginx/certs/server.key)
 fi
 
 if write_zone_names "$UNIFI_URL" "$UNIFI_SITE" "$UNIFI_KEY" "$UNIFI_USER" "$UNIFI_PASS"; then
@@ -492,7 +609,7 @@ fi
 
 # run with sudo: hand the files and data folders back to the user who owns the checkout
 if [ "$(id -u)" = 0 ] && [ -n "${SUDO_UID:-}" ]; then
-  chown "$RUN_UID:$RUN_GID" "${WRITTEN[@]}" grafana/data prometheus/data loki/data reporter/out dozzle/data
+  chown "$RUN_UID:$RUN_GID" "${WRITTEN[@]}" grafana/data prometheus/data loki/data reporter/out dozzle/data nginx/certs unpoller/certs
 fi
 
 for f in "${WRITTEN[@]}"; do note "  wrote $f"; done
@@ -508,18 +625,20 @@ if [ "$START" = 1 ]; then
   step "Starting the stack"
   note "The first start downloads the images and builds the reporter, which takes a few minutes."
   docker compose up -d --build
+  if [ "$DOZZLE" = 0 ]; then docker compose --profile dozzle rm -sf dozzle > /dev/null 2>&1 || true; fi
 
   if [ "$RESET_GRAFANA" = 1 ]; then
     note "Setting the new Grafana password..."
     ok=0
     for _ in 1 2 3 4 5 6 7 8 9 10; do
-      if docker compose exec -T grafana grafana cli --homepath /usr/share/grafana admin reset-admin-password "$GRAFANA_PASS" > /dev/null 2>&1; then
+      if printf '%s\n' "$GRAFANA_PASS" | docker compose exec -T grafana grafana cli --homepath /usr/share/grafana \
+        admin reset-admin-password --password-from-stdin > /dev/null 2>&1; then
         ok=1
         break
       fi
       sleep 3
     done
-    [ "$ok" = 1 ] || warn "Couldn't reset the Grafana password. Try: docker compose exec grafana grafana cli admin reset-admin-password '<new password>'"
+    [ "$ok" = 1 ] || warn "Couldn't reset the Grafana password. Try: docker compose exec grafana grafana cli admin reset-admin-password --password-from-stdin, then type it"
   fi
 fi
 
@@ -528,10 +647,12 @@ fi
 step "${G}Done${N}"
 cat << EOF
 
-  Grafana          http://$HOST_IP:3000
-  Reports portal   http://$HOST_IP:8088   (sign in with a Grafana account)
-  Dozzle           http://$HOST_IP:8080
+  Grafana          https://$HOST_IP:3000
+  Reports portal   https://$HOST_IP:8088   (sign in with a Grafana account)
 EOF
+if [ "$DOZZLE" = 1 ]; then echo "  Dozzle           https://$HOST_IP:8080"; fi
+echo
+note "The HTTPS certificate is self-signed, so browsers warn the first time. Accept it, or put your own in nginx/certs."
 note "Prometheus has no login, so it only listens on this server: http://localhost:9090 here, or"
 note "ssh -L 9090:localhost:9090 ${SUDO_USER:-$(id -un)}@$HOST_IP from another machine. UnPoller isn't published at all."
 
@@ -550,4 +671,5 @@ if [ "$START" = 0 ]; then
   [ "$RESET_GRAFANA" = 0 ] || warn "The Grafana password wasn't reset because nothing was started. Run ./install.sh again without --no-start."
 fi
 note "After a UniFi upgrade or a new firewall zone, refresh the zone names: ./install.sh --zones"
+note "If UniFi stops collecting after the console gets a new certificate: ./install.sh --cert"
 note "To change any of these settings later, run ./install.sh again."

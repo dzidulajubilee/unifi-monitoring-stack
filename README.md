@@ -11,9 +11,10 @@ Based on [Techno Tim's unpoller-unifi](https://github.com/timothystewart6/unpoll
 | UnPoller | Polls the UniFi controller for metrics and the System Log | internal only |
 | Prometheus | Stores metrics, kept for 400 days | <http://localhost:9090>, on the server only |
 | Loki | Stores UniFi security, firewall and audit logs, kept for 400 days | internal only |
-| Grafana | Dashboards for gateway, switches, access points, clients, DPI, sites, PDU and firewall | <http://localhost:3000> |
-| Reporter | PDF reports and the reports portal | <http://localhost:8088> |
-| Dozzle | Container log viewer (sign in with the login you chose during setup) | <http://localhost:8080> |
+| Grafana | Dashboards for gateway, switches, access points, clients, DPI, sites, PDU and firewall | `https://<server>:3000` |
+| Reporter | PDF reports and the reports portal | `https://<server>:8088` |
+| nginx | HTTPS for Grafana, the portal and Dozzle | ports 3000, 8088, 8080 |
+| Dozzle | Container log viewer, optional and off unless you turn it on | `https://<server>:8080` |
 
 ## Quick start
 
@@ -25,14 +26,19 @@ cd unifi-monitoring-stack
 ./install.sh
 ```
 
-The installer asks for your time zone, UniFi controller and account (or API key), the Grafana and Dozzle
-logins and the Grafana address for report links. It writes every `.env` file (git ignores them), creates the
-Dozzle login and starts the stack. Press Enter to take a suggested value; blank passwords are generated and
-shown once at the end. Email for reports can be set up there too, or later in the portal.
+The installer asks for your time zone, UniFi controller and account (or API key), the Grafana login, whether
+to run Dozzle, and the Grafana address for report links. It writes every `.env` file (git ignores them), saves
+the UniFi console's certificate so only that console is trusted, makes a self-signed HTTPS certificate and starts
+the stack. Press Enter to take a suggested value; blank passwords are generated and shown once at the end. Email
+for reports can be set up there too, or later in the portal.
+
+Grafana, the portal and Dozzle are served over HTTPS by nginx. Browsers warn about the self-signed certificate the
+first time; accept it, or put your own certificate in `nginx/certs` ([details](docs/deployment.md#https)).
 
 Run `./install.sh` again any time to change these settings: it offers your current values, so Enter keeps them.
-`./install.sh --no-start` writes the settings without starting anything, and `./install.sh --zones` only
-refreshes the firewall zone names from UniFi.
+`./install.sh --no-start` writes the settings without starting anything, `./install.sh --zones` only
+refreshes the firewall zone names from UniFi, and `./install.sh --cert` only saves the UniFi console's
+certificate again.
 
 <details>
 <summary>Manual setup, without the installer</summary>
@@ -57,12 +63,18 @@ refreshes the firewall zone names from UniFi.
 
 3. **Edit `grafana/.env`**: set `GF_SECURITY_ADMIN_USER` and a strong `GF_SECURITY_ADMIN_PASSWORD`.
 
-4. **Create the Dozzle login.** Dozzle shows every container's logs, so it asks for a username and password.
-   Pick your own and create its users file (git ignores it):
+4. **Make the HTTPS certificate** for nginx (or copy your own to these two files):
 
    ```bash
-   docker run --rm amir20/dozzle:v11.4.1 generate admin --password 'choose-a-strong-password' > dozzle/data/users.yml
+   openssl req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes -subj "/CN=$(hostname)" \
+     -addext "subjectAltName=IP:<server IP>,DNS:$(hostname)" -keyout nginx/certs/server.key -out nginx/certs/server.crt
    ```
+
+   Optional, and recommended: pin the UniFi console's certificate as in
+   [docs/deployment.md](docs/deployment.md#unifi-console-certificate).
+
+   Dozzle is optional. To run it, add `COMPOSE_PROFILES=dozzle` to `.env` and create its login as in
+   [docs/deployment.md](docs/deployment.md#dozzle).
 
 5. **Set your time zone** (`TZ=`) in each `.env`, e.g. `TZ=Europe/London`.
 
@@ -76,7 +88,7 @@ refreshes the firewall zone names from UniFi.
 
 ## Reports
 
-Open <http://localhost:8088> and sign in with a Grafana account. Make a report for any week, month, quarter or
+Open `https://<server>:8088` and sign in with a Grafana account. Make a report for any week, month, quarter or
 dates, download it, or let the schedule email it. Grafana admins set the name, time zone, what each version
 contains, recipients, schedule and email server under **Settings**. See [docs/reports.md](docs/reports.md).
 
@@ -184,7 +196,9 @@ port.
 
 ## Troubleshooting
 
-- Logs: `docker compose logs <service>`, or Dozzle at <http://localhost:8080>.
+- Logs: `docker compose logs <service>`, or Dozzle at `https://<server>:8080` if you turned it on.
+- UnPoller logs `certificate signature does not match`: the UniFi console has a new certificate (after a reset,
+  some upgrades, or one you installed). Check the fingerprint the installer shows and run `./install.sh --cert`.
 - Check the UniFi controller is reachable from the Docker host, and that the UnPoller account has read access.
 - The Firewall dashboard shows zone IDs instead of names, usually after a UniFi upgrade or a new zone: run
   `./install.sh --zones`. It reads the zones from UniFi again and reloads Prometheus.

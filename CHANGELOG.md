@@ -4,6 +4,24 @@ Releases are tagged `vX.Y.Z` on GitHub. Changes on `main` that aren't in a relea
 
 ## Unreleased
 
+Security fixes after a review of the project. **Updating: run `./install.sh` once after `git pull`**; addresses
+change from `http://` to `https://`.
+
+- **HTTPS**: nginx serves Grafana, the reports portal and Dozzle over HTTPS on their usual ports, with a
+  self-signed certificate the installer makes (or your own in `nginx/certs`). The containers no longer publish
+  ports themselves.
+- **UniFi certificate**: the installer saves the UniFi console's certificate after showing its fingerprint, and
+  UnPoller and the installer accept only that one, so nobody posing as the console gets the API key or password.
+  `./install.sh --cert` saves it again after the console gets a new one.
+- **Report email**: only Grafana admins can email a report from the portal. Before, any signed-in user, including
+  Grafana viewers, could send one to any address.
+- **Fixed**: the email server's certificate wasn't checked. It is now, with a Settings option to skip it for an
+  internal server with a self-signed certificate.
+- **Dozzle** is off unless turned on (the installer asks; `COMPOSE_PROFILES=dozzle`), since it holds the Docker
+  socket. Existing installs with a Dozzle login keep it on.
+- The installer no longer puts passwords on the command line (the Dozzle login and the Grafana password reset).
+- The installer keeps the containers running as the user their data belongs to, instead of switching to whoever
+  runs it with `sudo`.
 - **Installer**: firewall zone names are now read from UniFi and written to
   `prometheus/config/rules/zone-names.yml`, instead of being typed in by hand. `./install.sh --zones` refreshes
   them and reloads Prometheus: run it after a UniFi upgrade that renumbers the zones (Network 11 does) or when

@@ -2,6 +2,7 @@
 
 import html
 import smtplib
+import ssl
 from email.message import EmailMessage
 
 from .config import load_settings, log, split_addresses
@@ -23,10 +24,16 @@ def send_mail(to, subject, text, html_body=None, attachment=None, smtp=None):
     if attachment:
         msg.add_attachment(attachment.read_bytes(), maintype="application", subtype="pdf", filename=attachment.name)
     port, sec = int(smtp.get("port") or 587), smtp.get("security", "starttls")
-    cls = smtplib.SMTP_SSL if sec == "ssl" else smtplib.SMTP
-    with cls(smtp["host"], port, timeout=60) as c:
+    ctx = ssl.create_default_context()  # without one, Python encrypts but doesn't check who it's talking to
+    if not smtp.get("verify", True):
+        ctx.check_hostname, ctx.verify_mode = False, ssl.CERT_NONE
+    if sec == "ssl":
+        conn = smtplib.SMTP_SSL(smtp["host"], port, timeout=60, context=ctx)
+    else:
+        conn = smtplib.SMTP(smtp["host"], port, timeout=60)
+    with conn as c:
         if sec == "starttls":
-            c.starttls()
+            c.starttls(context=ctx)
         if smtp.get("user"):
             c.login(smtp["user"], smtp.get("password", ""))
         c.send_message(msg)
@@ -37,6 +44,9 @@ def mail_error(e):
     """Plain-language reason an email failed."""
     import socket
 
+    if isinstance(e, ssl.SSLCertVerificationError):
+        return ("the mail server's certificate couldn't be checked; if it uses its own certificate, untick "
+                "'Check the mail server's certificate' in Settings")
     if isinstance(e, smtplib.SMTPAuthenticationError):
         return "the mail server rejected the username or password (for Gmail, use an app password)"
     if isinstance(e, ConnectionRefusedError):

@@ -196,6 +196,8 @@
     </div>
     <div class="field" style="margin:0"><label for="from">Send as</label><input type="text" id="from" name="from" value="{{ s.smtp.from }}" placeholder="Network reports &lt;reports@example.com&gt;">
       <div class="hint">Leave blank to send from the username</div></div>
+    <label class="check" style="margin-top:16px"><input type="checkbox" name="smtp_verify" {{ 'checked' if s.smtp.get('verify', True) }}> Check the mail server's certificate</label>
+    <div class="hint">Untick only for an internal mail server with its own self-signed certificate</div>
   </section>
 
   <section class="panel">

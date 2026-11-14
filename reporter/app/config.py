@@ -161,6 +161,7 @@ def default_settings():
             "host": env("SMTP_HOST", ""),
             "port": int(env("SMTP_PORT", 587)),
             "security": env("SMTP_SECURITY", "starttls"),
+            "verify": env("SMTP_VERIFY", "true").lower() != "false",  # check the server's certificate
             "user": env("SMTP_USER", ""),
             "password": env("SMTP_PASSWORD", ""),
             "from": env("SMTP_FROM", ""),

@@ -11,6 +11,12 @@ reporter/out/*
 dozzle/data/*
 !dozzle/data/.gitkeep
 
+# certificates written by install.sh: nginx's own (with its private key) and the UniFi console's
+nginx/certs/*
+!nginx/certs/.gitkeep
+unpoller/certs/*
+!unpoller/certs/.gitkeep
+
 # Real settings and credentials: each service has a committed .env.example;
 # copy it to .env and edit that. Never commit a .env.
 */.env

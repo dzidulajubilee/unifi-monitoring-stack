@@ -1,7 +1,7 @@
 # Reports and the portal
 
 The `reporter` service makes PDF reports about the network and serves a small web portal at
-`http://<server>:8088`. Sign in with a Grafana account; Grafana admins also see **Settings**.
+`https://<server>:8088`. Sign in with a Grafana account; Grafana admins also see **Settings**.
 
 ## What a report contains
 
@@ -75,8 +75,10 @@ Weekly reports cover Monday to Sunday, monthly a calendar month, quarterly a cal
 set in Settings. The scheduler makes each one at the send hour (07:00 by default) after its period closes and
 emails each version to its own recipient list. It never back-fills periods that ended before it first started.
 
-Anyone signed in can also make a report for the last or previous week, month or quarter, or for any dates, and
-email either version. Reports are kept in `reporter/out/`.
+Anyone signed in can also make a report for the last or previous week, month or quarter, or for any dates.
+Grafana admins can email it too, to any address; other users only save and download it, since a report holds the
+network's client names, addresses and logs. The email server's certificate is checked unless *Check the mail
+server's certificate* is unticked in Settings (for an internal server with a self-signed one). Reports are kept in `reporter/out/`.
 
 There's one copy per period: making a report for a period that already has one replaces it, and the list of
 saved reports shows who remade it ("remade by Ama"). A report made by hand doesn't affect the schedule: the

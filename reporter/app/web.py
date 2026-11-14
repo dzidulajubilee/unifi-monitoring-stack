@@ -421,7 +421,8 @@ def generate():
     except (KeyError, ValueError) as e:
         flash(f"Can't generate that report: {e}")
         return redirect(url_for("index"))
-    to = f.get("to", "").strip() if f.get("email") else ""
+    # only Grafana admins can email reports: anyone else could send the network's details to any address
+    to = f.get("to", "").strip() if f.get("email") and session.get("admin") else ""
     if to and not R.load_settings()["smtp"].get("host"):
         flash("Email isn't set up yet, so the report will only be saved here")
         to = ""
@@ -631,6 +632,7 @@ def settings():
             host=f.get("host", "").strip(),
             port=port,
             security=f.get("security", "starttls"),
+            verify=bool(f.get("smtp_verify")),
             user=f.get("user", "").strip(),
             **{"from": f.get("from", "").strip()},
         )
