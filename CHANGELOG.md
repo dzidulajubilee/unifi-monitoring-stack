@@ -4,6 +4,12 @@ Releases are tagged `vX.Y.Z` on GitHub. Changes on `main` that aren't in a relea
 
 ## Unreleased
 
+## v2.1.1 (2026-11-16)
+
+- **CI**: only the newest 3 reporter images are kept in the registry (the current one and 2 before it); older ones
+  are deleted after each publish. Images are published without attestation manifests, so each is one entry.
+  Older images, 2.1.0 included, were removed; 2.1.1 has the same code as 2.1.0.
+
 ## v2.1.0 (2026-11-16)
 
 No manual steps: `git pull`, `docker compose pull reporter`, `docker compose up -d`. To get blocks of internet
