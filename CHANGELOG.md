@@ -4,6 +4,7 @@ Releases are tagged `vX.Y.Z` on GitHub. Changes on `main` that aren't in a relea
 
 ## Unreleased
 
+- **UniFi Switches dashboard**: the *Type* filter starts on Switches only; pick Gateway or Access points to add them.
 - **Reports, fixed**: when the summary and *Needs attention* didn't fit under the title, the full report left
   page 1 blank and started on page 2. The summary now flows on to the next page instead.
 - **Reports**: peaks, averages and data downloaded are compared with last week (month, quarter) as long as it has

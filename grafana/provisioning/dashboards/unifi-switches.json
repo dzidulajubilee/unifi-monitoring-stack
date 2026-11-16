@@ -1601,12 +1601,10 @@
         "current": {
           "selected": true,
           "text": [
-            "Switches",
-            "Gateway"
+            "Switches"
           ],
           "value": [
-            "usw",
-            "udm|ugw|uxg"
+            "usw"
           ]
         },
         "hide": 0,
@@ -1621,7 +1619,7 @@
             "value": "usw"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "Gateway",
             "value": "udm|ugw|uxg"
           },
