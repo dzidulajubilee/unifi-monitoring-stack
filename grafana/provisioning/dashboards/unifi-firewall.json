@@ -4046,8 +4046,8 @@
           },
           "id": 36,
           "title": "Policies disabled in this time range",
-          "type": "state-timeline",
-          "description": "Enabled/disabled history for every policy that was disabled at any point in the selected time range (including policies that are still disabled). Always-on policies are left out to keep this readable, so 'No data' means no policy was disabled in this time range.",
+          "type": "table",
+          "description": "Every policy that was off at some point in the selected time range. Now: Disabled means it is still off, Enabled again means someone turned it back on, Removed means it no longer exists. Disabled for adds up all the time it was off within the range. Empty means no policy was disabled in this time range.",
           "gridPos": {
             "h": 10,
             "w": 24,
@@ -4057,37 +4057,17 @@
           "fieldConfig": {
             "defaults": {
               "color": {
-                "mode": "fixed",
-                "fixedColor": "text"
+                "mode": "thresholds"
               },
               "custom": {
-                "fillOpacity": 75,
-                "lineWidth": 0,
-                "spanNulls": false,
-                "insertNulls": false,
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
+                "align": "auto",
+                "filterable": true,
+                "inspect": false,
+                "cellOptions": {
+                  "type": "auto"
                 }
               },
-              "mappings": [
-                {
-                  "type": "value",
-                  "options": {
-                    "1": {
-                      "text": "Enabled",
-                      "color": "green",
-                      "index": 0
-                    },
-                    "0": {
-                      "text": "Disabled",
-                      "color": "dark-orange",
-                      "index": 1
-                    }
-                  }
-                }
-              ],
+              "mappings": [],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -4098,22 +4078,230 @@
                 ]
               }
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Now"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 130
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "1": {
+                            "text": "Disabled",
+                            "color": "orange",
+                            "index": 0
+                          },
+                          "0": {
+                            "text": "Enabled again",
+                            "color": "green",
+                            "index": 1
+                          },
+                          "-1": {
+                            "text": "Removed",
+                            "color": "text",
+                            "index": 2
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Action"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 90
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "ALLOW": {
+                            "text": "Allow",
+                            "color": "green",
+                            "index": 0
+                          },
+                          "BLOCK": {
+                            "text": "Block",
+                            "color": "red",
+                            "index": 1
+                          },
+                          "REJECT": {
+                            "text": "Reject",
+                            "color": "orange",
+                            "index": 2
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Policy"
+                },
+                "properties": [
+                  {
+                    "id": "custom.minWidth",
+                    "value": 240
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Protocol"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 100
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "all": {
+                            "text": "Any",
+                            "index": 0
+                          },
+                          "tcp_udp": {
+                            "text": "TCP/UDP",
+                            "index": 1
+                          },
+                          "tcp": {
+                            "text": "TCP",
+                            "index": 2
+                          },
+                          "udp": {
+                            "text": "UDP",
+                            "index": 3
+                          },
+                          "icmp": {
+                            "text": "ICMP",
+                            "index": 4
+                          },
+                          "icmpv6": {
+                            "text": "ICMPv6",
+                            "index": 5
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "From"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 140
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "To"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 140
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Disabled for"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "s"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 130
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "First disabled"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "dateTimeAsLocalNoDateIfToday"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 170
+                  }
+                ]
+              }
+            ]
           },
           "options": {
-            "alignValue": "center",
-            "mergeValues": true,
-            "rowHeight": 0.8,
-            "showValue": "auto",
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
+            "cellHeight": "sm",
+            "showHeader": true,
+            "footer": {
+              "show": false,
+              "reducer": [
+                "sum"
+              ],
+              "fields": "",
+              "countRows": false
             },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
+            "sortBy": [
+              {
+                "displayName": "Now",
+                "desc": true
+              }
+            ]
           },
           "targets": [
             {
@@ -4122,16 +4310,121 @@
                 "uid": "Prometheus"
               },
               "editorMode": "code",
-              "expr": "max by (rule_name, action, protocol, source_zone, dest_zone) (unpoller_firewall_rule_enabled{source=~\"$Controller\",site_name=~\"$Site\",action=~\"$Action\",rule_name=~\"$Rule\"})\n  and on (rule_name, action, protocol, source_zone, dest_zone)\n(min by (rule_name, action, protocol, source_zone, dest_zone) (min_over_time(unpoller_firewall_rule_enabled{source=~\"$Controller\",site_name=~\"$Site\",action=~\"$Action\",rule_name=~\"$Rule\"}[$__range] @ end())) == 0)",
-              "legendFormat": "\u2002\u2002{{rule_name}} ({{action}}, {{source_zone}} \u2192 {{dest_zone}}, {{protocol}})",
-              "range": true,
-              "instant": false,
+              "expr": "sum by (rule_name, action, protocol, ip_version, source_zone, dest_zone, site_name, source) (sum_over_time((unpoller_firewall_rule_enabled{source=~\"$Controller\",site_name=~\"$Site\",action=~\"$Action\",rule_name=~\"$Rule\"} == bool 0)[$__range:1m])) * 60 > 0",
+              "format": "table",
+              "instant": true,
+              "range": false,
+              "legendFormat": "",
               "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "Prometheus"
+              },
+              "editorMode": "code",
+              "expr": "(1 - max by (rule_name, action, protocol, ip_version, source_zone, dest_zone, site_name, source) (unpoller_firewall_rule_enabled{source=~\"$Controller\",site_name=~\"$Site\",action=~\"$Action\",rule_name=~\"$Rule\"})) and on (rule_name, action, protocol, ip_version, source_zone, dest_zone, site_name, source) (sum by (rule_name, action, protocol, ip_version, source_zone, dest_zone, site_name, source) (sum_over_time((unpoller_firewall_rule_enabled{source=~\"$Controller\",site_name=~\"$Site\",action=~\"$Action\",rule_name=~\"$Rule\"} == bool 0)[$__range:1m])) * 60 > 0) or (sum by (rule_name, action, protocol, ip_version, source_zone, dest_zone, site_name, source) (sum_over_time((unpoller_firewall_rule_enabled{source=~\"$Controller\",site_name=~\"$Site\",action=~\"$Action\",rule_name=~\"$Rule\"} == bool 0)[$__range:1m])) * 60 > 0) * 0 - 1",
+              "format": "table",
+              "instant": true,
+              "range": false,
+              "legendFormat": "",
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "Prometheus"
+              },
+              "editorMode": "code",
+              "expr": "min by (rule_name, action, protocol, ip_version, source_zone, dest_zone, site_name, source) (min_over_time(timestamp(unpoller_firewall_rule_enabled{source=~\"$Controller\",site_name=~\"$Site\",action=~\"$Action\",rule_name=~\"$Rule\"} == 0)[$__range:1m])) * 1000",
+              "format": "table",
+              "instant": true,
+              "range": false,
+              "legendFormat": "",
+              "refId": "C"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "Prometheus"
+              },
+              "editorMode": "code",
+              "expr": "max by (zone_id, zone_name) (unifi_firewall_zone_name)",
+              "format": "table",
+              "instant": true,
+              "range": false,
+              "legendFormat": "",
+              "refId": "Z"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "configFromData",
+              "options": {
+                "configRefId": "Z",
+                "mappings": [
+                  {
+                    "fieldName": "zone_id",
+                    "handlerKey": "mappings.value"
+                  },
+                  {
+                    "fieldName": "zone_name",
+                    "handlerKey": "mappings.text"
+                  },
+                  {
+                    "fieldName": "Time",
+                    "handlerKey": "__ignore"
+                  },
+                  {
+                    "fieldName": "Value",
+                    "handlerKey": "__ignore"
+                  }
+                ],
+                "applyTo": {
+                  "id": "byRegexp",
+                  "options": "source_zone|dest_zone"
+                }
+              }
+            },
+            {
+              "id": "merge",
+              "options": {}
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "ip_version": true,
+                  "site_name": true,
+                  "source": true
+                },
+                "indexByName": {
+                  "rule_name": 0,
+                  "action": 1,
+                  "source_zone": 2,
+                  "dest_zone": 3,
+                  "protocol": 4,
+                  "Value #B": 5,
+                  "Value #A": 6,
+                  "Value #C": 7
+                },
+                "renameByName": {
+                  "rule_name": "Policy",
+                  "action": "Action",
+                  "source_zone": "From",
+                  "dest_zone": "To",
+                  "protocol": "Protocol",
+                  "Value #B": "Now",
+                  "Value #A": "Disabled for",
+                  "Value #C": "First disabled"
+                }
+              }
             }
           ]
         }
       ],
-      "title": "Policy state history",
+      "title": "Disabled policies",
       "type": "row"
     },
     {
