@@ -98,40 +98,43 @@ def collect(s: Source):
     d["net_series"] = {x["metric"].get("network", ""): [(float(t), float(v)) for t, v in x["values"]] for x in rows}
     d["net_step"] = step
 
-    # access points
-    aps = s.by("max_over_time(sum by (name) (unpoller_device_radio_stations)[$R:5m])", "name")
-    traffic = s.by('sum by (name) (increase(unpoller_device_bytes_total{type="uap"}[$R]))', "name")
-    sat = s.by("avg_over_time(avg by (name) (unpoller_device_vap_satisfaction_ratio >= 0)[$R:5m])", "name")
-    reb = s.by('sum by (name) (resets(unpoller_device_uptime_seconds{type="uap"}[$R]))', "name")
+    # access points, one row per device (by MAC) under its latest name: an access point renamed during the period
+    # (a new one adopted as "U6 Pro" and then named for its room, say) is one row, not one per name
+    names, latest = device_names(s, "uap")
+    aps = s.by("max_over_time(sum by (mac) (unpoller_device_radio_stations)[$R:5m])", "mac")
+    # these two only carry the name, so the totals under each of a device's names are added up
+    traffic = _by_device(s.by('sum by (name) (increase(unpoller_device_bytes_total{type="uap"}[$R]))', "name"), names)
+    reb = _by_device(s.by('sum by (name) (resets(unpoller_device_uptime_seconds{type="uap"}[$R]))', "name"), names)
+    sat = s.by("avg_over_time(avg by (mac) (unpoller_device_vap_satisfaction_ratio >= 0)[$R:5m])", "mac")
     util = (
-        s.prom("avg by (name, band) (avg_over_time(unpoller_device_radio_channel_utilization_total_ratio[$R]))") or []
+        s.prom("avg by (mac, band) (avg_over_time(unpoller_device_radio_channel_utilization_total_ratio[$R]))") or []
     )
     u = {}
     for x in util:
-        u.setdefault(x["metric"]["name"], {})[x["metric"].get("band")] = float(x["value"][1])
+        u.setdefault(x["metric"].get("mac", ""), {})[x["metric"].get("band")] = float(x["value"][1])
     retries = s.by(
         # resends as a share of everything sent (0-100%); UniFi counts every resend attempt, so dividing by
         # delivered packets alone can pass 100% on a quiet access point
-        "sum by (name) (increase(unpoller_device_vap_transmit_retries_total[$R])) / "
-        "(sum by (name) (increase(unpoller_device_vap_transmit_packets_total[$R])) + "
-        "sum by (name) (increase(unpoller_device_vap_transmit_retries_total[$R])))",
-        "name",
+        "sum by (mac) (increase(unpoller_device_vap_transmit_retries_total[$R])) / "
+        "(sum by (mac) (increase(unpoller_device_vap_transmit_packets_total[$R])) + "
+        "sum by (mac) (increase(unpoller_device_vap_transmit_retries_total[$R])))",
+        "mac",
     )
-    signal = s.by("avg_over_time(avg by (name) (unpoller_device_vap_average_client_signal < 0)[$R:5m])", "name")
+    signal = s.by("avg_over_time(avg by (mac) (unpoller_device_vap_average_client_signal < 0)[$R:5m])", "mac")
     d["aps"] = sorted(
         (
             {
-                "name": n,
-                "peak": aps[n],
-                "bytes": traffic.get(n),
-                "sat": sat.get(n),
-                "u24": u.get(n, {}).get("2.4"),
-                "u5": u.get(n, {}).get("5"),
-                "reboots": reb.get(n, 0),
-                "retries": retries.get(n),
-                "signal": signal.get(n),
+                "name": latest.get(m, m),
+                "peak": aps[m],
+                "bytes": traffic.get(m),
+                "sat": sat.get(m),
+                "u24": u.get(m, {}).get("2.4"),
+                "u5": u.get(m, {}).get("5"),
+                "reboots": reb.get(m, 0),
+                "retries": retries.get(m),
+                "signal": signal.get(m),
             }
-            for n in aps
+            for m in aps
         ),
         key=lambda a: -(a["bytes"] or 0),
     )
@@ -225,7 +228,10 @@ def collect_wifi(s: Source):
     )
     chan = f'{DEVICE_LOG} |= `"event":"AP_CHANGED_CHANNELS"` | json dev="parameters.DEVICE.name"'
     d["channel_changes"] = s.scalar(f"sum(count_over_time({chan} [$R]))", L)
-    d["channel_by_ap"] = _top(s.by(f"sum by (dev) (count_over_time({chan} [$R]))", "dev", L))
+    # the log names the access point as it was called then: count a renamed one under its latest name
+    names, latest = device_names(s, "uap")
+    by_dev = _by_device(s.by(f"sum by (dev) (count_over_time({chan} [$R]))", "dev", L), names)
+    d["channel_by_ap"] = _top({latest.get(k, k): v for k, v in by_dev.items()})
     conflicts = []
     for stream in s.loki_lines(f'{DEVICE_LOG} |= `"event":"CLIENT_IP_CONFLICT"`', 50) or []:
         for ts, line in stream["values"]:
@@ -767,6 +773,33 @@ SFP_WEAK_DBM = -20  # most 1G single-mode modules stop working around -20 to -24
 
 
 SFP_DROP_DB = 2  # a fall this large over a period means the fibre or a connector is degrading
+
+
+def device_names(s: Source, kind):
+    """Every name each UniFi device of this type had during the period: ({name: mac}, {mac: latest name})."""
+    rows = s.prom(
+        f'max by (mac, name) (max_over_time(timestamp(unpoller_device_info{{type="{kind}"}})[$R:5m]))'
+    ) or []
+    names, seen = {}, {}
+    for x in rows:
+        mac, name = x["metric"].get("mac"), x["metric"].get("name")
+        if not mac or not name:
+            continue
+        names[name] = mac
+        t = float(x["value"][1])
+        if t >= seen.get(mac, (0.0, ""))[0]:
+            seen[mac] = (t, name)
+    return names, {mac: name for mac, (_, name) in seen.items()}
+
+
+def _by_device(by_name, names):
+    """{name: value} -> {mac: value}, adding up a device's values under its old and new names; names without a
+    known device keep their own row."""
+    out = {}
+    for name, v in by_name.items():
+        key = names.get(name, name)
+        out[key] = out.get(key, 0) + v
+    return out
 
 
 def _total(rows):

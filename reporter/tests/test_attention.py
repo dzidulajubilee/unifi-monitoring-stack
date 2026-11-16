@@ -71,3 +71,21 @@ def test_category_spike_and_jump_name_the_device():
         "Network Protocols traffic jumped to 112 GB on Fri 13 Nov, 4× a usual day, nearly all from NAS (…12:34)",
         "Media Streaming traffic was 3× last week's, 12.0 GB a day, mostly from TV (…ab:cd) (40%)",
     ]
+
+
+def test_a_renamed_access_point_is_one_row_under_its_latest_name():
+    from app.collect import _by_device, device_names
+
+    class S:
+        def prom(self, q):
+            assert 'type="uap"' in q
+            return [
+                {"metric": {"mac": "02:00:00:00:00:01", "name": "U6 Pro"}, "value": [0, "1000"]},
+                {"metric": {"mac": "02:00:00:00:00:01", "name": "Hall"}, "value": [0, "2000"]},
+                {"metric": {"mac": "02:00:00:00:00:02", "name": "Office"}, "value": [0, "2000"]},
+            ]
+
+    names, latest = device_names(S(), "uap")
+    assert latest == {"02:00:00:00:00:01": "Hall", "02:00:00:00:00:02": "Office"}
+    assert _by_device({"U6 Pro": 5.0, "Hall": 7.0, "Office": 1.0, "Old AP": 2.0}, names) == {
+        "02:00:00:00:00:01": 12.0, "02:00:00:00:00:02": 1.0, "Old AP": 2.0}
