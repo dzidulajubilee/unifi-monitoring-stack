@@ -17,6 +17,13 @@ def test_access_point_problems_are_grouped_worst_first():
                         "or behind walls")
 
 
+def test_access_point_restarts_are_one_line():
+    d = {**BASE, "aps": [{**ap("Hall"), "reboots": 5}, {**ap("Office"), "reboots": 2}, {**ap("Warehouse"), "reboots": 6}]}
+    assert attention(d, {"aps"})[0] == "3 access points restarted: Warehouse 6 times, Hall 5 times and Office twice"
+    d["aps"] = d["aps"][:1]
+    assert attention(d, {"aps"})[0] == "Access point Hall restarted 5 times"
+
+
 def test_sections_switched_off_raise_nothing():
     d = {**BASE, "aps": [ap("Warehouse", 0.89)], "gw_reboots": 2}
     assert attention(d, set()) == []
@@ -38,6 +45,6 @@ def test_peer_to_peer_names_the_device():
 def test_download_sentence_follows_the_switch():
     from app.text import summary
     d = {"wans": [], "failovers": 0, "wan_down": 600e9, "wan_up": 246e9, "clients_peak": None, "blocks_in": None}
-    covered = {"prom": True, "loki": True}
+    covered = {"prom": True, "loki": True, "rates": True}
     assert any("downloaded 600 GB" in s for s in summary(d, {}, "week", covered, {"downloaded", "summary"}))
     assert not any("downloaded" in s for s in summary(d, {}, "week", covered, {"summary"}))

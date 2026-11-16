@@ -4,6 +4,13 @@ Releases are tagged `vX.Y.Z` on GitHub. Changes on `main` that aren't in a relea
 
 ## Unreleased
 
+- **Reports, fixed**: when the summary and *Needs attention* didn't fit under the title, the full report left
+  page 1 blank and started on page 2. The summary now flows on to the next page instead.
+- **Reports**: peaks, averages and data downloaded are compared with last week (month, quarter) as long as it has
+  data for 70% of the time; before, a single missing day hid every comparison, such as *Peak vs last week* in
+  Devices by network. A note says when the earlier period was incomplete. Counts from the logs and *First seen*
+  still need the whole period.
+- *Needs attention* puts access point restarts on one line, most restarts first, instead of a line per access point.
 - **Firewall dashboard**: *Policies disabled in this time range* is now a table instead of a timeline: each
   policy that was off with its zones by name, whether it is still disabled, enabled again or removed, how long it
   was off and when it was first disabled. The timeline showed zone IDs, and policies disabled for a short time

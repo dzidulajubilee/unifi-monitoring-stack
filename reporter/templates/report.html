@@ -45,6 +45,9 @@ h3 { font-size: 9.5pt; font-weight: 500; margin: 0 0 6pt; }
    fresh page when it doesn't (a section longer than a page starts fresh and flows on). Headings never
    end a page, and table headers repeat when a table continues. */
 section { margin-top: 24pt; break-inside: avoid; }
+/* except the summary: it follows the title and can run long, so it flows on instead of leaving page 1 blank */
+section.summary { break-inside: auto; }
+.attention li { break-inside: avoid; }
 .keep { break-inside: avoid; }
 .head, h2, h3 { break-after: avoid; }
 thead { display: table-header-group; }
@@ -144,7 +147,7 @@ a.plain { color: inherit; text-decoration: none; }
   {% for line in summary %}<p>{{ line }}</p>{% endfor %}
 
   {% if attention %}
-  <div class="attention keep">
+  <div class="attention">
     <h3>Needs attention</h3>
     <ul>{% for a in attention %}<li>{{ a }}</li>{% endfor %}</ul>
   </div>
@@ -302,7 +305,7 @@ a.plain { color: inherit; text-decoration: none; }
         <td class="n mono muted">{{ ch_value(n.peak, before.get(n.key)) }}</td></tr>
       {% endfor %}
     </table>
-    <p class="note">The chart shows devices online on each network, averaged per {{ {3600: 'hour', 21600: '6 hours'}.get(d.net_step, 'day') }}, one line per network. Peak is the most devices connected to the network at once; average is over the whole {{ word }}; different devices counts each device once, however often it connected. A device that moved between networks is counted on each.</p>
+    <p class="note">The chart shows devices online on each network, averaged per {{ {3600: 'hour', 21600: '6 hours'}.get(d.net_step, 'day') }}, one line per network. Peak is the most devices connected to the network at once; average is over the whole {{ word }}; different devices counts each device once, however often it connected. A device that moved between networks is counted on each.{% if prev_cov < 0.95 and covered.rates %} Last {{ word }} has data for {{ (prev_cov * 100)|round|int }}% of the time, so its peak comes from that part.{% endif %}</p>
   </div>
   {% endif %}
 </section>

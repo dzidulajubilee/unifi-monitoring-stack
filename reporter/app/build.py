@@ -109,14 +109,17 @@ def build(kind, end=None, start=None):
         d["_dns_prev"] = p["dns"]  # attention() only sees d
     cov = prev.coverage()
     covered = {k: v >= 0.95 for k, v in cov.items()}
+    # Peaks, averages and totals worked out from an average rate hardly move when a day of the earlier
+    # period is missing, so they are compared from 70% coverage; counts and "first seen" need it all.
+    covered["rates"] = cov["prom"] >= 0.7
     down, up, step = wan_series(cur, kind) if "throughput" in on else ([], [], 0)
     ch = lambda key, src="prom": change(d.get(key), p.get(key), "", word, covered[src])
 
     def headline(shown):
         """Headline numbers follow the sections shown; if none match, show them all."""
         figs = [
-            ("Downloaded", fbytes(d["wan_down"]), ch("wan_down"), {"downloaded"}),
-            ("Peak devices online", fnum(d["clients_peak"]), ch("clients_peak"), {"devices", "aps"}),
+            ("Downloaded", fbytes(d["wan_down"]), ch("wan_down", "rates"), {"downloaded"}),
+            ("Peak devices online", fnum(d["clients_peak"]), ch("clients_peak", "rates"), {"devices", "aps"}),
             ("Blocked from the internet", fnum(d["blocks_in"]), ch("blocks_in", "loki"), {"security"}),
             ("Threats blocked", fnum(d["threats_blocked"]), ch("threats_blocked", "loki"), {"security", "threats"}),
         ]
@@ -179,7 +182,8 @@ def build(kind, end=None, start=None):
             logo=logo.as_uri() if logo else None,
             dns_comparable=dns_comparable,
             dns_change=change,
-            ch_value=lambda cur, prev: delta(cur, prev, covered["prom"]),
+            ch_value=lambda cur, prev: delta(cur, prev, covered["rates"]),
+            prev_cov=cov["prom"],
             share=share,
             points_change=points_change,
             tz=config.TZ,

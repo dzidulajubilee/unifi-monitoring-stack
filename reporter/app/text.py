@@ -170,7 +170,7 @@ def summary(d, p, word, covered, on=None):
             else f"No internet line reported outages, high latency or packet loss this {word}."
         )
     if d["wan_down"] is not None and "downloaded" in on:
-        ch = change(d["wan_down"], p.get("wan_down"), "", word, covered["prom"])
+        ch = change(d["wan_down"], p.get("wan_down"), "", word, covered["rates"])
         lines.append(
             f"The network downloaded {fbytes(d['wan_down'])} and uploaded {fbytes(d['wan_up'])}"
             + (f" ({ch})" if ch and not ch.startswith("no earlier") else "")
@@ -244,9 +244,12 @@ def attention(d, on=None):
     gw, aps, sec = "internet" in on, "aps" in on, bool(on & {"security", "threats"})
     if gw and d["gw_reboots"]:
         a.append(f"The gateway restarted {_times(d['gw_reboots'])}")
-    for ap in d["aps"] if aps else []:
-        if ap["reboots"]:
-            a.append(f"Access point {ap['name']} restarted {_times(ap['reboots'])}")
+    restarted = sorted((ap for ap in (d["aps"] if aps else []) if ap["reboots"]), key=lambda ap: -ap["reboots"])
+    if len(restarted) == 1:
+        a.append(f"Access point {restarted[0]['name']} restarted {_times(restarted[0]['reboots'])}")
+    elif restarted:  # one line, so a power cut or firmware update doesn't fill the list
+        a.append(f"{len(restarted)} access points restarted: "
+                 + _join(f"{ap['name']} {_times(ap['reboots'])}" for ap in restarted))
     if gw and d["mem_end"] is not None and d["mem_start"] is not None and d["mem_end"] - d["mem_start"] > 0.05:
         a.append(f"Gateway memory use climbed from {fpct(d['mem_start'])} to {fpct(d['mem_end'])}")
     if gw and d["mem_max"] and d["mem_max"] > 0.9:
