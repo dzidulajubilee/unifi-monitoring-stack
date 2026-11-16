@@ -4,6 +4,12 @@ Releases are tagged `vX.Y.Z` on GitHub. Changes on `main` that aren't in a relea
 
 ## Unreleased
 
+## v2.1.0 (2026-11-16)
+
+No manual steps: `git pull`, `docker compose pull reporter`, `docker compose up -d`. To get blocks of internet
+traffic back on UniFi Network 11, run `./install.sh` and turn on the firewall log over syslog
+(docs/deployment.md).
+
 - **Firewall log over syslog** (optional): UniFi Network 11 stopped putting blocks of internet traffic in its System
   Log, so the Firewall dashboard's internet panels and the reports' internet blocks went empty from 10 Nov. A
   syslog receiver (Grafana Alloy, compose profile `syslog`, UDP port 5514) takes UniFi's firewall log into Loki.
