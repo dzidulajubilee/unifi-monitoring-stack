@@ -237,6 +237,21 @@ def _join(items):
     return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
 
 
+def conflict_devices(devices):
+    """Who shared the address, as far as UniFi's client list shows."""
+    if len(devices) >= 2:
+        return _join(devices)
+    if devices:
+        return f"{devices[0]} and a device UniFi doesn't list"
+    return "devices UniFi doesn't list"
+
+
+def conflict_line(g):
+    """'192.168.1.50 on Cameras, twice, between Acme device (…12:34) and Acme device (…56:78)'"""
+    where = f" on {g['network']}" if g["network"] else ""
+    return f"{g['ip']}{where}, {_times(g['n'])}, between {conflict_devices(g['devices'])}"
+
+
 def attention(d, on=None):
     """Things a reader should act on, limited to the sections switched on."""
     on = on if on is not None else {k for k, *_ in SECTIONS}
@@ -330,7 +345,13 @@ def attention(d, on=None):
                 a.append(f"{r['name']} changed channel {r['n']:.0f} times, a sign of interference near it")
         if w["ip_conflicts"]:
             n = len(w["ip_conflicts"])
-            a.append(f"{n} IP address conflict{'s' * (n != 1)} on the network: {w['ip_conflicts'][-1]['msg']}")
+            groups = w.get("ip_conflict_groups") or []
+            if groups:
+                more = f"; {len(groups) - 2} more addresses, see Wi-Fi" if len(groups) > 2 else ""
+                a.append(f"{n} IP address conflict{'s' * (n != 1)}: " + "; ".join(map(conflict_line, groups[:2])) + more
+                         + "; give each device its own address")
+            else:
+                a.append(f"{n} IP address conflict{'s' * (n != 1)} on the network: {w['ip_conflicts'][-1]['msg']}")
     isp = d.get("isp")
     if isp and "isp" in on:
         for l in isp["lines"]:

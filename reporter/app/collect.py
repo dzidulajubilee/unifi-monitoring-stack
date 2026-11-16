@@ -215,11 +215,52 @@ def collect_wifi(s: Source):
     conflicts = []
     for stream in s.loki_lines(f'{DEVICE_LOG} |= `"event":"CLIENT_IP_CONFLICT"`', 50) or []:
         for ts, line in stream["values"]:
+            j = _json(line)
+            par = j.get("parameters") or {}
             conflicts.append(
-                {"t": dt.datetime.fromtimestamp(int(ts) / 1e9, config.TZ), "msg": _json(line).get("message", "")}
+                {
+                    "t": dt.datetime.fromtimestamp(int(ts) / 1e9, config.TZ),
+                    "msg": j.get("message", ""),
+                    "ip": (par.get("IP") or {}).get("name", ""),
+                    "network": (par.get("NETWORK") or {}).get("name", ""),
+                }
             )
     d["ip_conflicts"] = sorted(conflicts, key=lambda c: c["t"])
+    d["ip_conflict_groups"] = conflict_groups(s, d["ip_conflicts"])
     return d
+
+
+def conflict_groups(s: Source, conflicts):
+    """One row per conflicting address: how often, when last, and the devices UniFi saw with that address
+    in the hour around each conflict. UniFi's conflict entries don't name the devices, so they come from
+    the client metrics; a device with a fixed address that UniFi doesn't list can't be named."""
+    groups = {}
+    for c in conflicts:
+        if not c["ip"]:
+            continue
+        g = groups.setdefault(c["ip"], {"ip": c["ip"], "network": c["network"], "n": 0, "last": c["t"], "devices": {}})
+        g["n"] += 1
+        g["last"] = max(g["last"], c["t"])
+        q = f'max by (mac, name, hostname, oui) (max_over_time(unpoller_client_uptime_seconds{{ip="{c["ip"]}"}}[2h]))'
+        t = c["t"].timestamp() + 3600
+        for x in s._safe(lambda q: _get(config.PROM + "/api/v1/query", {"query": q, "time": t}), q) or []:
+            m = x["metric"]
+            g["devices"][m.get("mac", "")] = _device_name(m)
+    out = sorted(groups.values(), key=lambda g: (-g["n"], g["ip"]))
+    for g in out:
+        g["devices"] = [g["devices"][k] for k in sorted(g["devices"])]
+    return out
+
+
+def _device_name(m):
+    """'Acme device (…12:34)' for a device UniFi only knows by its MAC, else 'name (…12:34)'."""
+    mac = m.get("mac", "")
+    name = m.get("name") or m.get("hostname") or ""
+    if not name or re.fullmatch(r"([0-9a-f]{2}:){5}[0-9a-f]{2}", name):
+        oui = re.split(r",| Inc\b| Ltd\b| Co\.| Corp| Digital| Technolog| Systems", m.get("oui") or "")[0].strip()
+        oui = re.sub(r"^(Hangzhou|Shenzhen|Guangdong|Beijing|Shanghai|Zhejiang|Xiamen|Fujian|Qingdao) ", "", oui)
+        name = f"{oui} device" if oui else "Unnamed device"
+    return f"{name} (…{mac[-5:]})" if mac else name
 
 
 def collect_apps(s: Source):

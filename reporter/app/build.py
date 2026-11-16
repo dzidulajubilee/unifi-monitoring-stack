@@ -5,7 +5,7 @@ from functools import partial
 
 from jinja2 import Environment, FileSystemLoader
 
-from . import config, dns
+from . import config, dns, layout
 from .charts import net_color, net_palette, svg_chart, svg_dns, svg_minibars, svg_networks
 from .collect import (
     client_names,
@@ -26,6 +26,7 @@ from .sources import Source
 from .text import (
     attention,
     change,
+    conflict_devices,
     delta,
     dns_comparable,
     dns_pairs,
@@ -186,6 +187,7 @@ def build(kind, end=None, start=None):
             prev_cov=cov["prom"],
             share=share,
             points_change=points_change,
+            conflict_devices=conflict_devices,
             tz=config.TZ,
             minibars=partial(svg_minibars, accent=accent),
             gf=grafana_linker(st, start, end),
@@ -196,7 +198,10 @@ def build(kind, end=None, start=None):
         )
         pdf = report_path(kind, start, end, style)
         tmp = pdf.with_suffix(".part")
-        HTML(string=html_out, base_url=str(config.ROOT)).write_pdf(tmp)
+        doc = HTML(string=html_out, base_url=str(config.ROOT)).render()
+        for issue in layout.problems(doc):
+            log.warning("%s report layout: %s", style, issue)
+        doc.write_pdf(tmp)
         tmp.replace(pdf)  # appears in the portal only once complete
         pdfs[style] = pdf
     log.info("wrote %s and its summary (%d query errors)", pdfs["full"], len(cur.errors + prev.errors))

@@ -226,13 +226,15 @@ a.plain { color: inherit; text-decoration: none; }
   </div>
 
   {% if 'isp' not in on %}
-  <h3 style="margin-top:16pt">Internet lines</h3>
+  <div class="keep" style="margin-top:16pt">
+  <h3>Internet lines</h3>
   <table>
     <thead><tr><th>Line</th><th class="n">Up</th></tr></thead>
     {% for w in d.wans %}
     <tr><td>{{ w.name }}</td><td class="n">{% if w.uptime is not none %}{{ '%.2f'|format(w.uptime) }}%{% else %}<span class="muted">standby, not in use</span>{% endif %}</td></tr>
     {% endfor %}
   </table>
+  </div>
   {% endif %}
 </section>
 {% endif %}
@@ -258,11 +260,13 @@ a.plain { color: inherit; text-decoration: none; }
   </table>
   <p class="note">Now is UniFi's view at the end of the {{ word }}: Active carries traffic, Backup waits for a failover. Up is UniFi's availability figure for lines in use. Outages and their length, and the latency and packet-loss events, come from UniFi's System Log. Speed test shows the average download / upload of the tests UniFi ran on that line, with their latency. Data carried is all traffic through the line's gateway port.</p>
   {% if q.events %}
-  <h3 style="margin-top:12pt">What happened</h3>
+  <div class="keep" style="margin-top:12pt">
+  <h3>What happened</h3>
   <table class="log">
     <thead><tr><th>When</th><th>Line</th><th>Event</th></tr></thead>
     {% for e in q.events[-25:] %}<tr><td class="t">{{ e.t.strftime('%a %-d %b %H:%M') }}</td><td style="white-space:nowrap">{{ e.line }}</td><td>{{ e.msg }}</td></tr>{% endfor %}
   </table>
+  </div>
   {% if q.events|length > 25 %}<p class="note">The last 25 of {{ q.events|length }} events.</p>{% endif %}
   {% else %}
   <p class="empty">No outages, latency or packet-loss events this {{ word }}</p>
@@ -388,10 +392,20 @@ a.plain { color: inherit; text-decoration: none; }
     <div class="keep"><h3>Devices that moved between access points most</h3>{{ ranked(w.top_roams, "No moves between access points") }}</div>
   </div>
   {% if w.ip_conflicts %}
-  <h3 style="margin-top:16pt">IP address conflicts</h3>
+  <div class="keep" style="margin-top:16pt">
+  <h3>IP address conflicts</h3>
+  {% if w.ip_conflict_groups %}
+  <table>
+    <thead><tr><th>Address</th><th>Network</th><th class="n">Conflicts</th><th>Last</th><th>Devices seen with this address</th></tr></thead>
+    {% for g in w.ip_conflict_groups[:10] %}<tr><td class="mono">{{ g.ip }}</td><td>{{ g.network or '–' }}</td><td class="n">{{ g.n|num }}</td><td class="t" style="white-space:nowrap">{{ g.last.strftime('%a %-d %b %H:%M') }}</td><td>{{ conflict_devices(g.devices) }}</td></tr>{% endfor %}
+  </table>
+  <p class="note">UniFi doesn't say which devices clashed, so they're the devices it saw with that address in the hour around each conflict. A device with an address typed in by hand often isn't in UniFi's list; look for it on that network, or give the device a fixed address outside the DHCP range.</p>
+  {% else %}
   <table class="log">
     {% for c in w.ip_conflicts[-10:] %}<tr><td class="t">{{ c.t.strftime('%a %-d %b %H:%M') }}</td><td>{{ c.msg }}</td></tr>{% endfor %}
   </table>
+  {% endif %}
+  </div>
   {% endif %}
   <p class="note">Wi-Fi experience is UniFi's satisfaction score for wireless devices; above 80% is good. A weak signal is an average below −75 dBm; those devices are slow and drop often, usually because they're far from an access point or behind walls. Frequent channel changes mean an access point keeps finding interference. Disconnections include devices leaving the building or going to sleep, so compare devices with each other rather than reading the totals alone.</p>
 </section>
@@ -487,7 +501,7 @@ a.plain { color: inherit; text-decoration: none; }
       <tr><td>Domains on blocklists</td><td class="n">{{ c.blocklist_domains|num }}</td></tr>
       {% if c.blocklist_updated %}<tr><td>Blocklists updated</td><td class="n">{{ c.blocklist_updated.astimezone(tz).strftime('%-d %b %Y') }}</td></tr>{% endif %}
     </table>
-    {% if c.upstreams %}<h3 style="margin-top:14pt">Upstream servers</h3>{{ dns_ranked(c.upstreams, "") }}{% endif %}
+    {% if c.upstreams %}<div class="keep" style="margin-top:14pt"><h3>Upstream servers</h3>{{ dns_ranked(c.upstreams, "") }}</div>{% endif %}
     </div>
     <div class="keep"><h3>Devices asking most</h3>{{ dns_ranked(c.top_clients, "No queries recorded") }}</div>
   </div>
@@ -513,16 +527,19 @@ a.plain { color: inherit; text-decoration: none; }
   <p class="note">Backups and UniFi OS / UniFi Network updates for the console itself aren't included: UniFi doesn't make them available to this report, so check them in the UniFi console.</p>
 
   {% if m.pools %}
-  <h3 style="margin-top:14pt">Address pools</h3>
+  <div class="keep" style="margin-top:14pt">
+  <h3>Address pools</h3>
   <table>
     <thead><tr><th>Network</th><th class="n">Busiest</th><th class="n">Addresses in use at peak</th><th class="n">Pool size</th></tr></thead>
     {% for p_ in m.pools %}<tr><td>{{ p_.network }}</td><td class="n">{% if p_.peak >= 0.8 %}<span class="warn">{{ p_.peak|pct }}</span>{% else %}{{ p_.peak|pct }}{% endif %}</td><td class="n">{{ p_.leases|num }}</td><td class="n">{{ p_.size|num }}</td></tr>{% endfor %}
   </table>
   <p class="note">How full each network's DHCP pool got. When a pool is full, new devices on that network get no address and can't connect.</p>
+  </div>
   {% endif %}
 
   {% if m.sfp %}
-  <h3 style="margin-top:14pt">Fibre modules</h3>
+  <div class="keep" style="margin-top:14pt">
+  <h3>Fibre modules</h3>
   <table>
     <thead><tr><th>Port</th><th class="n">Receive signal now</th><th class="n">Change</th><th class="n">Lowest</th><th class="n">Hottest</th></tr></thead>
     {% for f in m.sfp %}<tr><td>{{ f.port }}</td>
@@ -532,6 +549,7 @@ a.plain { color: inherit; text-decoration: none; }
       <td class="n">{{ '%.0f'|format(f.temp) if f.temp is not none else '–' }} °C</td></tr>{% endfor %}
   </table>
   <p class="note">Optical power the SFP modules receive. Most stop working below about −20 to −24 dBm; a steady fall over weeks means a dirty connector or degrading fibre. Change compares the last day with the first day of the {{ word }}.</p>
+  </div>
   {% endif %}
 </section>
 {% endif %}

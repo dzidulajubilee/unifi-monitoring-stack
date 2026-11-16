@@ -4,6 +4,12 @@ Releases are tagged `vX.Y.Z` on GitHub. Changes on `main` that aren't in a relea
 
 ## Unreleased
 
+- **Reports, IP address conflicts**: one row per address with its network, how often, when last, and the devices
+  UniFi saw with that address around each conflict (UniFi's entry doesn't name them). *Needs attention* names
+  them too.
+- **Reports, page flow**: headings stay with their table (the IP address conflicts heading could end a page),
+  and every report is checked after layout: a mostly empty page or a heading left at the bottom of a page is logged
+  as a warning.
 - **UniFi Switches dashboard**: the *Type* filter starts on Switches only; pick Gateway or Access points to add them.
 - **Reports, fixed**: when the summary and *Needs attention* didn't fit under the title, the full report left
   page 1 blank and started on page 2. The summary now flows on to the next page instead.
