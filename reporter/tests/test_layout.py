@@ -27,6 +27,12 @@ def test_a_heading_with_one_line_left_under_it_is_caught():
     assert any("IP address conflicts" in p and "1 line" in p for p in found), found
 
 
+def test_a_chart_counts_as_content_under_a_heading():
+    svg = "<svg width='600' height='300' style='display:block'><rect width='600' height='300'/></svg>"
+    html = PAGE + lines(25, "filler") + "<h3>Traffic per day</h3>" + svg + "<p style='break-after: page'>key</p>" + lines(5)
+    assert problems(HTML(string=html).render()) == []
+
+
 def test_a_page_that_flows_on_is_fine():
     html = PAGE + "<h1>Weekly report</h1><section style='break-inside: auto'>" + lines(80) + "</section>"
     assert problems(HTML(string=html).render()) == []

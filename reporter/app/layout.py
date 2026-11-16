@@ -13,7 +13,7 @@ def _text_boxes(box, inside=()):
     if tag and el is not None and "head" in (el.get("class") or "").split():
         tag = "h2"
     tags = inside + ((tag,) if tag else ())
-    if getattr(box, "text", None):
+    if getattr(box, "text", None) or "Replaced" in type(box).__name__:  # text, or a chart or image
         yield box, tags
     for child in getattr(box, "children", None) or []:
         yield from _text_boxes(child, tags)
@@ -43,6 +43,6 @@ def problems(document, min_fill=0.3):
                 i -= 1
             after = {round(b.position_y) for b, tags in texts[heads[-1] + 1 :]}
             if len(after) < 2:
-                title = " ".join(b.text.strip() for b, _ in texts[i : heads[-1] + 1])
+                title = " ".join((getattr(b, "text", "") or "").strip() for b, _ in texts[i : heads[-1] + 1])
                 out.append(f"heading '{title}' has {len(after)} line(s) under it at the bottom of page {n}")
     return out

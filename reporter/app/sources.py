@@ -81,6 +81,10 @@ class Source:
             lambda q: _get(PROM + "/api/v1/query", {"query": q.replace("$R", self.r), "time": self.end.timestamp()}), q
         )
 
+    def prom_at(self, q, t):
+        """Instant query at time t (seconds)."""
+        return self._safe(lambda q: _get(PROM + "/api/v1/query", {"query": q, "time": t}), q)
+
     def prom_range(self, q, step):
         return self._safe(
             lambda q: _get(
@@ -165,3 +169,6 @@ DPI_RX = 'unpoller_client_dpi_receive_bytes{mac!="TOTAL"}'
 
 
 DPI_TX = 'unpoller_client_dpi_transmit_bytes{mac!="TOTAL"}'
+
+# both directions in one selector; UniFi's figures are rolling 24-hour totals per device and category
+DPI_BOTH = '{__name__=~"unpoller_client_dpi_(receive|transmit)_bytes", mac!="TOTAL"}'

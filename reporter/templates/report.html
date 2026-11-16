@@ -46,7 +46,7 @@ h3 { font-size: 9.5pt; font-weight: 500; margin: 0 0 6pt; }
    end a page, and table headers repeat when a table continues. */
 section { margin-top: 24pt; break-inside: avoid; }
 /* except the summary: it follows the title and can run long, so it flows on instead of leaving page 1 blank */
-section.summary { break-inside: auto; }
+section.summary, section.flow { break-inside: auto; }
 .attention li { break-inside: avoid; }
 .keep { break-inside: avoid; }
 .head, h2, h3 { break-after: avoid; }
@@ -73,6 +73,7 @@ thead { display: table-header-group; }
 .legend { font-size: 8.5pt; color: var(--ink-2); }
 .legend span { margin-left: 12pt; }
 .legend i { display: inline-block; width: 14pt; height: 2px; vertical-align: middle; margin-right: 4pt; }
+.keys { font-size: 8.5pt; color: var(--ink-2); margin: 4pt 0 0; }
 svg { display: block; margin-top: 4pt; }
 .note { font-size: 8pt; color: var(--ink-3); margin-top: 6pt; }
 
@@ -333,21 +334,42 @@ a.plain { color: inherit; text-decoration: none; }
 {% endif %}
 
 {% if 'apps' in on and d.dpi %}
-{% set a = d.dpi %}
-<section class="keep">
+{% set a = d.dpi %}{% set bd = a.by_day or {} %}
+<section class="{{ 'flow' if bd.rows else 'keep' }}">
+  {% if bd.rows %}
+  <div class="keep">
+    {{ head("Applications") }}
+    <h3>Traffic per day by category</h3>
+    {{ cat_chart|safe }}
+    <p class="keys">{% for c in bd.shown %}<span style="white-space:nowrap;margin-right:12pt"><i class="sw" style="background:{{ cat_color(c) }}"></i>{{ c }}</span>{% endfor %}</p>
+  </div>
+  <div class="keep" style="margin-top:12pt">
+  <table>
+    <thead><tr><th>Category</th><th class="n">Traffic</th><th class="n">Share</th>{% if bd.comparable %}<th class="n">Per day vs last {{ word }}</th>{% endif %}<th>Busiest day</th><th>Used most by</th></tr></thead>
+    {% for r in bd.rows[:10] %}
+    <tr><td><i class="sw" style="background:{{ cat_color(r.name) }}"></i>{{ r.name }}</td><td class="n mono">{{ r.bytes|bytes }}</td><td class="n mono">{{ r.share|pct }}</td>
+      {% if bd.comparable %}<td class="n mono muted">{{ delta(r.per_day, r.per_day_before) }}</td>{% endif %}
+      <td style="white-space:nowrap">{{ r.busiest.strftime('%a %-d %b') }} <span class="muted mono">{{ r.busiest_bytes|bytes }}</span></td>
+      <td>{% if r.top_device %}{{ r.top_device }} <span class="muted mono" style="white-space:nowrap">{{ r.top_device_share|pct }}</span>{% else %}–{% endif %}</td></tr>
+    {% endfor %}
+  </table>
+  <p class="note">Traffic UniFi's traffic identification (DPI) put in each category, day by day: UniFi keeps a rolling 24-hour total per device, read at midnight as on the Applications dashboard. {% if bd.comparable %}Per day vs last {{ word }} compares the average complete day.{% else %}There's no comparison with last {{ word }}: it doesn't have enough complete days of application data.{% endif %} Used most by is the device with the largest part of that category and its share.{% if bd.partial_days %} Incomplete days (faded in the chart, usually because UniFi restarted and started counting again): {% for x in bd.partial_days %}{{ x.strftime('%a %-d %b') }}{{ ', ' if not loop.last }}{% endfor %}; they count in the totals but not in the comparison.{% endif %}</p>
+  </div>
+  {% else %}
   {{ head("Applications") }}
+  {% endif %}
   {% if a.apps %}
-  <div class="cols">
+  <div class="cols keep"{% if bd.rows %} style="margin-top:16pt"{% endif %}>
     <div><h3>Top applications, share of traffic</h3>
       <table class="rank">{% set top = a.apps[0].n %}
         {% for r in a.apps %}<tr><td class="name"><span>{{ r.name }}</span><div class="bar" style="width:{{ (r.n / top * 100)|round(1) }}%"></div></td><td class="n mono">{{ r.n|pct(1) }}</td></tr>{% endfor %}
       </table></div>
-    <div><h3>By category</h3>
+    {% if not bd.rows %}<div><h3>By category</h3>
       <table class="rank">{% set top = a.categories[0].n if a.categories else 1 %}
         {% for r in a.categories %}<tr><td class="name"><span>{{ r.name }}</span><div class="bar" style="width:{{ (r.n / top * 100)|round(1) }}%"></div></td><td class="n mono">{{ r.n|pct(1) }}</td></tr>{% endfor %}
-      </table></div>
+      </table></div>{% endif %}
   </div>
-  <p class="note">Share of the traffic UniFi's traffic identification (DPI) recognised, averaged over the {{ word }}. UniFi only reports recent application traffic, not running totals, so shares are shown rather than amounts. Unrecognised and encrypted traffic appears under generic names such as Unknown or SSL/TLS.{% if a.coverage < 0.05 %} Application data only started being collected recently, so these shares cover a small part of this {{ word }}.{% elif a.coverage < 0.95 %} Application data covers about {{ (a.coverage * 100)|round|int }}% of this {{ word }}.{% endif %}</p>
+  <p class="note">Share of the traffic UniFi's traffic identification (DPI) recognised, averaged over the {{ word }}.{% if not bd.rows %} UniFi only reports recent application traffic, not running totals, so shares are shown rather than amounts.{% endif %} Unrecognised and encrypted traffic appears under generic names such as Unknown or SSL/TLS.{% if a.coverage < 0.05 %} Application data only started being collected recently, so these shares cover a small part of this {{ word }}.{% elif a.coverage < 0.95 %} Application data covers about {{ (a.coverage * 100)|round|int }}% of this {{ word }}.{% endif %}</p>
   {% else %}
   {% if a.collecting %}<p class="empty">Not enough application data for this {{ word }} yet; collection started recently</p>
   {% else %}<p class="empty">No application data for this {{ word }}. It needs traffic identification (DPI) on in UniFi and UP_UNIFI_CONTROLLER_0_SAVE_DPI=true in unpoller/.env</p>{% endif %}

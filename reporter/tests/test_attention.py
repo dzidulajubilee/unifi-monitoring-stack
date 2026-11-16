@@ -48,3 +48,26 @@ def test_download_sentence_follows_the_switch():
     covered = {"prom": True, "loki": True, "rates": True}
     assert any("downloaded 600 GB" in s for s in summary(d, {}, "week", covered, {"downloaded", "summary"}))
     assert not any("downloaded" in s for s in summary(d, {}, "week", covered, {"summary"}))
+
+
+def test_category_spike_and_jump_name_the_device():
+    import datetime as dt
+
+    from app.text import category_alerts
+    day = dt.datetime(2026, 11, 13)
+    bd = {
+        "spikes": [{"category": "Network Protocols", "day": day, "bytes": 112e9, "times": 3.6,
+                    "device": "NAS (…12:34)", "device_share": 0.95}],
+        "rows": [
+            {"name": "Network Protocols", "per_day": 40e9, "per_day_before": 10e9, "share": 0.4,
+             "top_device": "NAS (…12:34)", "top_device_share": 0.8},
+            {"name": "Media Streaming", "per_day": 12e9, "per_day_before": 4e9, "share": 0.1,
+             "top_device": "TV (…ab:cd)", "top_device_share": 0.4},
+            {"name": "Web Services", "per_day": 9e9, "per_day_before": 8e9, "share": 0.1,
+             "top_device": None, "top_device_share": None},
+        ],
+    }
+    assert category_alerts(bd, "week") == [
+        "Network Protocols traffic jumped to 112 GB on Fri 13 Nov, 4× a usual day, nearly all from NAS (…12:34)",
+        "Media Streaming traffic was 3× last week's, 12.0 GB a day, mostly from TV (…ab:cd) (40%)",
+    ]

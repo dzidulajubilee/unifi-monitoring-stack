@@ -6,7 +6,16 @@ from functools import partial
 from jinja2 import Environment, FileSystemLoader
 
 from . import config, dns, layout
-from .charts import net_color, net_palette, svg_chart, svg_dns, svg_minibars, svg_networks
+from .charts import (
+    category_color,
+    net_color,
+    net_palette,
+    svg_categories,
+    svg_chart,
+    svg_dns,
+    svg_minibars,
+    svg_networks,
+)
 from .collect import (
     client_names,
     collect,
@@ -73,7 +82,7 @@ def build(kind, end=None, start=None):
     d, p = collect(cur), collect(prev)
     d["_days"] = (end - start).days
     d["wifi"] = collect_wifi(cur) if "wifi" in on else None
-    d["dpi"] = collect_apps(cur) if "apps" in on else None
+    d["dpi"] = collect_apps(cur, prev) if "apps" in on else None
     d["isp"] = collect_isp(cur) if "isp" in on else None
     d["maint"] = collect_maint(cur) if "maintenance" in on else None
     d["trends"] = collect_trends(kind, start) if "trends" in on else None
@@ -92,6 +101,8 @@ def build(kind, end=None, start=None):
         if "devices" in on and d["networks"]
         else ""
     )
+    bd = (d["dpi"] or {}).get("by_day") or {}
+    cat_chart = svg_categories(bd["chart"], bd["shown"], start, end, palette=palette) if bd.get("rows") else ""
     gap = 1 - cur.coverage()["prom"]
     d["dns"] = p["dns"] = None
     if "dns" in on and dns.servers(st):
@@ -176,6 +187,8 @@ def build(kind, end=None, start=None):
             trend_change=trend_change,
             dns_pairs=dns_pairs,
             net_chart=net_chart,
+            cat_chart=cat_chart,
+            cat_color=lambda c: category_color(c, bd.get("shown") or [], palette),
             net_color=partial(net_color, palette=palette),
             accent=accent,
             accent_ink=colors["accent_ink"],
@@ -186,6 +199,7 @@ def build(kind, end=None, start=None):
             ch_value=lambda cur, prev: delta(cur, prev, covered["rates"]),
             prev_cov=cov["prom"],
             share=share,
+            delta=delta,
             points_change=points_change,
             conflict_devices=conflict_devices,
             tz=config.TZ,

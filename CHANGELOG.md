@@ -4,6 +4,11 @@ Releases are tagged `vX.Y.Z` on GitHub. Changes on `main` that aren't in a relea
 
 ## Unreleased
 
+- **Reports, Applications**: traffic per day by category, as on the Applications dashboard: a stacked bar per day
+  (per week for a quarter) and a table with each category's traffic, share, busiest day and the device that used
+  most of it, plus the change per day against last week once there's enough data. Days when UniFi restarted its
+  counting are marked and left out of the comparison. *Needs attention* names a category that spiked on one day
+  or doubled, with the device behind it.
 - **Reports, IP address conflicts**: one row per address with its network, how often, when last, and the devices
   UniFi saw with that address around each conflict (UniFi's entry doesn't name them). *Needs attention* names
   them too.

@@ -11,6 +11,7 @@ from .sources import (
     AUDIT_FW,
     CLIENT_LOG,
     DEVICE_LOG,
+    DPI_BOTH,
     DPI_RX,
     DPI_TX,
     FW,
@@ -242,8 +243,7 @@ def conflict_groups(s: Source, conflicts):
         g["n"] += 1
         g["last"] = max(g["last"], c["t"])
         q = f'max by (mac, name, hostname, oui) (max_over_time(unpoller_client_uptime_seconds{{ip="{c["ip"]}"}}[2h]))'
-        t = c["t"].timestamp() + 3600
-        for x in s._safe(lambda q: _get(config.PROM + "/api/v1/query", {"query": q, "time": t}), q) or []:
+        for x in s.prom_at(q, c["t"].timestamp() + 3600) or []:
             m = x["metric"]
             g["devices"][m.get("mac", "")] = _device_name(m)
     out = sorted(groups.values(), key=lambda g: (-g["n"], g["ip"]))
@@ -263,7 +263,7 @@ def _device_name(m):
     return f"{name} (…{mac[-5:]})" if mac else name
 
 
-def collect_apps(s: Source):
+def collect_apps(s: Source, prev: Source = None):
     """Share of traffic by application and category, from UniFi's traffic identification (DPI).
 
     UniFi reports each device's application traffic as a rolling figure that rises and
@@ -288,6 +288,7 @@ def collect_apps(s: Source):
         )
 
     d = {"apps": share("application")[:10], "categories": share("category")[:8]}
+    d["by_day"] = category_summary(category_days(s), category_days(prev) if prev else None, names=known_devices(s))
     d["collecting"] = bool(s.scalar(f"count(last_over_time({DPI_RX}[$R]))"))
     have = s.scalar(f"count_over_time(count({DPI_RX})[$R:{step}])")
     d["coverage"] = min(1.0, (have or 0) / max(1, s.secs // int(step[:-1])))
@@ -315,6 +316,147 @@ def collect_apps(s: Source):
         else []
     )
     return d
+
+
+def _category(k):
+    """UniFi's category label without its number: 'Network Protocols_20' -> 'Network Protocols'."""
+    return re.sub(r"_\d*$", "", k or "").replace("_", " ").strip() or "Unknown"
+
+
+def category_days(s: Source):
+    """Traffic per category for each day of the period, in bytes, with the devices behind it.
+
+    UniFi's application figures are rolling 24-hour totals, so the reading at midnight is that day's traffic
+    (as on the Applications dashboard). A day is marked incomplete when the figure fell to almost nothing
+    during it, which happens when UniFi restarts (an update, say) and starts counting again."""
+    days = []
+    day = s.start
+    while day + dt.timedelta(days=1) <= s.end + dt.timedelta(minutes=1):
+        t = (day + dt.timedelta(days=1)).timestamp()
+        res = s.prom_at(f"sum by (category, name, mac) ({DPI_BOTH})", t)
+        cats, devices = {}, {}
+        for x in res or []:
+            m, v = x["metric"], float(x["value"][1])
+            c = _category(m.get("category"))
+            cats[c] = cats.get(c, 0) + v
+            key = (m.get("name", ""), m.get("mac", ""))
+            devices.setdefault(c, {})[key] = devices.setdefault(c, {}).get(key, 0) + v
+        low = s.prom_at(f"min_over_time(sum({DPI_BOTH})[1d:10m])", t)
+        high = s.prom_at(f"max_over_time(sum({DPI_BOTH})[1d:10m])", t)
+        lo = float(low[0]["value"][1]) if low else 0.0
+        hi = float(high[0]["value"][1]) if high else 0.0
+        days.append(
+            {
+                "day": day,
+                "cats": cats,
+                "devices": devices,
+                "total": sum(cats.values()),
+                "missing": not cats,
+                "partial": bool(cats) and hi > 0 and lo < 0.1 * hi,
+            }
+        )
+        day += dt.timedelta(days=1)
+    return days
+
+
+def known_devices(s: Source):
+    """mac -> a readable label for every device UniFi listed during the period."""
+    out = {}
+    for x in s.prom("last_over_time(unpoller_client_uptime_seconds[$R])") or []:
+        m = x["metric"]
+        if m.get("mac"):
+            out[m["mac"]] = _device_name(m)
+    return out
+
+
+def category_summary(days, before, top=5, names=None):
+    """Per-category totals, the busiest day and the device that used most, with the change per complete day
+    against the earlier period; the chart's rows (top categories plus Other) per day."""
+    good = [x for x in days if not x["missing"] and not x["partial"]]
+    good_before = [x for x in before or [] if not x["missing"] and not x["partial"]]
+    totals, per_dev = {}, {}
+    for x in days:
+        if x["missing"]:
+            continue
+        for c, v in x["cats"].items():
+            totals[c] = totals.get(c, 0) + v
+            for k, b in x["devices"].get(c, {}).items():
+                per_dev.setdefault(c, {})[k] = per_dev.setdefault(c, {}).get(k, 0) + b
+    grand = sum(totals.values())
+    comparable = len(days) and len(good_before) >= 0.7 * len(before or []) and len(good) >= 0.7 * len(days)
+    rows = []
+    for c, v in sorted(totals.items(), key=lambda kv: -kv[1]):
+        busiest = max((x for x in days if not x["missing"]), key=lambda x: x["cats"].get(c, 0))
+        devs = sorted(per_dev.get(c, {}).items(), key=lambda kv: -kv[1])
+        avg = sum(x["cats"].get(c, 0) for x in good) / len(good) if good else None
+        avg_before = (
+            sum(x["cats"].get(c, 0) for x in good_before) / len(good_before) if comparable and good_before else None
+        )
+        rows.append(
+            {
+                "name": c,
+                "bytes": v,
+                "share": v / grand if grand else None,
+                "per_day": avg,
+                "per_day_before": avg_before,
+                "busiest": busiest["day"],
+                "busiest_bytes": busiest["cats"].get(c, 0),
+                "top_device": _label(devs[0][0], names) if devs else None,
+                "top_device_share": devs[0][1] / v if devs and v else None,
+            }
+        )
+    shown = [r["name"] for r in rows[:top]]
+    chart = [
+        {
+            "day": x["day"],
+            "partial": x["partial"],
+            "missing": x["missing"],
+            "parts": [(c, x["cats"].get(c, 0)) for c in shown]
+            + [("Other", sum(v for c, v in x["cats"].items() if c not in shown))],
+        }
+        for x in days
+    ]
+    return {
+        "rows": rows,
+        "chart": chart,
+        "shown": shown + (["Other"] if len(rows) > top else []),
+        "partial_days": [x["day"] for x in days if x["partial"] or x["missing"]],
+        "comparable": bool(comparable),
+        "spikes": _spikes(days, rows, names),
+    }
+
+
+def _label(key, names):
+    name, mac = key
+    return (names or {}).get(mac) or device_label(name, mac)
+
+
+def _spikes(days, rows, names=None):
+    """Single days where a category ran far above its usual day: at least 3x the median of its other complete
+    days and over 20 GB, with the device that used most of it that day."""
+    good = [x for x in days if not x["missing"] and not x["partial"]]
+    out = []
+    for r in rows[:8]:
+        c = r["name"]
+        for x in good:
+            v = x["cats"].get(c, 0)
+            others = sorted(y["cats"].get(c, 0) for y in good if y is not x)
+            if len(others) < 3 or v < 20e9:
+                continue
+            usual = others[len(others) // 2]
+            if usual and v >= 3 * usual:
+                devs = sorted(x["devices"].get(c, {}).items(), key=lambda kv: -kv[1])
+                out.append(
+                    {
+                        "category": c,
+                        "day": x["day"],
+                        "bytes": v,
+                        "times": v / usual,
+                        "device": _label(devs[0][0], names) if devs else None,
+                        "device_share": devs[0][1] / v if devs else None,
+                    }
+                )
+    return sorted(out, key=lambda s: -s["bytes"])[:3]
 
 
 def client_names(s: Source):

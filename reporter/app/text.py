@@ -252,6 +252,36 @@ def conflict_line(g):
     return f"{g['ip']}{where}, {_times(g['n'])}, between {conflict_devices(g['devices'])}"
 
 
+def _from(device, part):
+    if not device:
+        return ""
+    return f", nearly all from {device}" if part and part > 0.9 else f", mostly from {device} ({fpct(part)})"
+
+
+def category_alerts(bd, word):
+    """A category that spiked on one day, or ran at twice last period's daily level, with the device behind it.
+    Peer-to-peer has its own line."""
+    out, named = [], set()
+    for s in bd.get("spikes") or []:
+        if "peer" in s["category"].lower():
+            continue
+        named.add(s["category"])
+        out.append(
+            f"{s['category']} traffic jumped to {fbytes(s['bytes'])} on {s['day']:%a %-d %b}, "
+            f"{s['times']:.0f}× a usual day{_from(s['device'], s['device_share'])}"
+        )
+    for r in bd.get("rows") or []:
+        before, now = r.get("per_day_before"), r.get("per_day")
+        if r["name"] in named or "peer" in r["name"].lower() or not before or not now:
+            continue
+        if now >= 2 * before and now >= 5e9 and (r["share"] or 0) >= 0.05:
+            out.append(
+                f"{r['name']} traffic was {f'{now / before:.1f}'.removesuffix('.0')}× last {word}'s, {fbytes(now)} a day"
+                f"{_from(r['top_device'], r['top_device_share'])}"
+            )
+    return out[:3]
+
+
 def attention(d, on=None):
     """Things a reader should act on, limited to the sections switched on."""
     on = on if on is not None else {k for k, *_ in SECTIONS}
@@ -328,6 +358,8 @@ def attention(d, on=None):
             f"Peer-to-peer file sharing (such as BitTorrent) was {fpct(a_['p2p'])} of identified traffic{src}; "
             "check it's allowed, it often carries pirated content and malware"
         )
+    if a_ and "apps" in on:
+        a.extend(category_alerts(a_.get("by_day") or {}, d.get("_word", "week")))
     w = d.get("wifi")
     if w and "wifi" in on:
         if w["weak"]:

@@ -278,3 +278,70 @@ def svg_networks(rows, series, step, start, end, w=658, h=190, palette=NET_COLOR
         f'<svg viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" '
         f'aria-label="Devices online by network over the period">{"".join(g)}</svg>'
     )
+
+
+def category_color(name, shown, palette=NET_COLORS):
+    return "#b9b8b2" if name == "Other" or name not in shown else palette[shown.index(name) % len(palette)]
+
+
+def svg_categories(chart, shown, start, end, w=658, h=200, palette=NET_COLORS):
+    """Traffic per day by application category: one stacked bar per day (a week per bar past 45 days), the
+    largest category at the bottom in the report's accent, Other in grey. An incomplete day is drawn faded
+    with a dashed outline; a day without data as an empty dashed box."""
+    if len(chart) > 45:  # weekly bars for a quarter
+        weeks = []
+        for i in range(0, len(chart), 7):
+            chunk = chart[i : i + 7]
+            parts = [(c, sum(dict(x["parts"]).get(c, 0) for x in chunk)) for c in shown]
+            weeks.append({"day": chunk[0]["day"], "partial": any(x["partial"] or x["missing"] for x in chunk),
+                          "missing": all(x["missing"] for x in chunk), "parts": parts})
+        chart, label = weeks, "%-d %b"
+    else:
+        label = "%a %-d" if len(chart) <= 10 else "%-d"
+    colours = {c: category_color(c, shown, palette) for c in shown}
+    totals = [sum(v for _, v in x["parts"]) for x in chart]
+    top_v = max(totals + [0]) / 1e9 or 1
+    stepv = 10 ** math.floor(math.log10(top_v / 3)) if top_v >= 3 else 1
+    for m in (1, 2, 2.5, 5, 10):
+        if top_v / (stepv * m) <= 3:
+            stepv *= m
+            break
+    top = stepv * math.ceil(top_v / stepv)
+    L, R, T, B = 44, 12, 12, 22
+    pw, ph = w - L - R, h - T - B
+    n = len(chart) or 1
+    slot = pw / n
+    bw = max(2.0, slot * 0.62)
+    y = lambda gb: T + ph - gb / top * ph
+    g = []
+    v = 0.0
+    while v <= top + 1e-9:
+        g.append(f'<line x1="{L}" x2="{w - R}" y1="{y(v):.1f}" y2="{y(v):.1f}" stroke="#1b1b1a" stroke-opacity="0.08" stroke-width="1"/>')
+        g.append(f'<text x="{L - 8}" y="{y(v) + 3:.1f}" font-family="PlexMono" font-size="7pt" fill="#8a8984" text-anchor="end">{v:g} GB</text>')
+        v += stepv
+    every = 1 if n <= 16 else 2 if n <= 32 else 4
+    for i, x in enumerate(chart):
+        x0 = L + i * slot + (slot - bw) / 2
+        if x["missing"]:
+            g.append(f'<rect x="{x0:.1f}" y="{T + ph - 12:.1f}" width="{bw:.1f}" height="12" fill="none" stroke="#a9a8a2" '
+                     'stroke-width="0.8" stroke-dasharray="2 2" rx="1.5"/>')
+        else:
+            base = 0.0
+            faded = ' fill-opacity="0.4"' if x["partial"] else ""
+            for c, val in x["parts"]:
+                gb = val / 1e9
+                if gb <= 0:
+                    continue
+                g.append(f'<rect x="{x0:.1f}" y="{y(base + gb):.1f}" width="{bw:.1f}" height="{max(0.6, gb / top * ph):.1f}" '
+                         f'fill="{colours[c]}"{faded}/>')
+                base += gb
+            if x["partial"]:
+                g.append(f'<rect x="{x0:.1f}" y="{y(base):.1f}" width="{bw:.1f}" height="{base / top * ph:.1f}" fill="none" '
+                         'stroke="#8a8984" stroke-width="0.8" stroke-dasharray="2 2"/>')
+        if i % every == 0:
+            g.append(f'<text x="{L + i * slot + slot / 2:.1f}" y="{h - 6}" font-family="PlexMono" font-size="7pt" fill="#8a8984" '
+                     f'text-anchor="middle">{x["day"].strftime(label)}</text>')
+    return (
+        f'<svg viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" '
+        f'aria-label="Traffic per day by application category">{"".join(g)}</svg>'
+    )
