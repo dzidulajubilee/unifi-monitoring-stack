@@ -25,6 +25,10 @@ shellcheck install.sh
 pytest -q
 ```
 
+`tests/test_render.py` renders the real report, both versions, for a week, a month and a quarter, from made-up
+data (`tests/fake_report.py`) in three shapes: empty, typical and very large. It fails if the page check finds
+any problem, so a template change that breaks the layout is caught before a release. It takes about a minute.
+
 CI runs these checks, rebuilds the dashboards from their generators and fails if the JSON differs, and builds the
 reporter image.
 

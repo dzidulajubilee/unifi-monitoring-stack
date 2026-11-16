@@ -19,8 +19,9 @@ def run(kind, end=None, send=True, start=None, to=None):
     recipients from Settings when send=True."""
     end = end or period_end(kind, dt.datetime.now(config.TZ))  # custom runs always pass an end
     remade = report_path(kind, start or period_start(kind, end), end).exists()
-    pdfs, subject, lines, errors = build(kind, end, start)
-    record_made(pdfs["full"].name, "cli", remade)
+    pdfs, subject, lines, errors, pages = build(kind, end, start)
+    issues = [i for style in ("full", "summary") for i in pages.get(style, [])]
+    record_made(pdfs["full"].name, "cli", remade, issues)
     what = report_title(kind, pdfs["full"])
     sends = [("full", to)] if to else (recipients(kind) if send else [])
     results = deliver(pdfs, subject, lines, sends)
@@ -29,6 +30,8 @@ def run(kind, end=None, send=True, start=None, to=None):
     failed = [(style, t, err) for style, t, err in results if err]
     sent = describe_sends(results)
     notify(f"{what} was made from the command line" + (f" and {sent}" if sent else ""), file=pdfs["full"].name)
+    if issues:
+        notify(f"{what} has a page that may look wrong: {issues[0]}. Check the PDF", "error", file=pdfs["full"].name)
     for style, t, err in failed:
         notify(
             f"Emailing the {style} {what[0].lower() + what[1:]} to {t} failed: {err}",

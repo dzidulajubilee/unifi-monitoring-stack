@@ -1,8 +1,28 @@
-"""Checks a laid-out PDF for page-flow mistakes: a page left mostly empty and a heading stranded at the
-bottom of a page, alone or with a single line under it, with the rest of its content on the next. Found problems are logged, so a template change that brings
+"""Checks a laid-out PDF for page-flow mistakes: a page left mostly empty, a heading stranded at the bottom of a
+page (alone or with a single line under it) with the rest of its content on the next, and content running past
+the page's right or bottom edge. Found problems are logged, so a template change that brings
 them back shows up when a report is made."""
 
 HEADINGS = {"h1", "h2", "h3"}
+
+# a second try when the first layout has problems: whole sections may break across pages, so one that doesn't fit
+# under the previous one starts there instead of leaving a near-empty page. The small blocks inside them (.keep: a
+# heading with its table or chart) still stay together.
+LOOSE_CSS = (
+    "section, section.summary, section.flow, .cols, .attention { break-inside: auto !important; }"
+    " .head, h2, h3 { break-after: avoid !important; } tr, li { break-inside: avoid; }"
+)
+
+EDGE = 2  # px of slack before something counts as past the edge
+
+
+def _label(els):
+    """A short name for where a box sits: the nearest element with a class, or its tag."""
+    for el in reversed(els):
+        cls = (el.get("class") or "").split()
+        if cls:
+            return f"{el.tag}.{cls[0]}"
+    return els[-1].tag if els else "content"
 
 
 def _text_boxes(box, inside=(), els=()):
@@ -31,7 +51,15 @@ def problems(document, min_fill=0.3):
             if n < len(pages):
                 out.append(f"page {n} is empty")
             continue
-        top = page._page_box.content_box_y()
+        pb = page._page_box
+        top = pb.content_box_y()
+        right_edge, bottom_edge = pb.content_box_x() + pb.width, top + pb.height
+        wide = {_label(els) for b, _, els in texts if b.position_x + b.margin_width() > right_edge + EDGE}
+        for what in sorted(wide)[:3]:
+            out.append(f"page {n}: {what} is wider than the page")
+        low = {_label(els) for b, _, els in texts if b.position_y + b.margin_height() > bottom_edge + EDGE}
+        for what in sorted(low)[:3]:
+            out.append(f"page {n}: {what} runs past the bottom of the page")
         bottom = max(b.position_y + b.margin_height() for b, _, _ in texts)
         fill = (bottom - top) / page._page_box.height
         if n < len(pages) and fill < min_fill:

@@ -51,6 +51,28 @@ from .text import (
 )
 
 
+def render_pdf(html_out, pdf):
+    """Lay the report out, check the page flow, and if the check finds problems lay it out once more with looser
+    page breaks, keeping whichever has fewer. Writes the PDF and returns the problems left (usually none)."""
+    from weasyprint import HTML  # imported late: slow to load, not needed until a report is due
+
+    doc = HTML(string=html_out, base_url=str(config.ROOT)).render()
+    issues = layout.problems(doc)
+    if issues:
+        loose = html_out.replace("</head>", f"<style>{layout.LOOSE_CSS}</style></head>", 1)
+        doc2 = HTML(string=loose, base_url=str(config.ROOT)).render()
+        issues2 = layout.problems(doc2)
+        log.info("layout: %d problem(s), %d with looser page breaks", len(issues), len(issues2))
+        if len(issues2) < len(issues):
+            doc, issues = doc2, issues2
+    for issue in issues:
+        log.warning("%s layout: %s", pdf.name, issue)
+    tmp = pdf.with_suffix(".part")
+    doc.write_pdf(tmp)
+    tmp.replace(pdf)  # appears in the portal only once complete
+    return issues
+
+
 def build(kind, end=None, start=None):
     st = load_settings()  # applies the time zone before any dates are worked out
     end = end or period_end(kind, dt.datetime.now(config.TZ))
@@ -158,10 +180,8 @@ def build(kind, end=None, start=None):
     chart_short = (
         svg_chart(down, up, kind, start, end, h=140, accent=accent) if "throughput" in on else ""
     )  # keeps the summary on one page
-    from weasyprint import HTML  # imported late: slow to load, not needed until a report is due
-
     OUT.mkdir(parents=True, exist_ok=True)
-    pdfs = {}
+    pdfs, layout_issues = {}, {}
     for style in STYLES:
         shown = show[style]
         html_out = env.get_template("report.html").render(
@@ -212,15 +232,10 @@ def build(kind, end=None, start=None):
             max_client=max([c["bytes"] for c in d["top_clients"]] or [1]),
         )
         pdf = report_path(kind, start, end, style)
-        tmp = pdf.with_suffix(".part")
-        doc = HTML(string=html_out, base_url=str(config.ROOT)).render()
-        for issue in layout.problems(doc):
-            log.warning("%s report layout: %s", style, issue)
-        doc.write_pdf(tmp)
-        tmp.replace(pdf)  # appears in the portal only once complete
+        layout_issues[style] = render_pdf(html_out, pdf)
         pdfs[style] = pdf
     log.info("wrote %s and its summary (%d query errors)", pdfs["full"], len(cur.errors + prev.errors))
     what = f"{kind.capitalize()} Network Report, {title}" if kind != "custom" else f"Network Report for {title}"
     subject = f"{name}: {what} ({dates})" if name else f"{what} ({dates})"
-    # the email body uses the full version's sentences
-    return pdfs, subject, lines["full"], len(cur.errors + prev.errors)
+    # the email body uses the full version's sentences; layout problems left after the second try, per version
+    return pdfs, subject, lines["full"], len(cur.errors + prev.errors), layout_issues

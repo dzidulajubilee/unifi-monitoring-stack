@@ -47,10 +47,13 @@ def mark_sent(kind, end):
         _write(SENT, s)
 
 
-def record_made(name, by, remade):
+def record_made(name, by, remade, layout=None):
+    """layout: page-layout problems the check found in the finished PDFs, shown next to the report."""
     with _lock:
         m = _read(MADE)
         m[name] = {"by": by, "remade": bool(remade)}
+        if layout:
+            m[name]["layout"] = list(layout)[:5]
         _write(MADE, m)
 
 

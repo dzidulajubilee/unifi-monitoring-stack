@@ -4,6 +4,12 @@ Releases are tagged `vX.Y.Z` on GitHub. Changes on `main` that aren't in a relea
 
 ## Unreleased
 
+- **Reports, page layout**: every report's pages are checked after layout (mostly empty pages, a heading left
+  without its content, anything wider than the page or past its bottom). If something is found, the report is
+  laid out again with looser page breaks and the better version is kept; anything left shows as a notification
+  and as *pages need a look* in the portal. Long tables (internet line events, address pools) now continue onto
+  the next page instead of leaving a gap. Tests render the real report from made-up data (empty, typical and
+  very large; weekly, monthly and quarterly) and fail on any layout problem.
 - `REPORTER_IMAGE` in the root `.env` picks the reporter image (a release, or your fork's); the default is unchanged.
 
 ## v2.1.1 (2026-11-16)

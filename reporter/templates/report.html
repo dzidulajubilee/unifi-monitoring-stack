@@ -261,7 +261,8 @@ a.plain { color: inherit; text-decoration: none; }
   </table>
   <p class="note">Now is UniFi's view at the end of the {{ word }}: Active carries traffic, Backup waits for a failover. Up is UniFi's availability figure for lines in use. Outages and their length, and the latency and packet-loss events, come from UniFi's System Log. Speed test shows the average download / upload of the tests UniFi ran on that line, with their latency. Data carried is all traffic through the line's gateway port.</p>
   {% if q.events %}
-  <div class="keep" style="margin-top:12pt">
+  {# a short table stays whole; a long one starts here and continues on the next page (the heading stays with its first rows) #}
+  <div class="{{ 'keep' if q.events|length <= 12 }}" style="margin-top:12pt">
   <h3>What happened</h3>
   <table class="log">
     <thead><tr><th>When</th><th>Line</th><th>Event</th></tr></thead>
@@ -555,7 +556,7 @@ a.plain { color: inherit; text-decoration: none; }
   <p class="note">Backups and UniFi OS / UniFi Network updates for the console itself aren't included: UniFi doesn't make them available to this report, so check them in the UniFi console.</p>
 
   {% if m.pools %}
-  <div class="keep" style="margin-top:14pt">
+  <div class="{{ 'keep' if m.pools|length <= 12 }}" style="margin-top:14pt">
   <h3>Address pools</h3>
   <table>
     <thead><tr><th>Network</th><th class="n">Busiest</th><th class="n">Addresses in use at peak</th><th class="n">Pool size</th></tr></thead>

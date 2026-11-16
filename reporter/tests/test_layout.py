@@ -37,6 +37,18 @@ def test_a_short_block_that_fits_at_the_bottom_is_fine():
     assert problems(HTML(string=html).render()) == []
 
 
+def test_content_wider_than_the_page_is_caught():
+    html = PAGE + "<table class='wide'><tr><td style='white-space:nowrap'>" + "x" * 400 + "</td></tr></table>"
+    found = problems(HTML(string=html).render())
+    assert any("wider than the page" in p for p in found), found
+
+
+def test_a_chart_too_tall_for_a_page_is_caught():
+    svg = "<svg width='400' height='2000' style='display:block'><rect width='400' height='2000'/></svg>"
+    found = problems(HTML(string=PAGE + svg).render())
+    assert any("past the bottom" in p for p in found), found
+
+
 def test_a_page_that_flows_on_is_fine():
     html = PAGE + "<h1>Weekly report</h1><section style='break-inside: auto'>" + lines(80) + "</section>"
     assert problems(HTML(string=html).render()) == []

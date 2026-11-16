@@ -112,7 +112,7 @@ def worker():
         old = R.report_path(kind, job["start"], job["end"])
         replaces = dt.datetime.fromtimestamp(old.stat().st_mtime, config.TZ) if old.exists() else None
         try:
-            pdfs, subject, lines, errors = R.build(kind, job["end"], job["start"] if kind == "custom" else None)
+            pdfs, subject, lines, errors, pages = R.build(kind, job["end"], job["start"] if kind == "custom" else None)
         except Exception as e:  # noqa: BLE001 - reported, worker keeps going
             log.exception("job %s failed", jid)
             job.update(status="failed", error=str(e) or e.__class__.__name__)
@@ -122,7 +122,8 @@ def worker():
         job.update(status="done", file=full)
         if by == "schedule":
             R.mark_sent(kind, job["end"])
-        R.record_made(full, by, replaces is not None)
+        issues = [i for style in ("full", "summary") for i in pages.get(style, [])]
+        R.record_made(full, by, replaces is not None, issues)
         if replaces:  # one copy per period: the new one takes the old one's place
             done = f"{what} was remade {who}, replacing the copy from {replaces:%-d %b %H:%M}"
         else:
@@ -135,6 +136,8 @@ def worker():
                 by=by,
                 file=full,
             )
+        if issues:  # the layout check still found something after the second try; the report is still sent
+            R.notify(f"{what} has a page that may look wrong: {issues[0]}. Check the PDF", "error", by=by, file=full)
         results = R.deliver(pdfs, subject, lines, job["sends"]) if R.load_settings()["smtp"].get("host") else []
         sent = R.describe_sends(results)
         R.notify(done + (f" and {sent}" if sent else ""), by=by, file=full)
@@ -270,6 +273,12 @@ def describe(kind, start, last):
     return kind.capitalize(), f"{title} · {dates}"
 
 
+def report_note(entry):
+    """What to show next to a report: who remade it and whether its pages need a look."""
+    parts = [n for n in (remade_note(entry), "pages need a look" if entry and entry.get("layout") else None) if n]
+    return " · ".join(parts) or None
+
+
 def remade_note(entry):
     """'remade by Ama' when a report replaced an earlier copy of the same period."""
     if not entry or not entry.get("remade"):
@@ -306,7 +315,8 @@ def archive():
                 "period": period,
                 "start": start,
                 "made": dt.datetime.fromtimestamp(st.st_mtime, config.TZ),
-                "note": remade_note(made.get(f.name)),
+                "note": report_note(made.get(f.name)),
+                "layout": (made.get(f.name) or {}).get("layout"),
                 "size": st.st_size,
             }
         )

@@ -34,7 +34,7 @@
         <tr>
           <td>{{ r.period }}</td>
           <td class="hide-sm muted">{{ r.kind }}</td>
-          <td class="hide-sm muted"><span class="mono">{{ r.made.strftime('%-d %b %H:%M') }}</span>{% if r.note %}<span class="made-note">{{ r.note }}</span>{% endif %}</td>
+          <td class="hide-sm muted"><span class="mono">{{ r.made.strftime('%-d %b %H:%M') }}</span>{% if r.note %}<span class="made-note"{% if r.layout %} title="{{ r.layout|join('; ') }}"{% endif %}>{{ r.note }}</span>{% endif %}</td>
           <td><div class="actions">
             <a class="btn quiet small" href="{{ url_for('download', name=r.file, view=1) }}" target="_blank" rel="noopener" title="Open the full report">View</a>
             <a class="btn quiet small" href="{{ url_for('download', name=r.file) }}" title="Download the full report">Download</a>
