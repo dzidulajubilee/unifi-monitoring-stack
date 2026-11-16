@@ -14,9 +14,8 @@ from .sources import (
     DPI_BOTH,
     DPI_RX,
     DPI_TX,
-    FW,
-    FW_IN,
     FW_OUT,
+    FW_SYSLOG_IN,
     IPS,
     LOGINS,
     PRIVATE,
@@ -139,11 +138,25 @@ def collect(s: Source):
 
     # security
     L = "loki"
-    d["blocks_in"] = s.scalar(f"sum(count_over_time({FW_IN} [$R]))", L)
+    # blocks of internet traffic: the System Log, then UniFi's firewall log over syslog once it's set up
+    d["blocks_in"] = _total(s.internet(lambda sel: f"sum(count_over_time({sel} [$R]))"))
     d["blocks_out"] = s.scalar(f"sum(count_over_time({FW_OUT} [$R]))", L)
-    d["block_sources"] = s.scalar(f"count(sum by (src) (count_over_time({FW_IN} [$R])))", L)
-    d["top_policies"] = _top(s.by(f"topk(8, sum by (policy) (count_over_time({FW} [$R])))", "policy", L))
-    d["top_sources"] = _top(s.by(f"topk(8, sum by (src) (count_over_time({FW_IN} [$R])))", "src", L))
+    sources = _sum_by(s.internet(lambda sel: f"sum by (src) (count_over_time({sel} [$R]))"), "src")
+    d["block_sources"] = None if sources is None else len(sources)
+    d["top_sources"] = _top(sources or {})[:8]
+    policies = _sum_by(s.loki(f"sum by (policy) (count_over_time({FW_OUT} [$R]))"), "policy") or {}
+    for k, v in (_sum_by(s.internet(lambda sel: f"sum by (policy) (count_over_time({sel} [$R]))"), "policy") or {}).items():
+        policies[k] = policies.get(k, 0) + v
+    d["top_policies"] = _top(policies)[:8]
+    # ports only come with the firewall log over syslog
+    t0 = s.syslog_start()
+    ports = (
+        _sum_by(s.loki_at(f'sum by (dpt, proto) (count_over_time({FW_SYSLOG_IN} | dpt != "" [$R]))', t0 - 1,
+                          s.end.timestamp()), ("dpt", "proto"))
+        if t0 else None
+    )
+    d["top_ports"] = _top({f"{k[0]}/{k[1]}": v for k, v in (ports or {}).items()})[:8]
+    d["ports_since"] = dt.datetime.fromtimestamp(t0, config.TZ) if t0 else None
     d["top_devices"] = _top(s.by(f"topk(8, sum by (src) (count_over_time({FW_OUT} [$R])))", "src", L))
     d["threats"] = s.scalar(f"sum(count_over_time({IPS} [$R]))", L)
     d["threats_high"] = s.scalar(f'sum(count_over_time({IPS} | sev=~"HIGH|VERY_HIGH" [$R]))', L)
@@ -640,7 +653,7 @@ def _trend_point(start, end):
         s.scalar('avg_over_time(avg(unpoller_client_satisfaction_ratio{wired="false"} >= 0)[$R:15m])') if ok else None
     )
     if loki:
-        v["blocks"] = s.scalar(f"sum(count_over_time({FW_IN} [$R]))", "loki")
+        v["blocks"] = _total(s.internet(lambda sel: f"sum(count_over_time({sel} [$R]))"))
         v["threats"] = s.scalar(f'sum(count_over_time({IPS} | evt=~"(?i).*block.*" [$R]))', "loki")
         v["outages"] = s.scalar(f"sum(count_over_time({WAN_EVENTS} |= `FAILED_OVER` [$R]))", "loki")
     else:
@@ -754,6 +767,23 @@ SFP_WEAK_DBM = -20  # most 1G single-mode modules stop working around -20 to -24
 
 
 SFP_DROP_DB = 2  # a fall this large over a period means the fibre or a connector is degrading
+
+
+def _total(rows):
+    """Sum of a list of Loki metric rows; None when a query failed."""
+    return None if rows is None else sum(float(x["value"][1]) for x in rows)
+
+
+def _sum_by(rows, label):
+    """{label value: total} over Loki metric rows (a tuple of labels gives tuple keys); None when a query failed."""
+    if rows is None:
+        return None
+    out = {}
+    for x in rows:
+        m = x["metric"]
+        k = tuple(m.get(lb, "") for lb in label) if isinstance(label, tuple) else m.get(label, "")
+        out[k] = out.get(k, 0) + float(x["value"][1])
+    return out
 
 
 def _top(m):

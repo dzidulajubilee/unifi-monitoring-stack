@@ -1,0 +1,65 @@
+// UniFi firewall log over syslog -> Loki. Optional: compose profile "syslog", set up by ./install.sh.
+// docs/deployment.md, "Firewall log over syslog", has the UniFi side.
+//
+// UniFi Network 11 no longer puts blocks of internet traffic in its System Log (what UnPoller reads), but its
+// gateway still logs every policy hit over syslog, with ports. Alloy receives that and keeps only:
+//   - messages sent from the UniFi console's address (SYSLOG_FROM in syslog/.env); everything else is dropped,
+//     so no other device can write into Loki. If SYSLOG_FROM is empty, nothing is kept. The check is in
+//     loki.process: a "keep" relabel rule on the listener doesn't drop anything (it only strips labels).
+//   - firewall entries; the rest UniFi sends (DHCP, its own services) is dropped
+//   - at most 50 a second (bursts of 500), so a flood can't fill the disk
+
+loki.source.syslog "unifi" {
+  listener {
+    address       = "0.0.0.0:5514"
+    protocol      = "udp"
+    syslog_format = "rfc3164"
+    // source matches UnPoller's label, so the dashboards' Controller filter works on these entries too
+    labels        = { application = "unifi_firewall_log", source = sys.env("SYSLOG_SOURCE") }
+  }
+  relabel_rules = loki.relabel.unifi.rules
+  forward_to    = [loki.process.unifi.receiver]
+}
+
+loki.relabel "unifi" {
+  forward_to = []
+
+  // the sender's address, checked and removed in loki.process
+  rule {
+    source_labels = ["__syslog_connection_ip_address"]
+    target_label  = "sender"
+  }
+}
+
+loki.process "unifi" {
+  // SYSLOG_FROM: the console's address, or several separated by | (a regular expression, anchored, dots escaped)
+  stage.match {
+    selector            = string.format("{application=\"unifi_firewall_log\", sender!~\"%s\"}", string.replace(sys.env("SYSLOG_FROM"), "\\", "\\\\"))
+    action              = "drop"
+    drop_counter_reason = "not_from_unifi"
+  }
+  stage.label_drop {
+    values = ["sender"]
+  }
+
+  // a firewall entry: "[WAN_WAN-D-10001] DESCR="Policy name" IN=eth9 OUT=br20 ... SRC=... DST=... PROTO=TCP SPT=... DPT=..."
+  stage.match {
+    selector            = "{application=\"unifi_firewall_log\"} !~ \"\\\\] (DESCR|IN)=.* SRC=\""
+    action              = "drop"
+    drop_counter_reason = "not_firewall"
+  }
+
+  stage.limit {
+    rate  = 50
+    burst = 500
+    drop  = true
+  }
+
+  forward_to = [loki.write.loki.receiver]
+}
+
+loki.write "loki" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

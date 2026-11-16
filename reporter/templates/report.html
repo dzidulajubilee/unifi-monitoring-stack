@@ -460,6 +460,12 @@ a.plain { color: inherit; text-decoration: none; }
     <div class="keep"><h3>Internal devices blocked most</h3>{{ ranked(d.top_devices, "No internal devices were blocked") }}</div>
     <div class="keep"><h3>Devices involved in threats</h3>{{ ranked(d.threat_devices, "No threats detected") }}</div>
   </div>
+  {% if d.top_ports %}
+  <div class="cols" style="margin-top:16pt">
+    <div class="keep"><h3>Ports the internet tried most</h3>{{ ranked(d.top_ports, "") }}</div>
+    <p class="note" style="align-self:end">Blocked internet traffic by the port and protocol it tried to reach{% if d.ports_since and d.ports_since.timestamp() > (d._start_ts or 0) + 3600 %}, since {{ d.ports_since.strftime('%a %-d %b %H:%M') }} when UniFi's firewall log started arriving over syslog{% endif %}. A port tried by many sources is being scanned for a known service, such as 3389 (remote desktop), 22 (SSH), 23 (telnet) or 445 (file sharing); make sure nothing on it is forwarded from the internet unless it should be.</p>
+  </div>
+  {% endif %}
 </section>
 {% endif %}
 

@@ -1,6 +1,5 @@
-from weasyprint import HTML
-
 from app.layout import problems
+from weasyprint import HTML
 
 PAGE = "<style>@page { size: A4; margin: 20mm } section { break-inside: avoid } h3 { break-after: avoid }</style>"
 
@@ -30,6 +29,11 @@ def test_a_heading_with_one_line_left_under_it_is_caught():
 def test_a_chart_counts_as_content_under_a_heading():
     svg = "<svg width='600' height='300' style='display:block'><rect width='600' height='300'/></svg>"
     html = PAGE + lines(25, "filler") + "<h3>Traffic per day</h3>" + svg + "<p style='break-after: page'>key</p>" + lines(5)
+    assert problems(HTML(string=html).render()) == []
+
+
+def test_a_short_block_that_fits_at_the_bottom_is_fine():
+    html = PAGE + lines(20, "filler") + "<div><h3>Devices in threats</h3><p style='break-after: page'>one</p></div>" + lines(5)
     assert problems(HTML(string=html).render()) == []
 
 

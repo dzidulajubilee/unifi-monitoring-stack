@@ -19,6 +19,11 @@ Things learned about UnPoller's data that the reports and dashboards rely on. Ch
   point.
 - **Logs** come from the UniFi System Log through UnPoller into Loki (`application="unifi_system_log"`), with
   categories such as SECURITY, AUDIT, INTERNET_AND_WAN, CLIENT_DEVICES and UNIFI_DEVICES. The JSON parameters
-  (e.g. `parameters.WAN_NAME`, `parameters.DURATION.id` in seconds) carry the details.
+  (e.g. `parameters.WAN_NAME`, `parameters.DURATION.id` in seconds) carry the details. Since UniFi Network 11
+  the System Log has no blocks of internet traffic (blocks of your own devices are still there).
+- **Firewall log over syslog** (optional, `application="unifi_firewall_log"`): the gateway's own log of policy
+  hits, one line each: `[WAN_WAN-D-10001] DESCR="Policy name" IN=eth9 OUT=br20 ... SRC=... DST=... PROTO=TCP
+  SPT=... DPT=...`. The part in brackets is the zones, the action (`A` allow, `D` drop, `R` reject) and the
+  policy's index; `DESCR` is the policy's name. Only policies with Syslog Logging on appear.
 - **Retention**: Prometheus and Loki keep 400 days, so trends and quarterly reports fill in as history builds up.
   Periods without enough data show as missing rather than as low values.

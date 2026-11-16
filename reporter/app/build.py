@@ -81,6 +81,7 @@ def build(kind, end=None, start=None):
     cur, prev = Source(start, end), Source(prev_start, start)
     d, p = collect(cur), collect(prev)
     d["_days"] = (end - start).days
+    d["_start_ts"] = start.timestamp()
     d["wifi"] = collect_wifi(cur) if "wifi" in on else None
     d["dpi"] = collect_apps(cur, prev) if "apps" in on else None
     d["isp"] = collect_isp(cur) if "isp" in on else None

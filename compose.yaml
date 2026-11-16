@@ -59,6 +59,32 @@ services:
       - ./loki/config:/etc/loki
       - ./loki/data:/loki
 
+  # Optional: UniFi's firewall log over syslog into Loki (UniFi Network 11 no longer puts blocks of internet
+  # traffic in the System Log). On with COMPOSE_PROFILES=syslog; ./install.sh asks. Config: syslog/config.alloy
+  syslog:
+    image: grafana/alloy:v1.21.0
+    restart: unless-stopped
+    container_name: syslog
+    profiles: [syslog]
+    user: "${UID:-1000}:${GID:-1000}"
+    # --disable-reporting: don't send usage statistics to Grafana Labs; the web UI stays inside the container
+    command: run --disable-reporting --server.http.listen-addr=127.0.0.1:12345 --storage.path=/tmp/alloy /etc/alloy/config.alloy
+    env_file:
+      - ./syslog/.env
+    volumes:
+      - ./syslog/config.alloy:/etc/alloy/config.alloy:ro
+    ports:
+      - "0.0.0.0:5514:5514/udp"   # IPv4 only; messages from anything but the UniFi console are dropped
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    depends_on:
+      - loki
+
   # weekly/monthly/quarterly PDF reports from prometheus + loki, with a web portal on :8088
   # (sign in with a Grafana account; Grafana admins set up email and the schedule there)
   # command line: docker compose exec reporter python report.py run weekly --no-email

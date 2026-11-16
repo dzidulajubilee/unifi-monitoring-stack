@@ -1,6 +1,6 @@
 # UniFi Monitoring Stack
 
-Docker Compose stack for monitoring UniFi networks: UnPoller collects metrics and the UniFi System Log, Prometheus and Loki store them, Grafana shows them, and a small reporter turns them into weekly, monthly and quarterly PDF reports with a web portal to make, download and email them.
+Docker Compose stack for monitoring UniFi networks: UnPoller collects metrics and the UniFi System Log (plus, optionally, UniFi's firewall log over syslog), Prometheus and Loki store them, Grafana shows them, and a small reporter turns them into weekly, monthly and quarterly PDF reports with a web portal to make, download and email them.
 
 Based on [Techno Tim's unpoller-unifi](https://github.com/timothystewart6/unpoller-unifi). See [Credits](#credits).
 
@@ -15,6 +15,7 @@ Based on [Techno Tim's unpoller-unifi](https://github.com/timothystewart6/unpoll
 | Reporter | PDF reports and the reports portal | `https://<server>:8088` |
 | nginx | HTTPS for Grafana, the portal and Dozzle | ports 3000, 8088, 8080 |
 | Dozzle | Container log viewer, optional and off unless you turn it on | `https://<server>:8080` |
+| Syslog receiver | Optional: UniFi's firewall log over syslog into Loki (Grafana Alloy). Keeps only what the UniFi console sends | UDP port 5514 |
 
 ## Quick start
 
@@ -27,7 +28,7 @@ cd unifi-monitoring-stack
 ```
 
 The installer asks for your time zone, UniFi controller and account (or API key), the Grafana login, whether
-to run Dozzle, and the Grafana address for report links. It writes every `.env` file (git ignores them), saves
+to run Dozzle, whether to receive UniFi's firewall log over syslog, and the Grafana address for report links. It writes every `.env` file (git ignores them), saves
 the UniFi console's certificate so only that console is trusted, makes a self-signed HTTPS certificate and starts
 the stack. Press Enter to take a suggested value; blank passwords are generated and shown once at the end. Email
 for reports can be set up there too, or later in the portal.
@@ -76,6 +77,10 @@ certificate again.
    Dozzle is optional. To run it, add `COMPOSE_PROFILES=dozzle` to `.env` and create its login as in
    [docs/deployment.md](docs/deployment.md#dozzle).
 
+   The syslog receiver is optional too (UniFi Network 11 needs it for blocks of internet traffic). Set the console's
+   address in `syslog/.env`, add `syslog` to `COMPOSE_PROFILES` (e.g. `COMPOSE_PROFILES=dozzle,syslog`) and set up
+   UniFi as in [docs/deployment.md](docs/deployment.md#firewall-log-over-syslog).
+
 5. **Set your time zone** (`TZ=`) in each `.env`, e.g. `TZ=Europe/London`.
 
 6. **Start the stack**
@@ -103,6 +108,7 @@ contains, recipients, schedule and email server under **Settings**. See [docs/re
 | `grafana/build/` | Dashboard generators ([README](grafana/build/README.md)) |
 | `grafana/provisioning/` | Dashboards and data sources Grafana loads |
 | `prometheus/`, `loki/` | Their configuration; data folders are created on first start |
+| `syslog/` | The optional syslog receiver's configuration (`config.alloy`) |
 | `docs/` | [Deployment](docs/deployment.md), [reports](docs/reports.md), [how the reporter works](docs/how-reports-work.md), [data notes](docs/data-notes.md), [development](docs/development.md) |
 
 ## Updating
@@ -202,6 +208,9 @@ port.
 - Check the UniFi controller is reachable from the Docker host, and that the UnPoller account has read access.
 - The Firewall dashboard shows zone IDs instead of names, usually after a UniFi upgrade or a new zone: run
   `./install.sh --zones`. It reads the zones from UniFi again and reloads Prometheus.
+- The Firewall dashboard's internet panels are empty on UniFi Network 11: it no longer puts those blocks in the
+  System Log. Turn on the syslog receiver (`./install.sh`) and point UniFi at it
+  ([docs/deployment.md](docs/deployment.md#firewall-log-over-syslog)). Nothing arrives: see the checks there.
 - HTTP 429 errors from UniFi: raise `scrape_interval` for `unpoller` in `prometheus/config/prometheus.yml`.
 - A report says metrics are missing for part of the period: UnPoller or Prometheus wasn't running then. Totals are estimated from the data that exists.
 
@@ -217,6 +226,7 @@ Built on these open-source projects:
 - [Grafana](https://github.com/grafana/grafana): dashboards
 - [WeasyPrint](https://github.com/Kozea/WeasyPrint): PDF rendering
 - [Dozzle](https://github.com/amir20/dozzle): log viewer
+- [Grafana Alloy](https://github.com/grafana/alloy): syslog receiver
 - [IBM Plex](https://github.com/IBM/plex) fonts, under the SIL Open Font License (`reporter/fonts/OFL.txt`)
 
 ## License

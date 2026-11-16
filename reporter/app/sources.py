@@ -26,6 +26,19 @@ FW_IN = FW + f" | srcaddr !~ `{PRIVATE}`"
 FW_OUT = FW + f" | srcaddr =~ `{PRIVATE}`"
 
 
+# UniFi's firewall log over syslog (syslog/config.alloy): "[WAN_WAN-D-10001] DESCR="Policy" ... SRC=... DST=...
+# PROTO=TCP SPT=... DPT=...". UniFi Network 11 no longer puts blocks of internet traffic in the System Log, so
+# they come from here once it's set up. Only drops (D) and rejects (R), not allowed traffic (A).
+FW_SYSLOG = (
+    '{application="unifi_firewall_log"} | regexp `\\[(?P<rule>[^\\]]+)\\]` | rule =~ `.*-[DR]-.*` '
+    '| regexp `DESCR="(?P<descr>[^"]*)"` | regexp `SRC=(?P<src>[^ ]+) DST=(?P<dst>[^ ]+)` '
+    "| regexp `PROTO=(?P<proto>[^ ]+)` | regexp `DPT=(?P<dpt>[0-9]+)` | label_format policy=`{{ or .descr .rule }}`"
+)
+
+
+FW_SYSLOG_IN = FW_SYSLOG + f" | src !~ `{PRIVATE}`"
+
+
 IPS = (
     '{application="unifi_system_log", category="SECURITY"} != `"subcategory":"SECURITY_FIREWALL"` '
     '| json sub="subcategory", evt="event", scl="parameters.SRC_CLIENT.name", sip="parameters.SRC_IP.name", sev="severity" '
@@ -101,6 +114,35 @@ class Source:
             ),
             q,
         )
+
+    def loki_at(self, q, t_from, t_to):
+        """Instant Loki query at t_to, with $R the window back to t_from (seconds)."""
+        r = f"{max(1, int(t_to - t_from))}s"
+        return self._safe(lambda q: _get(LOKI + "/loki/api/v1/query", {"query": q.replace("$R", r), "time": int(t_to * 1e9)}), q)
+
+    def syslog_start(self):
+        """When UniFi's firewall log over syslog starts within the period (seconds since the epoch), or None."""
+        if not hasattr(self, "_syslog_start"):
+            res = self.loki_lines('{application="unifi_firewall_log"}', 1) or []
+            ts = [int(v[0]) for st in res for v in st["values"]]
+            self._syslog_start = min(ts) / 1e9 if ts else None
+        return self._syslog_start
+
+    def internet(self, metric):
+        """Rows of a LogQL metric over blocks of internet traffic: metric(selector) gives the query, over [$R].
+        The System Log is read up to the moment the firewall log over syslog starts and syslog from then on, so
+        older periods keep their figures and nothing is counted twice. None if a query failed."""
+        t0 = self.syslog_start()
+        start, end = self.start.timestamp(), self.end.timestamp()
+        if t0 is None:
+            parts = [self.loki(metric(FW_IN))]
+        else:
+            parts = [self.loki_at(metric(FW_SYSLOG_IN), t0 - 1, end)]
+            if t0 - start > 60:
+                parts.append(self.loki_at(metric(FW_IN), start, t0 - 1))
+        if any(p is None for p in parts):
+            return None
+        return [row for p in parts for row in p]
 
     def loki_lines(self, q, limit=500):
         return self._safe(

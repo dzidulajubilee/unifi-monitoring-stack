@@ -4,6 +4,15 @@ Releases are tagged `vX.Y.Z` on GitHub. Changes on `main` that aren't in a relea
 
 ## Unreleased
 
+- **Firewall log over syslog** (optional): UniFi Network 11 stopped putting blocks of internet traffic in its System
+  Log, so the Firewall dashboard's internet panels and the reports' internet blocks went empty from 10 Nov. A
+  syslog receiver (Grafana Alloy, compose profile `syslog`, UDP port 5514) takes UniFi's firewall log into Loki.
+  It keeps only messages from the UniFi console's address and only firewall entries, caps the rate, and runs
+  read-only without privileges. `./install.sh` asks whether to turn it on; docs/deployment.md has the UniFi side.
+  Dashboards and reports use it from the moment it arrives and the System Log before that, so history is kept and
+  nothing is counted twice. New: *Ports targeted from the internet* on the Firewall dashboard and *Ports the
+  internet tried most* in the report.
+- The page-flow check no longer warns about a short heading block that fits whole at the bottom of a page.
 - **Reports, Applications**: traffic per day by category, as on the Applications dashboard: a stacked bar per day
   (per week for a quarter) and a table with each category's traffic, share, busiest day and the device that used
   most of it, plus the change per day against last week once there's enough data. Days when UniFi restarted its

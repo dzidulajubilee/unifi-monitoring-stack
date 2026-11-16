@@ -19,6 +19,7 @@ Reports are built from data the rest of the stack already holds. The reporter ne
 ```
 UniFi console ──UnPoller──► Prometheus (metrics, every minute)
                        └──► Loki (UniFi System Log: firewall, IPS, admin logins, internet line events)
+UniFi gateway ──syslog──► receiver ──► Loki (firewall log, optional: blocks of internet traffic, with ports)
 Pi-hole / Technitium (optional) ── their own query history
 
                  all of these ──► reporter ──► two PDFs ──► email + portal archive
@@ -109,7 +110,8 @@ match, all of them are shown, except data downloaded when it's unticked.
 | Latency, CPU, memory, temperature | Prometheus | Averages and peaks of the gateway's own readings |
 | Internet line availability | Prometheus | UniFi's uptime figure per line; a line that never carried traffic shows as standby |
 | Outages, failovers, ISP latency and packet loss | Loki | UniFi's internet line events |
-| Firewall blocks | Loki | Firewall log lines, split by whether the source address is public (from the internet) or private (from inside) |
+| Firewall blocks | Loki | Firewall log lines, split by whether the source address is public (from the internet) or private (from inside). Blocks of internet traffic come from UniFi's firewall log over syslog from the moment it arrives, and from the System Log before that (UniFi Network 11 stopped putting them there), so a period that spans the switch is counted once |
+| Ports the internet tried most | Loki | The destination port and protocol in UniFi's firewall log over syslog; only when it's set up |
 | Threats | Loki | Intrusion prevention events; *blocked* means UniFi blocked it |
 | Admin logins | Loki | Admin access events; "from outside" means from a public address |
 | Wi-Fi experience | Prometheus | UniFi's satisfaction score for wireless devices, averaged |

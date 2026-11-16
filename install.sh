@@ -27,7 +27,7 @@ for arg in "$@"; do
   esac
 done
 
-SERVICES="unpoller grafana prometheus loki reporter dozzle"
+SERVICES="unpoller grafana prometheus loki reporter dozzle syslog"
 PY_IMAGE=python:3.12-slim # only for hashing the Dozzle password (bcrypt via Python's crypt module)
 WRITTEN=()
 
@@ -489,6 +489,38 @@ if yes_no "Run Dozzle?" "$dz"; then
   fi
 fi
 
+# ---------------------------------------------------------------- firewall log over syslog
+
+step "UniFi firewall log (syslog)"
+
+SYSLOG=0 SYSLOG_FROM=""
+note "UniFi Network 11 no longer puts blocks of internet traffic in its System Log. Its firewall log, sent over"
+note "syslog, still has them (with ports). A small receiver takes it on UDP port 5514 and keeps only what the"
+note "UniFi console sends. UniFi has to be told to send it; the summary at the end says where."
+case ",$(get_env .env COMPOSE_PROFILES)," in *,syslog,*) sl=y ;; *) sl=n ;; esac
+if yes_no "Receive UniFi's firewall log over syslog?" "$sl"; then
+  SYSLOG=1
+  ctrl=${UNIFI_URL#*://}
+  ctrl=${ctrl%%/*}
+  case "$ctrl" in \[*) ctrl=${ctrl#[}; ctrl=${ctrl%%]*} ;; *:*) ctrl=${ctrl%:*} ;; esac
+  cur=$(get_env syslog/.env SYSLOG_FROM)
+  cur=${cur//\\/}
+  cur=${cur//|/ }
+  [ "$cur" = "192.168.1.1" ] && cur="" # the example value
+  note "The console's address as this server sees it, usually the one in the controller address. If your console"
+  note "sends from another of its addresses, add it (separate several with spaces)."
+  while :; do
+    ask_required SYSLOG_IPS "UniFi console address(es)" "${cur:-$ctrl}"
+    bad=""
+    for ip in $SYSLOG_IPS; do
+      [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ || "$ip" =~ ^[0-9A-Fa-f:]+$ ]] || bad="$bad $ip"
+    done
+    [ -z "$bad" ] && break
+    warn "Not an IP address:$bad. Use the console's IP, not a name."
+  done
+  for ip in $SYSLOG_IPS; do SYSLOG_FROM="${SYSLOG_FROM:+$SYSLOG_FROM|}${ip//./\\.}"; done
+fi
+
 # ---------------------------------------------------------------- Reporter
 
 step "Reports"
@@ -537,7 +569,10 @@ step "Saving settings"
 chmod 600 .env
 set_env .env UID "$RUN_UID"
 set_env .env GID "$RUN_GID"
-if [ "$DOZZLE" = 1 ]; then set_env .env COMPOSE_PROFILES dozzle; else unset_env .env COMPOSE_PROFILES; fi
+PROFILES=""
+[ "$DOZZLE" = 1 ] && PROFILES="dozzle"
+[ "$SYSLOG" = 1 ] && PROFILES="${PROFILES:+$PROFILES,}syslog"
+if [ -n "$PROFILES" ]; then set_env .env COMPOSE_PROFILES "$PROFILES"; else unset_env .env COMPOSE_PROFILES; fi
 WRITTEN+=(.env)
 
 for s in $SERVICES; do
@@ -551,6 +586,10 @@ done
 
 set_env "$U" UP_UNIFI_CONTROLLER_0_URL "$UNIFI_URL"
 set_env "$U" UP_UNIFI_CONTROLLER_0_SITE "$UNIFI_SITE"
+if [ "$SYSLOG" = 1 ]; then
+  set_env syslog/.env SYSLOG_FROM "$SYSLOG_FROM"
+  set_env syslog/.env SYSLOG_SOURCE "$UNIFI_URL"
+fi
 if [ -n "$UNIFI_KEY" ]; then set_env "$U" UP_UNIFI_CONTROLLER_0_API_KEY "$UNIFI_KEY"; else unset_env "$U" UP_UNIFI_CONTROLLER_0_API_KEY; fi
 if [ -n "$UNIFI_USER" ]; then
   set_env "$U" UP_UNIFI_CONTROLLER_0_USER "$UNIFI_USER"
@@ -626,6 +665,7 @@ if [ "$START" = 1 ]; then
   note "The first start downloads the images and builds the reporter, which takes a few minutes."
   docker compose up -d --build
   if [ "$DOZZLE" = 0 ]; then docker compose --profile dozzle rm -sf dozzle > /dev/null 2>&1 || true; fi
+  if [ "$SYSLOG" = 0 ]; then docker compose --profile syslog rm -sf syslog > /dev/null 2>&1 || true; fi
 
   if [ "$RESET_GRAFANA" = 1 ]; then
     note "Setting the new Grafana password..."
@@ -652,6 +692,11 @@ cat << EOF
 EOF
 if [ "$DOZZLE" = 1 ]; then echo "  Dozzle           https://$HOST_IP:8080"; fi
 echo
+if [ "$SYSLOG" = 1 ]; then
+  note "Firewall log: in UniFi, open Settings > CyberSecure > Traffic Logging, set Activity Logging (Syslog) to"
+  note "SIEM Server with server $HOST_IP and port 5514, tick Triggers and Firewall Default Policy, and apply."
+  note "Then turn on Syslog Logging on each firewall policy whose blocks you want to see. docs/deployment.md has more."
+fi
 note "The HTTPS certificate is self-signed, so browsers warn the first time. Accept it, or put your own in nginx/certs."
 note "Prometheus has no login, so it only listens on this server: http://localhost:9090 here, or"
 note "ssh -L 9090:localhost:9090 ${SUDO_USER:-$(id -un)}@$HOST_IP from another machine. UnPoller isn't published at all."

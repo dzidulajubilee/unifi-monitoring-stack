@@ -9,7 +9,8 @@ cd unifi-monitoring-stack
 ```
 
 The installer checks Docker and openssl, asks for the time zone, the UniFi controller and account (or API key),
-the Grafana admin login, whether to run Dozzle (and its login) and the Grafana address report PDFs link to
+the Grafana admin login, whether to run Dozzle (and its login), whether to receive UniFi's firewall log over
+syslog (and the console's address) and the Grafana address report PDFs link to
 (optionally the email server too). It saves the UniFi console's certificate, makes nginx's HTTPS certificate,
 writes every `.env` file and runs `docker compose up -d --build`. Run it again
 to change any of those settings: it offers the current values, and settings it doesn't ask about are left as they
@@ -92,6 +93,54 @@ Generating replaces the file, so to keep several accounts, generate each one and
 single `users:` key. Anyone signed in has to sign in again after a change. Sign-ins last 7 days
 (`DOZZLE_AUTH_TTL`). To turn the login off, set `DOZZLE_AUTH_PROVIDER=none`.
 
+## Firewall log over syslog
+
+UniFi Network 11 stopped putting blocks of internet traffic in its System Log, the log UnPoller collects. Blocks
+of your own devices are still there. The console's gateway still logs every hit of a policy with *Syslog
+Logging* on, with the protocol and ports, and sends it to a syslog server. The optional receiver (Grafana Alloy,
+`syslog/config.alloy`) takes that on **UDP port 5514** and stores it in Loki. The Firewall dashboard and the
+reports use it for blocks of internet traffic from the moment it arrives, and the System Log before that, so
+history is kept and nothing is counted twice. It also adds *Ports targeted from the internet*, which the System
+Log can't show.
+
+**Turn it on:** run `./install.sh` and answer yes to *Receive UniFi's firewall log over syslog?*. It asks for the
+console's address, writes `syslog/.env`, adds `syslog` to `COMPOSE_PROFILES` in the root `.env` and starts it. By
+hand: copy `syslog/.env.example` to `syslog/.env`, set `SYSLOG_FROM` (dots escaped, e.g. `192\.168\.1\.1`) and
+`SYSLOG_SOURCE` (the controller URL as in `unpoller/.env`), add `syslog` to `COMPOSE_PROFILES`, and run
+`docker compose up -d`.
+
+**Then in UniFi:**
+
+1. Settings > CyberSecure > Traffic Logging. Set **Activity Logging (Syslog)** to **SIEM Server**, the server
+   address to this server's IP and the port to `5514`.
+2. Tick **Triggers** (blocks by your own policies) and **Firewall Default Policy** (blocks by UniFi's built-in
+   ones). The rest (clients, devices, admin activity and so on) is already in the System Log: leave them unticked,
+   or the receiver throws them away.
+3. Apply. On each firewall policy whose blocks you want to see, turn on **Syslog Logging**.
+
+Don't send UniFi's flow logs of allowed traffic here: that can be hundreds of messages a second.
+
+**What it accepts:** only messages sent from the console's address (`SYSLOG_FROM`). Messages from any other
+address are dropped before they reach Loki, and with `SYSLOG_FROM` empty nothing is kept. Only firewall entries
+are kept, the rest of what UniFi sends is dropped, and at most 50 messages a second (bursts of 500) get through,
+so a flood can't fill the disk. The container runs as the stack's user with a read-only file system, no Linux
+capabilities and 256 MB of memory at most, and doesn't send usage statistics to Grafana Labs. Syslog over UDP
+has no login or encryption, and a device on the same network could fake the console's address, so keep the
+stack on a trusted network (see [Ports](#ports)). If the console sends from more than one address, list them all
+in `SYSLOG_FROM`, separated by `|`.
+
+**Nothing arrives?**
+
+- Check UniFi sends to this server's IP and port 5514, and that Triggers or Firewall Default Policy is ticked.
+  Changes can take a minute to apply.
+- `sudo tcpdump -ni any udp port 5514` on the server shows whether messages arrive, and from which address. That
+  address has to be in `SYSLOG_FROM`.
+- `docker compose logs syslog` shows configuration errors.
+- On the dashboard, only blocks are shown, and only from policies with Syslog Logging on.
+
+To turn it off, remove `syslog` from `COMPOSE_PROFILES` (or answer no in `./install.sh`), run
+`docker compose --profile syslog rm -sf syslog`, and set Activity Logging back to off in UniFi.
+
 ## Updating
 
 ```bash
@@ -124,6 +173,7 @@ each release changed.
 | 8088 | Reports portal, HTTPS through nginx |
 | 8080 | Dozzle (when turned on), HTTPS through nginx |
 | 9090 | Prometheus, on `127.0.0.1` only |
+| 5514/udp | Syslog receiver (when turned on); keeps only what the UniFi console sends |
 
 Prometheus and UnPoller have no login, so neither is open to the network. Prometheus listens only on the server
 itself; to use its UI from another machine, tunnel to it with `ssh -L 9090:localhost:9090 you@server` and open
@@ -137,6 +187,6 @@ reach, such as a management VLAN, and don't expose it to the internet.
 
 ## Backups
 
-Back up the `.env` files (including the one next to `compose.yaml`), the four data folders, `dozzle/data/users.yml`,
+Back up the `.env` files (including the one next to `compose.yaml` and `syslog/.env`), the four data folders, `dozzle/data/users.yml`,
 `nginx/certs` (it holds the HTTPS private key) and `unpoller/certs`. `reporter/out/settings.json` holds the email settings,
 including the SMTP password.
