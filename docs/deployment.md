@@ -113,9 +113,11 @@ hand: copy `syslog/.env.example` to `syslog/.env`, set `SYSLOG_FROM` (dots escap
 
 1. Settings > CyberSecure > Traffic Logging. Set **Activity Logging (Syslog)** to **SIEM Server**, the server
    address to this server's IP and the port to `5514`.
-2. Tick **Triggers** (blocks by your own policies) and **Firewall Default Policy** (blocks by UniFi's built-in
-   ones). The rest (clients, devices, admin activity and so on) is already in the System Log: leave them unticked,
-   or the receiver throws them away.
+2. Tick only **Gateway** and **Firewall Default Policy**. Gateway carries the gateway's own firewall log (the
+   receiver keeps those lines and drops the rest of the gateway's messages); Firewall Default Policy adds blocks by
+   UniFi's built-in policies. The other options, Triggers and Security Detections included, send UniFi's events
+   in CEF, a copy of what UnPoller already reads from the System Log (and in Network 11 without blocks of internet
+   traffic either); the receiver can't read them and logs `invalid or unsupported framing` for each.
 3. Apply. On each firewall policy whose blocks you want to see, turn on **Syslog Logging**.
 
 Don't send UniFi's flow logs of allowed traffic here: that can be hundreds of messages a second.
@@ -131,7 +133,7 @@ in `SYSLOG_FROM`, separated by `|`.
 
 **Nothing arrives?**
 
-- Check UniFi sends to this server's IP and port 5514, and that Triggers or Firewall Default Policy is ticked.
+- Check UniFi sends to this server's IP and port 5514, and that Gateway is ticked.
   Changes can take a minute to apply.
 - `sudo tcpdump -ni any udp port 5514` on the server shows whether messages arrive, and from which address. That
   address has to be in `SYSLOG_FROM`.

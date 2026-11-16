@@ -694,7 +694,7 @@ if [ "$DOZZLE" = 1 ]; then echo "  Dozzle           https://$HOST_IP:8080"; fi
 echo
 if [ "$SYSLOG" = 1 ]; then
   note "Firewall log: in UniFi, open Settings > CyberSecure > Traffic Logging, set Activity Logging (Syslog) to"
-  note "SIEM Server with server $HOST_IP and port 5514, tick Triggers and Firewall Default Policy, and apply."
+  note "SIEM Server with server $HOST_IP and port 5514, tick only Gateway and Firewall Default Policy, and apply."
   note "Then turn on Syslog Logging on each firewall policy whose blocks you want to see. docs/deployment.md has more."
 fi
 note "The HTTPS certificate is self-signed, so browsers warn the first time. Accept it, or put your own in nginx/certs."
