@@ -4,6 +4,8 @@ Releases are tagged `vX.Y.Z` on GitHub. Changes on `main` that aren't in a relea
 
 ## Unreleased
 
+- `REPORTER_IMAGE` in the root `.env` picks the reporter image (a release, or your fork's); the default is unchanged.
+
 ## v2.1.1 (2026-11-16)
 
 - **CI**: only the newest 3 reporter images are kept in the registry (the current one and 2 before it); older ones
