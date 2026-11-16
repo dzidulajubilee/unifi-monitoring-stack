@@ -56,3 +56,12 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # one registry entry per image (no attestation manifests), so the pruning below counts whole images
+          provenance: false
+          sbom: false
+      # keep the newest 3 images (the current one and 2 before it); older ones are deleted
+      - uses: actions/delete-package-versions@v5
+        with:
+          package-name: ${{ github.event.repository.name }}/reporter
+          package-type: container
+          min-versions-to-keep: 3
