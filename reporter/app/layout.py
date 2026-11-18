@@ -1,17 +1,11 @@
-"""Checks a laid-out PDF for page-flow mistakes: a page left mostly empty, a heading stranded at the bottom of a
+"""Checks a laid-out PDF for page-flow mistakes: a page left mostly empty (unless it ends a section and the next
+section starts a new page because it didn't fit under it: that's how the report keeps sections together), a
+heading stranded at the bottom of a
 page (alone or with a single line under it) with the rest of its content on the next, and content running past
 the page's right or bottom edge. Found problems are logged, so a template change that brings
 them back shows up when a report is made."""
 
 HEADINGS = {"h1", "h2", "h3"}
-
-# a second try when the first layout has problems: whole sections may break across pages, so one that doesn't fit
-# under the previous one starts there instead of leaving a near-empty page. The small blocks inside them (.keep: a
-# heading with its table or chart) still stay together.
-LOOSE_CSS = (
-    "section, section.summary, section.flow, .cols, .attention { break-inside: auto !important; }"
-    " .head, h2, h3 { break-after: avoid !important; } tr, li { break-inside: avoid; }"
-)
 
 EDGE = 2  # px of slack before something counts as past the edge
 
@@ -40,6 +34,25 @@ def _text_boxes(box, inside=(), els=()):
         yield from _text_boxes(child, inside, els)
 
 
+def _elements(page):
+    return {id(e) for _, _, els in _text_boxes(page._page_box.children[0]) for e in els}
+
+
+def _section(els):
+    return next((e for e in els if e.tag == "section"), None)
+
+
+def _moved_whole(pages, n):
+    """Whether page n (1-based) is short only because it ends a section and the next section starts a new page,
+    as every section does when it doesn't fit under the one before."""
+    here = list(_text_boxes(pages[n - 1]._page_box.children[0]))
+    nxt = list(_text_boxes(pages[n]._page_box.children[0]))
+    if not here or not nxt:
+        return False
+    last, first = _section(here[-1][2]), _section(nxt[0][2])
+    return last is not None and first is not None and first is not last and id(first) not in _elements(pages[n - 1])
+
+
 def problems(document, min_fill=0.3):
     out = []
     pages = document.pages
@@ -62,7 +75,8 @@ def problems(document, min_fill=0.3):
             out.append(f"page {n}: {what} runs past the bottom of the page")
         bottom = max(b.position_y + b.margin_height() for b, _, _ in texts)
         fill = (bottom - top) / page._page_box.height
-        if n < len(pages) and fill < min_fill:
+        # the end of a section may leave a page short, but not with a line or two on it
+        if n < len(pages) and fill < min_fill and not (fill >= 0.1 and _moved_whole(pages, n)):
             out.append(f"page {n} is {fill:.0%} full and the rest moved to page {n + 1}")
         if n == len(pages):
             continue

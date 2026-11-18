@@ -52,3 +52,22 @@ def test_a_chart_too_tall_for_a_page_is_caught():
 def test_a_page_that_flows_on_is_fine():
     html = PAGE + "<h1>Weekly report</h1><section style='break-inside: auto'>" + lines(80) + "</section>"
     assert problems(HTML(string=html).render()) == []
+
+
+def test_a_short_page_before_a_section_moved_down_whole_is_fine():
+    # each section stays together, so one that doesn't fit under the previous starts the next page
+    html = PAGE + "<section>" + lines(12) + "</section><section><h3>Devices</h3>" + lines(35) + "</section>"
+    assert problems(HTML(string=html).render()) == []
+
+
+
+def test_the_end_of_a_long_section_before_a_new_one_is_fine():
+    html = PAGE + "<section>" + lines(32) + "</section><section><h3>Devices</h3>" + lines(24) + "</section>"
+    assert problems(HTML(string=html).render()) == []
+
+
+
+def test_a_line_or_two_left_at_the_end_of_a_section_is_caught():
+    html = PAGE + "<section>" + lines(26) + "</section><section><h3>Devices</h3>" + lines(24) + "</section>"
+    found = problems(HTML(string=html).render())
+    assert any(p.startswith("page 2 is") for p in found), found

@@ -410,6 +410,7 @@ a.plain { color: inherit; text-decoration: none; }
     </div>
     <div class="keep"><h3>Channel changes by access point</h3>{{ ranked(w.channel_by_ap, "No channel changes") }}</div>
   </div>
+  <div class="keep">{# the last tables and the closing note stay together, so the note never sits alone on a page #}
   <div class="cols" style="margin-top:16pt">
     <div class="keep"><h3>Devices that disconnected most</h3>{{ ranked(w.top_disconnects, "No wireless disconnections") }}</div>
     <div class="keep"><h3>Devices that moved between access points most</h3>{{ ranked(w.top_roams, "No moves between access points") }}</div>
@@ -431,6 +432,7 @@ a.plain { color: inherit; text-decoration: none; }
   </div>
   {% endif %}
   <p class="note">Wi-Fi experience is UniFi's satisfaction score for wireless devices; above 80% is good. A weak signal is an average below −75 dBm; those devices are slow and drop often, usually because they're far from an access point or behind walls. Frequent channel changes mean an access point keeps finding interference. Disconnections include devices leaving the building or going to sleep, so compare devices with each other rather than reading the totals alone.</p>
+  </div>
 </section>
 {% endif %}
 

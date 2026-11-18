@@ -79,19 +79,12 @@ def local_files_only():
 
 
 def render_pdf(html_out, pdf):
-    """Lay the report out, check the page flow, and if the check finds problems lay it out once more with looser
-    page breaks, keeping whichever has fewer. Writes the PDF and returns the problems left (usually none)."""
+    """Lay the report out (each section kept together, moved to the next page whole when it doesn't fit), check the
+    page flow, write the PDF and return the problems found (usually none)."""
     from weasyprint import HTML  # imported late: slow to load, not needed until a report is due
 
     doc = HTML(string=html_out, base_url=str(config.ROOT), url_fetcher=local_files_only()).render()
     issues = layout.problems(doc)
-    if issues:
-        loose = html_out.replace("</head>", f"<style>{layout.LOOSE_CSS}</style></head>", 1)
-        doc2 = HTML(string=loose, base_url=str(config.ROOT), url_fetcher=local_files_only()).render()
-        issues2 = layout.problems(doc2)
-        log.info("layout: %d problem(s), %d with looser page breaks", len(issues), len(issues2))
-        if len(issues2) < len(issues):
-            doc, issues = doc2, issues2
     for issue in issues:
         log.warning("%s layout: %s", pdf.name, issue)
     tmp = pdf.with_suffix(".part")

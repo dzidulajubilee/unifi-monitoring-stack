@@ -65,10 +65,11 @@ length: last week, last month, last quarter, or the same number of days before a
 7. **Render two PDFs** from one HTML template with WeasyPrint: the full report and the summary. Each is written
    under a temporary name and renamed when complete, so the portal never lists a half-written file.
    **Check the pages** first (`app/layout.py`): a page left mostly empty, a heading left at the bottom of a page
-   without its content, and anything wider than the page or running past its bottom. If the check finds a
-   problem, the report is laid out once more with looser page breaks (whole sections may then continue on the
-   next page) and the version with fewer problems is kept. Anything left is logged, posted as a notification and
-   shown as *pages need a look* next to the report in the portal; the report is still sent. All of this runs on
+   without its content, and anything wider than the page or running past its bottom. Each section is kept
+   together and starts a new page when it doesn't fit under the one before, so a page that ends a section may be
+   part empty; that's expected and not counted, unless only a line or two is left on it. Anything found is
+   logged, posted as a notification and shown as *pages need a look* next to the report in the portal; the
+   report is still sent. All of this runs on
    the server; nothing is fetched.
 8. **Deliver**: email each version to its own recipients, then post a notification in the portal.
 

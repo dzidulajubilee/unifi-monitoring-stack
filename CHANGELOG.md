@@ -7,10 +7,11 @@ Releases are tagged `vX.Y.Z` on GitHub. Changes on `main` that aren't in a relea
 - **Reports, fixed**: an access point renamed during the period (adopted with its model name, then named for its
   room) showed twice, under the old and the new name. Access points are now one row per device under the latest
   name, with the figures from before the rename included; the same for channel changes by access point.
-- **Reports, page layout**: every report's pages are checked after layout (mostly empty pages, a heading left
-  without its content, anything wider than the page or past its bottom). If something is found, the report is
-  laid out again with looser page breaks and the better version is kept; anything left shows as a notification
-  and as *pages need a look* in the portal. Long tables (internet line events, address pools) now continue onto
+- **Reports, page layout**: every report's pages are checked after layout (a page with only a line or two on it,
+  a heading left without its content, anything wider than the page or past its bottom); anything found shows as
+  a notification and as *pages need a look* in the portal. Sections still start a new page when they don't fit
+  under the one before, so a page ending a section can be part empty; that isn't counted. The Wi-Fi section's
+  closing note stays with its tables instead of sitting alone on a page. Long tables (internet line events, address pools) now continue onto
   the next page instead of leaving a gap. Tests render the real report from made-up data (empty, typical and
   very large; weekly, monthly and quarterly) and fail on any layout problem.
 - **Security**: nginx updated from 1.28 to 1.31.9, the release that fixes the NGINX2Root vulnerabilities (affected:
