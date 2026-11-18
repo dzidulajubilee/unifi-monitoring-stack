@@ -20,6 +20,7 @@ import time
 import urllib.error
 import urllib.request
 from functools import wraps
+from urllib.parse import urlsplit
 
 from flask import (
     Flask,
@@ -34,6 +35,7 @@ from flask import (
     session,
     url_for,
 )
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import api as R
 from . import config
@@ -47,6 +49,8 @@ app = Flask(
     static_url_path="/fonts",
     template_folder=str(config.ROOT / "templates" / "portal"),
 )
+# only nginx can reach the portal (its port isn't published), so trust the client address and https it passes on
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
 
 def _secret():
@@ -63,6 +67,7 @@ app.config.update(
     SECRET_KEY=_secret(),
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=True,  # the portal is only served over HTTPS, through nginx
     PERMANENT_SESSION_LIFETIME=dt.timedelta(hours=12),
 )
 
@@ -99,67 +104,82 @@ def enqueue(kind, start, end, by, sends=(), login=None):
     return jid
 
 
+def job_list():
+    """A copy of the jobs, oldest first: the worker adds and prunes them while pages read them."""
+    with _lock:
+        return list(jobs.values())
+
+
 def worker():
     while True:
         jid = work.get()
         job = jobs.get(jid)
         if not job:
             continue
-        job["status"] = "running"
-        kind, by, login = job["kind"], job["by"], job.get("login")
-        what = R.report_title(kind, job["start"], job["end"])
-        who = "automatically" if by == "schedule" else f"by {by}"
-        old = R.report_path(kind, job["start"], job["end"])
-        replaces = dt.datetime.fromtimestamp(old.stat().st_mtime, config.TZ) if old.exists() else None
         try:
-            pdfs, subject, lines, errors, pages = R.build(kind, job["end"], job["start"] if kind == "custom" else None)
-        except Exception as e:  # noqa: BLE001 - reported, worker keeps going
-            log.exception("job %s failed", jid)
-            job.update(status="failed", error=str(e) or e.__class__.__name__)
-            R.notify(f"{what} could not be made ({who}): {job['error']}", "error", by=by)
-            continue
-        full = pdfs["full"].name
-        job.update(status="done", file=full)
-        if by == "schedule":
-            R.mark_sent(kind, job["end"])
-        issues = [i for style in ("full", "summary") for i in pages.get(style, [])]
-        R.record_made(full, by, replaces is not None, issues)
-        if replaces:  # one copy per period: the new one takes the old one's place
-            done = f"{what} was remade {who}, replacing the copy from {replaces:%-d %b %H:%M}"
-        else:
-            done = f"{what} was made {who}"
-        if errors:  # Prometheus or Loki didn't answer some queries: those figures show as –
+            run(jid, job)
+        except Exception as e:  # noqa: BLE001 - one bad job mustn't stop every report after it
+            log.exception("job %s stopped with an error", jid)
+            if job["status"] == "running":
+                job.update(status="failed", error=str(e) or e.__class__.__name__)
+
+
+def run(jid, job):
+    job["status"] = "running"
+    kind, by, login = job["kind"], job["by"], job.get("login")
+    what = R.report_title(kind, job["start"], job["end"])
+    who = "automatically" if by == "schedule" else f"by {by}"
+    old = R.report_path(kind, job["start"], job["end"])
+    replaces = dt.datetime.fromtimestamp(old.stat().st_mtime, config.TZ) if old.exists() else None
+    try:
+        pdfs, subject, lines, errors, pages = R.build(kind, job["end"], job["start"] if kind == "custom" else None)
+    except Exception as e:  # noqa: BLE001 - reported, worker keeps going
+        log.exception("job %s failed", jid)
+        job.update(status="failed", error=str(e) or e.__class__.__name__)
+        R.notify(f"{what} could not be made ({who}): {job['error']}", "error", by=by)
+        return
+    full = pdfs["full"].name
+    job.update(status="done", file=full)
+    if by == "schedule":
+        R.mark_sent(kind, job["end"])
+    issues = [i for style in ("full", "summary") for i in pages.get(style, [])]
+    R.record_made(full, by, replaces is not None, issues)
+    if replaces:  # one copy per period: the new one takes the old one's place
+        done = f"{what} was remade {who}, replacing the copy from {replaces:%-d %b %H:%M}"
+    else:
+        done = f"{what} was made {who}"
+    if errors:  # Prometheus or Loki didn't answer some queries: those figures show as –
+        R.notify(
+            f"{done}, but {errors} figure{'s' * (errors != 1)} couldn't be fetched "
+            "from Prometheus or Loki and show as –. Check those services and make it again",
+            "error",
+            by=by,
+            file=full,
+        )
+    if issues:  # the layout check still found something after the second try; the report is still sent
+        R.notify(f"{what} has a page that may look wrong: {issues[0]}. Check the PDF", "error", by=by, file=full)
+    results = R.deliver(pdfs, subject, lines, job["sends"]) if R.load_settings()["smtp"].get("host") else []
+    sent = R.describe_sends(results)
+    R.notify(done + (f" and {sent}" if sent else ""), by=by, file=full)
+    for style, to, err in results:
+        if err:
+            job["error"] = f"Email failed: {err}"
+            # addresses and mail errors go to admins and the person who asked
             R.notify(
-                f"{done}, but {errors} figure{'s' * (errors != 1)} couldn't be fetched "
-                "from Prometheus or Loki and show as –. Check those services and make it again",
+                f"Emailing the {'summary' if style == 'summary' else 'full'} {what[0].lower() + what[1:]} "
+                f"to {to} failed: {err}. The report is saved here",
                 "error",
                 by=by,
                 file=full,
+                admins_only=True,
+                for_user=login,
             )
-        if issues:  # the layout check still found something after the second try; the report is still sent
-            R.notify(f"{what} has a page that may look wrong: {issues[0]}. Check the PDF", "error", by=by, file=full)
-        results = R.deliver(pdfs, subject, lines, job["sends"]) if R.load_settings()["smtp"].get("host") else []
-        sent = R.describe_sends(results)
-        R.notify(done + (f" and {sent}" if sent else ""), by=by, file=full)
-        for style, to, err in results:
-            if err:
-                job["error"] = f"Email failed: {err}"
-                # addresses and mail errors go to admins and the person who asked
-                R.notify(
-                    f"Emailing the {'summary' if style == 'summary' else 'full'} {what[0].lower() + what[1:]} "
-                    f"to {to} failed: {err}. The report is saved here",
-                    "error",
-                    by=by,
-                    file=full,
-                    admins_only=True,
-                    for_user=login,
-                )
 
 
 def scheduler():
     while True:
         try:
-            busy = {(j["kind"], j["end"]) for j in jobs.values() if j["status"] in ("queued", "running")}
+            busy = {(j["kind"], j["end"]) for j in job_list() if j["status"] in ("queued", "running")}
             for kind, end in R.due_reports():
                 if (kind, end) not in busy:
                     enqueue(kind, R.period_start(kind, end), end, "schedule", R.recipients(kind))
@@ -170,7 +190,7 @@ def scheduler():
 
 # ---------------------------------------------------------------- auth
 
-_fails = {}  # ip -> [timestamps]
+_fails = {}  # ip -> [timestamps] of failed sign-ins in the last 5 minutes
 
 
 def grafana_login(user, password):
@@ -191,6 +211,15 @@ def grafana_login(user, password):
     orgs = get("/api/user/orgs")
     admin = bool(me.get("isGrafanaAdmin")) or any(o.get("role") == "Admin" for o in orgs)
     return me.get("name") or me.get("login") or user, admin, me.get("login") or user
+
+
+def local_path(url):
+    """url if it's a path on this site, else None. Browsers read a backslash as a slash, so /\\host is another
+    site too."""
+    if not url.startswith("/") or "\\" in url or any(ord(c) < 32 for c in url):
+        return None
+    parts = urlsplit(url)
+    return url if not parts.scheme and not parts.netloc else None
 
 
 def login_required(admin=False):
@@ -228,7 +257,10 @@ def login():
     error = None
     if request.method == "POST":
         ip = request.remote_addr
-        recent = [t for t in _fails.get(ip, []) if t > time.time() - 300]
+        cutoff = time.time() - 300
+        for old in [k for k, ts in _fails.items() if ts[-1] <= cutoff]:  # forget addresses that have gone quiet
+            _fails.pop(old, None)
+        recent = [t for t in _fails.get(ip, []) if t > cutoff]
         if len(recent) >= 5:
             error = "Too many failed attempts. Try again in 5 minutes"
         else:
@@ -242,8 +274,7 @@ def login():
                 session.permanent = True
                 session.update(user=res[0], admin=res[1], login=res[2], csrf=secrets.token_hex(16))
                 _fails.pop(ip, None)
-                nxt = request.args.get("next", "")
-                return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else url_for("index"))
+                return redirect(local_path(request.args.get("next", "")) or url_for("index"))
             if not error:
                 _fails[ip] = recent + [time.time()]
                 error = "Wrong username or password"
@@ -443,7 +474,7 @@ def generate():
 
 def active_jobs():
     """Only reports still waiting or being made; finished ones go to notifications."""
-    return [job_view(j) for j in reversed(jobs.values()) if j["status"] in ("queued", "running")]
+    return [job_view(j) for j in reversed(job_list()) if j["status"] in ("queued", "running")]
 
 
 @app.get("/jobs")

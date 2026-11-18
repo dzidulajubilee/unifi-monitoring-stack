@@ -51,7 +51,7 @@ def patch(monkeypatch, size):
          "sev": "High", "blocked": True} for i in range(8 * F.SIZES[size])
     ], 8 * F.SIZES[size]))
 
-    def wan_series(s, kind):
+    def wan_series(s):
         hours = int((s.end - s.start).total_seconds() // 3600)
         step = 3600 if hours <= 24 * 10 else 21600
         pts = [(s.start.timestamp() + i * step, 50e6 + (i % 24) * 4e6) for i in range(hours * 3600 // step)]

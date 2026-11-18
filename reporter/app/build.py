@@ -2,6 +2,8 @@
 
 import datetime as dt
 from functools import partial
+from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -51,16 +53,41 @@ from .text import (
 )
 
 
+def allowed_file(url):
+    """Whether the report may load this URL: its own fonts and logo, and data: URLs. The logo can be an uploaded
+    SVG, and an SVG can point anywhere: other files on this server, or addresses on the network."""
+    if url.startswith("data:"):
+        return True
+    if not url.startswith("file:"):
+        return False
+    path = Path(unquote(urlsplit(url).path)).resolve()
+    logo = logo_path()
+    return path.parent == (config.ROOT / "fonts").resolve() or bool(logo and path == logo.resolve())
+
+
+def local_files_only():
+    """A WeasyPrint URL fetcher that refuses everything allowed_file doesn't allow."""
+    from weasyprint import URLFetcher
+
+    class LocalFiles(URLFetcher):
+        def fetch(self, url, headers=None):
+            if not allowed_file(url):
+                raise ValueError(f"the report doesn't load {url[:80]}")
+            return super().fetch(url, headers)
+
+    return LocalFiles(allowed_protocols={"file", "data"}, allow_redirects=False)
+
+
 def render_pdf(html_out, pdf):
     """Lay the report out, check the page flow, and if the check finds problems lay it out once more with looser
     page breaks, keeping whichever has fewer. Writes the PDF and returns the problems left (usually none)."""
     from weasyprint import HTML  # imported late: slow to load, not needed until a report is due
 
-    doc = HTML(string=html_out, base_url=str(config.ROOT)).render()
+    doc = HTML(string=html_out, base_url=str(config.ROOT), url_fetcher=local_files_only()).render()
     issues = layout.problems(doc)
     if issues:
         loose = html_out.replace("</head>", f"<style>{layout.LOOSE_CSS}</style></head>", 1)
-        doc2 = HTML(string=loose, base_url=str(config.ROOT)).render()
+        doc2 = HTML(string=loose, base_url=str(config.ROOT), url_fetcher=local_files_only()).render()
         issues2 = layout.problems(doc2)
         log.info("layout: %d problem(s), %d with looser page breaks", len(issues), len(issues2))
         if len(issues2) < len(issues):
@@ -125,7 +152,7 @@ def build(kind, end=None, start=None):
         else ""
     )
     bd = (d["dpi"] or {}).get("by_day") or {}
-    cat_chart = svg_categories(bd["chart"], bd["shown"], start, end, palette=palette) if bd.get("rows") else ""
+    cat_chart = svg_categories(bd["chart"], bd["shown"], palette=palette) if bd.get("rows") else ""
     gap = 1 - cur.coverage()["prom"]
     d["dns"] = p["dns"] = None
     if "dns" in on and dns.servers(st):
@@ -147,8 +174,8 @@ def build(kind, end=None, start=None):
     # Peaks, averages and totals worked out from an average rate hardly move when a day of the earlier
     # period is missing, so they are compared from 70% coverage; counts and "first seen" need it all.
     covered["rates"] = cov["prom"] >= 0.7
-    down, up, step = wan_series(cur, kind) if "throughput" in on else ([], [], 0)
-    ch = lambda key, src="prom": change(d.get(key), p.get(key), "", word, covered[src])
+    down, up, step = wan_series(cur) if "throughput" in on else ([], [], 0)
+    ch = lambda key, src="prom": change(d.get(key), p.get(key), word, covered[src])
 
     def headline(shown):
         """Headline numbers follow the sections shown; if none match, show them all."""
@@ -176,9 +203,9 @@ def build(kind, end=None, start=None):
     lines = {style: sentences(style) for style in STYLES}
     evts = events(cur, wan="isp" not in on) if "events" in on else []
     thr = threat_list(cur) if "threats" in on else ([], 0)
-    chart = svg_chart(down, up, kind, start, end, accent=accent) if "throughput" in on else ""
+    chart = svg_chart(down, up, start, end, accent=accent) if "throughput" in on else ""
     chart_short = (
-        svg_chart(down, up, kind, start, end, h=140, accent=accent) if "throughput" in on else ""
+        svg_chart(down, up, start, end, h=140, accent=accent) if "throughput" in on else ""
     )  # keeps the summary on one page
     OUT.mkdir(parents=True, exist_ok=True)
     pdfs, layout_issues = {}, {}

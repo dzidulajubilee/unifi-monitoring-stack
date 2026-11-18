@@ -885,7 +885,7 @@ def threat_list(s: Source, limit=30):
     return rows[:limit], len(rows)
 
 
-def wan_series(s: Source, kind):
+def wan_series(s: Source):
     days = (s.end - s.start).days
     step = 3600 if days <= 10 else 6 * 3600 if days <= 45 else 86400
     w = f"{step}s"

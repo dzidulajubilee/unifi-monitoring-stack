@@ -42,11 +42,6 @@ def color(name, col):
             "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": col}}]}
 
 
-def color_regex(rx, col):
-    return {"matcher": {"id": "byRegexp", "options": rx},
-            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": col}}]}
-
-
 def mirror(rx):
     """Draw matching series below the axis (uploads under downloads)."""
     return {"matcher": {"id": "byRegexp", "options": rx},

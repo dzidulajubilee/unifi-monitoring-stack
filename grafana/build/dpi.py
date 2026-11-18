@@ -271,5 +271,5 @@ dash = {
     "uid": "w3usaHLZk",  # same uid as the old DPI dashboard, so existing links and bookmarks keep working
     "version": 1, "weekStart": "",
 }
-json.dump(dash, open(OUT, "w"), indent=2)
+OUT.write_text(json.dumps(dash, indent=2))
 print(f"{len(panels)} panels written to {OUT}")

@@ -515,7 +515,7 @@ a.plain { color: inherit; text-decoration: none; }
   <div class="cols" style="margin-top:14pt">
     <div>
     <table class="kv">
-      <tr><td>Queries</td><td class="n">{{ c.total|num }}{% if cmp %}<span class="sub">{{ dns_change(c.total, before.total, "", word, true) }}</span>{% endif %}</td></tr>
+      <tr><td>Queries</td><td class="n">{{ c.total|num }}{% if cmp %}<span class="sub">{{ dns_change(c.total, before.total, word, true) }}</span>{% endif %}</td></tr>
       <tr><td>Blocked</td><td class="n">{{ c.blocked|num }}</td></tr>
       <tr><td>Share blocked</td><td class="n">{{ share(c.blocked, c.total)|pct(1) }}{% if cmp %}<span class="sub">{{ points_change(share(c.blocked, c.total), share(before.blocked, before.total), word) }}</span>{% endif %}</td></tr>
       <tr><td>Answered from cache</td><td class="n">{{ share(c.cached, c.total)|pct }}</td></tr>

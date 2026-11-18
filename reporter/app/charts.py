@@ -51,7 +51,7 @@ def svg_minibars(m, w=196, h=78, accent=ACCENT):
     )
 
 
-def svg_chart(down, up, kind, start, end, w=658, h=236, accent=ACCENT):
+def svg_chart(down, up, start, end, w=658, h=236, accent=ACCENT):
     """WAN throughput line chart as inline SVG (two series, one shared axis)."""
     if not down:
         return '<p class="muted">No throughput data for this period</p>'
@@ -284,7 +284,7 @@ def category_color(name, shown, palette=NET_COLORS):
     return "#b9b8b2" if name == "Other" or name not in shown else palette[shown.index(name) % len(palette)]
 
 
-def svg_categories(chart, shown, start, end, w=658, h=200, palette=NET_COLORS):
+def svg_categories(chart, shown, w=658, h=200, palette=NET_COLORS):
     """Traffic per day by application category: one stacked bar per day (a week per bar past 45 days), the
     largest category at the bottom in the report's accent, Other in grey. An incomplete day is drawn faded
     with a dashed outline; a day without data as an empty dashed box."""

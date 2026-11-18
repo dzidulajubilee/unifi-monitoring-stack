@@ -8,10 +8,10 @@ def test_formatting():
 
 
 def test_change_wording():
-    assert change(110, 100, "", "week", True) == "+10% vs last week"
-    assert change(3, 5, "", "week", True) == "2 fewer vs last week"  # small numbers stay numbers
-    assert change(5, 5, "", "week", True) == "same as last week"
-    assert change(5, 4, "", "week", False) == "no earlier week to compare"
+    assert change(110, 100, "week", True) == "+10% vs last week"
+    assert change(3, 5, "week", True) == "2 fewer vs last week"  # small numbers stay numbers
+    assert change(5, 5, "week", True) == "same as last week"
+    assert change(5, 4, "week", False) == "no earlier week to compare"
 
 
 def test_trend_change_wording():

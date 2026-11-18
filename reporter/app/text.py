@@ -70,7 +70,7 @@ def fpct(r, digits=0):
     return "–" if r is None else f"{r * 100:.{digits}f}%"
 
 
-def change(cur, prev, unit_word, period_word, covered):
+def change(cur, prev, period_word, covered):
     """'+12% vs last week' / '3 fewer vs last week' / reason it can't be compared."""
     if not covered:
         return f"no earlier {period_word} to compare"
@@ -170,7 +170,7 @@ def summary(d, p, word, covered, on=None):
             else f"No internet line reported outages, high latency or packet loss this {word}."
         )
     if d["wan_down"] is not None and "downloaded" in on:
-        ch = change(d["wan_down"], p.get("wan_down"), "", word, covered["rates"])
+        ch = change(d["wan_down"], p.get("wan_down"), word, covered["rates"])
         lines.append(
             f"The network downloaded {fbytes(d['wan_down'])} and uploaded {fbytes(d['wan_up'])}"
             + (f" ({ch})" if ch and not ch.startswith("no earlier") else "")
