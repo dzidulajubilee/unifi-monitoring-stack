@@ -162,10 +162,10 @@ Without it nginx doesn't start, and Grafana and the portal aren't reachable. Add
 The reporter image is published to `ghcr.io/dzidulajubilee/unifi-monitoring-stack/reporter` after CI passes on
 `main` (tags: `latest`, the short commit, and the version for `v*` tags). Only the newest 3 images are kept. To use
 another image, such as a release or one your own fork builds, set `REPORTER_IMAGE` in the `.env` next to
-`compose.yaml`, e.g. `REPORTER_IMAGE=ghcr.io/dzidulajubilee/unifi-monitoring-stack/reporter:2.1.1`. A private
+`compose.yaml`, e.g. `REPORTER_IMAGE=ghcr.io/dzidulajubilee/unifi-monitoring-stack/reporter:2.2.0`. A private
 image needs `docker login ghcr.io` once, with a GitHub token that can read packages.
 
-To stay on a release instead of following `main`, check out its tag (`git checkout v2.1.1`) and set
+To stay on a release instead of following `main`, check out its tag (`git checkout v2.2.0`) and set
 `REPORTER_IMAGE` to that version (`.../reporter:2.1.1`). [CHANGELOG.md](../CHANGELOG.md) lists what
 each release changed.
 

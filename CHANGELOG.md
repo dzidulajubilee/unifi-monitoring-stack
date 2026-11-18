@@ -2,7 +2,7 @@
 
 Releases are tagged `vX.Y.Z` on GitHub. Changes on `main` that aren't in a release yet go under *Unreleased*.
 
-## Unreleased
+## v2.2.0 (2026-11-18)
 
 - **Reports, fixed**: an access point renamed during the period (adopted with its model name, then named for its
   room) showed twice, under the old and the new name. Access points are now one row per device under the latest
