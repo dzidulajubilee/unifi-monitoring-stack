@@ -13,6 +13,9 @@ Releases are tagged `vX.Y.Z` on GitHub. Changes on `main` that aren't in a relea
   and as *pages need a look* in the portal. Long tables (internet line events, address pools) now continue onto
   the next page instead of leaving a gap. Tests render the real report from made-up data (empty, typical and
   very large; weekly, monthly and quarterly) and fail on any layout problem.
+- **Security**: nginx updated from 1.28 to 1.31.9, the release that fixes the NGINX2Root vulnerabilities (affected:
+  1.9.5 to 1.31.8). The stack doesn't turn on HTTP/2, so the most severe one didn't apply, but the other four
+  may. Update with `docker compose pull nginx && docker compose up -d nginx`.
 - `REPORTER_IMAGE` in the root `.env` picks the reporter image (a release, or your fork's); the default is unchanged.
 
 ## v2.1.1 (2026-11-16)

@@ -108,7 +108,7 @@ services:
 
   # HTTPS for Grafana (3000), the reports portal (8088) and Dozzle (8080); config: nginx/default.conf
   nginx:
-    image: nginx:1.28-alpine # pinned: update the tag on purpose
+    image: nginx:1.31.9-alpine # pinned: update the tag on purpose
     restart: unless-stopped
     container_name: nginx
     ports:
