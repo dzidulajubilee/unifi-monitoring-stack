@@ -100,3 +100,42 @@ def test_worker_keeps_going_after_an_error(monkeypatch, tmp_path):
         time.sleep(0.05)
     assert len(calls) == 2 and web.jobs[first]["status"] == "done"  # the PDF was made before the error
     assert web.jobs[second]["status"] == "done"
+
+
+def test_settings_are_never_readable_by_others(monkeypatch, tmp_path):
+    made = []
+    real_open = config.os.open
+
+    def spy(path, flags, mode=0o777):
+        made.append(mode)
+        return real_open(path, flags, mode)
+
+    monkeypatch.setattr(config, "SETTINGS", tmp_path / "settings.json")
+    monkeypatch.setattr(config.os, "open", spy)
+    config.save_settings(config.default_settings())
+    assert made == [0o600] and (tmp_path / "settings.json").stat().st_mode & 0o077 == 0
+
+
+def test_failed_pdf_leaves_no_partial_file(monkeypatch, tmp_path):
+    import weasyprint
+
+    def broken(self, target=None, **kw):
+        open(target, "wb").write(b"%PDF-half")
+        raise OSError("disk full")
+
+    monkeypatch.setattr(weasyprint.document.Document, "write_pdf", broken)
+    with pytest.raises(OSError):
+        build.render_pdf("<html><head></head><body>x</body></html>", tmp_path / "r.pdf")
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_custom_report_cannot_start_in_the_future(monkeypatch):
+    queued = []
+    monkeypatch.setattr(web, "enqueue", lambda *a, **k: queued.append(a))
+    c = web.app.test_client()
+    with c.session_transaction() as s:
+        s.update(user="Ama", login="ama", admin=False, csrf="t")
+    today = dt.datetime.now(config.TZ).date()
+    for start, end in ((today + dt.timedelta(days=2), today + dt.timedelta(days=5)), (today, today)):
+        c.post("/generate", data={"kind": "custom", "start": start.isoformat(), "end": end.isoformat(), "csrf": "t"})
+    assert len(queued) == 1 and queued[0][1] < queued[0][2]  # only today's, and it ends after it starts

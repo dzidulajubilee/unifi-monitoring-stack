@@ -58,8 +58,7 @@ def _secret():
     f = R.OUT / ".portal-secret"
     if not f.exists():
         R.OUT.mkdir(parents=True, exist_ok=True)
-        f.write_text(secrets.token_hex(32))
-        os.chmod(f, 0o600)
+        config.write_private(f, secrets.token_hex(32))
     return f.read_text().strip()
 
 
@@ -449,6 +448,8 @@ def generate():
             start, last = day(f["start"]), day(f["end"])
             if last < start:
                 raise ValueError("the end date is before the start date")
+            if start >= now:
+                raise ValueError("the start date is in the future")
             if (last - start).days > 366:
                 raise ValueError("pick a range of a year or less")
             end = min(last + dt.timedelta(days=1), now)

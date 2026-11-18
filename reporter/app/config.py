@@ -212,11 +212,17 @@ def display_name(s=None):
     return (s or load_settings())["general"]["name"].strip() or "Reports"
 
 
+def write_private(path, text):
+    """Write a file only its owner can read, from the first byte (not made readable and then locked down)."""
+    path.unlink(missing_ok=True)
+    with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as f:
+        f.write(text)
+
+
 def save_settings(s):
     OUT.mkdir(parents=True, exist_ok=True)
     tmp = SETTINGS.with_suffix(".tmp")
-    tmp.write_text(json.dumps(s, indent=2))
-    os.chmod(tmp, 0o600)  # holds the SMTP password and DNS server passwords
+    write_private(tmp, json.dumps(s, indent=2))  # holds the SMTP password and DNS server passwords
     tmp.replace(SETTINGS)
 
 

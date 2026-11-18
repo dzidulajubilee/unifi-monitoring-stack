@@ -16,6 +16,16 @@ Releases are tagged `vX.Y.Z` on GitHub. Changes on `main` that aren't in a relea
 - **Security**: nginx updated from 1.28 to 1.31.9, the release that fixes the NGINX2Root vulnerabilities (affected:
   1.9.5 to 1.31.8). The stack doesn't turn on HTTP/2, so the most severe one didn't apply, but the other four
   may. Update with `docker compose pull nginx && docker compose up -d nginx`.
+- **Portal, security**: signing in can only return to a page on the portal (a link such as `/\example.com` could
+  send people to another site). The failed sign-in limit now counts each person's own address; before, everyone
+  came through nginx's address, so five wrong passwords from anyone locked everyone out for 5 minutes. The
+  session cookie is HTTPS-only, and the Settings page's suggested Grafana address uses `https://`.
+- **Reports, security**: the PDF renderer loads only the report's own fonts and logo. An uploaded SVG logo could
+  otherwise point it at other files on the server or addresses on the network.
+- **Reporter, fixed**: an error after a report was made (a full disk, say) stopped every later report until the
+  reporter restarted; a custom report starting in the future was accepted; a failed PDF write left a `.part`
+  file; the settings file (with mail and DNS passwords) was briefly readable by others while being saved.
+- **Dependencies**: Flask 3.1.3 and WeasyPrint 70, which fix their published vulnerabilities.
 - `REPORTER_IMAGE` in the root `.env` picks the reporter image (a release, or your fork's); the default is unchanged.
 
 ## v2.1.1 (2026-11-16)

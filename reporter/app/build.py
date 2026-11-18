@@ -95,8 +95,11 @@ def render_pdf(html_out, pdf):
     for issue in issues:
         log.warning("%s layout: %s", pdf.name, issue)
     tmp = pdf.with_suffix(".part")
-    doc.write_pdf(tmp)
-    tmp.replace(pdf)  # appears in the portal only once complete
+    try:
+        doc.write_pdf(tmp)
+        tmp.replace(pdf)  # appears in the portal only once complete
+    finally:
+        tmp.unlink(missing_ok=True)  # left only when writing failed
     return issues
 
 
